@@ -43,6 +43,7 @@ set( VENDOR_DIR "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty" )
 set( IMGUI_DIR "${VENDOR_DIR}/imgui_mod" )
 set( GLFW_DIR "${VENDOR_DIR}/glfw" )
 set( GLEW_DIR "${VENDOR_DIR}/glew" )
+set( GLM_DIR "${VENDOR_DIR}/glm" )
 set( CNPY_DIR "${VENDOR_DIR}/cnpy" )
 set( ZLIB_DIR "${VENDOR_DIR}/zlib" )
 
@@ -143,6 +144,7 @@ add_definitions(-DGLEW_STATIC -DTINYEXR_USE_MINIZ=0)
 include_directories(
     ${CNPY_DIR}
     ${GLEW_DIR}/include
+    ${GLM_DIR}
     ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
     ${VENDOR_DIR}/misc
 )

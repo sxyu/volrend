@@ -24,8 +24,8 @@ struct CUDAVolumeRenderer {
     void resize(int width, int height);
 
     // Step size
-    float step_size = 1.0f / 256.0;
-    int max_n_steps = 256;
+    float step_size = 1.0f / 512.0;
+    int max_n_steps = 512;
 
    private:
     struct Impl;

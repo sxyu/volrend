@@ -48,6 +48,7 @@ void N3Tree::load_data() {
     file.setFrameBuffer(&tmp[0] - dw.min.x - dw.min.y * width, 1, width);
     file.readPixels(dw.min.y, dw.max.y);
     half* loaded = reinterpret_cast<half*>(tmp.data());
+    // FIXME get rid of this copy (low priority)
     data_ = std::vector<float>(loaded, loaded + height * width * data_dim);
     data_loaded_ = true;
 }

@@ -36,6 +36,7 @@ struct CUDAVolumeRenderer::Impl {
     }
 
     void render(const N3Tree& tree, float step_size, int max_n_steps) {
+        camera._update();
         tree.precompute_step(step_size);
         cuda(GraphicsMapResources(1, &cgr[buf_index], stream));
         launch_renderer(tree, camera, ca[buf_index], step_size, max_n_steps,

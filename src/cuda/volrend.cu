@@ -9,6 +9,9 @@
 namespace volrend {
 namespace device {
 
+#define MAX3(a, b, c) max(max(a, b), c)
+#define MIN3(a, b, c) min(min(a, b), c)
+
 namespace {
 __device__ __inline__ void screen2worlddir(
         float x, float y, float focal_norm_x,
@@ -22,9 +25,9 @@ __device__ __inline__ void screen2worlddir(
     y /= z;
     z = 1.0f / z;
 
-    out[0] = transform[0] * x + transform[1] * y + transform[2] * z;
-    out[1] = transform[4] * x + transform[5] * y + transform[6] * z;
-    out[2] = transform[8] * x + transform[9] * y + transform[10] * z;
+    out[0] = transform[0] * x + transform[3] * y + transform[6] * z;
+    out[1] = transform[1] * x + transform[4] * y + transform[7] * z;
+    out[2] = transform[2] * x + transform[5] * y + transform[8] * z;
 }
 
 __device__ void trace_ray_naive(
@@ -32,19 +35,37 @@ __device__ void trace_ray_naive(
         const int32_t* __restrict__ tree_child,
         int tree_N,
         const float* __restrict__ dir,
-        const float* __restrict__ transform,
+        const float* __restrict__ cen,
         float step_size,
         int max_n_steps,
         float* __restrict__ out) {
+
+    float invdir, t1, t2;
+    float tmin = 0.0f, tmax = 2.0f;
+#pragma unroll
+    for (int i = 0; i < 3; ++i) {
+        invdir = 1.f / dir[i];
+        t1 = - cen[i] * invdir;
+        t2 = (1.f - cen[i])* invdir;
+        tmin = max(tmin, min(t1, t2));
+        tmax = min(tmax, max(t1, t2));
+    }
+
+    if (tmax < 0 || tmin > tmax) {
+        // Ray doesn't hit box
+        tmin = tmax = 0.f;
+    }
 
     float pos[3];
     float rgba[4];
     out[0] = out[1] = out[2] = 0.0f;
     float light_intensity = 1.f;
-    for (int i = 0 ; i < max_n_steps; ++i) {
-        const float dist = i * step_size;
+    int n_steps = (int) ceilf((tmax - tmin) / step_size);
+    n_steps = min(max_n_steps, n_steps);
+    for (int i = 0 ; i < n_steps; ++i) {
+        const float dist = tmin + i * step_size;
         for (int j = 0; j < 3; ++j) {
-            pos[j] = transform[3 + 4 * j] + dist * dir[j];
+            pos[j] = cen[j] + dist * dir[j];
         }
 
         query_single_from_root(tree_data, tree_child,
@@ -79,14 +100,12 @@ __global__ void render_kernel(
     const float x_norm = x / (0.5f * width) - 1.0f;
     const float y_norm = y / (0.5f * height) - 1.0f;
 
-    // const float origin[3] = {transform[3], transform[7], transform[11]};
-
     float dir[3];
     screen2worlddir(x_norm, y_norm, focal_norm_x, focal_norm_y, transform, dir);
 
     float out[3];
     trace_ray_naive(tree_data, tree_child, tree_N,
-            dir, transform, step_size, max_n_steps, out);
+            dir, transform + 9, step_size, max_n_steps, out);
 
     // pixel color
     uint8_t rgbx[4];

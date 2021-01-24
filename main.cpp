@@ -20,6 +20,10 @@ namespace volrend {
 // http://antongerdelan.net/opengl/glcontext2.html
 
 namespace {
+
+#define GET_RENDERER(window) \
+    (*((CUDAVolumeRenderer*)glfwGetWindowUserPointer(window)))
+
 void glfw_fps(GLFWwindow* window) {
     // static fps counters
     static double stamp_prev = 0.0;
@@ -55,8 +59,88 @@ void glfw_error_callback(int error, const char* description) {
 
 void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action,
                        int mods) {
-    if (key == GLFW_KEY_ESCAPE && action == GLFW_PRESS)
-        glfwSetWindowShouldClose(window, GL_TRUE);
+    if (action == GLFW_PRESS || action == GLFW_REPEAT) {
+        auto& rend = GET_RENDERER(window);
+        auto& cam = rend.camera;
+        switch (key) {
+            case GLFW_KEY_ESCAPE:
+                glfwSetWindowShouldClose(window, GL_TRUE);
+                break;
+            case GLFW_KEY_W:
+            case GLFW_KEY_S:
+            case GLFW_KEY_A:
+            case GLFW_KEY_D:
+            case GLFW_KEY_E:
+            case GLFW_KEY_Q: {
+                float speed = 0.005f;
+                if (mods & GLFW_MOD_SHIFT) speed *= 2.f;
+                if (key == GLFW_KEY_S || key == GLFW_KEY_A || key == GLFW_KEY_E)
+                    speed = -speed;
+                const auto& vec = (key == GLFW_KEY_A || key == GLFW_KEY_D)
+                                      ? cam.v_right
+                                      : (key == GLFW_KEY_W || key == GLFW_KEY_S)
+                                            ? cam.v_forward
+                                            : cam.v_down;
+                cam.center += vec * speed;
+            } break;
+
+            case GLFW_KEY_1:
+                cam.center = {0.5f, 0.0f, 0.5f};
+                cam.v_forward = {0.0f, 1.0f, 0.0f};
+                cam.v_world_down = {0.0f, 0.0f, -1.0f};
+                break;
+
+            case GLFW_KEY_2:
+                cam.center = {0.5f, 1.0f, 0.5f};
+                cam.v_forward = {0.0f, -1.0f, 0.0f};
+                cam.v_world_down = {0.0f, 0.0f, 1.0f};
+                break;
+
+            case GLFW_KEY_3:
+                cam.center = {0.0f, 0.5f, 0.5f};
+                cam.v_forward = {1.0f, 0.0f, 0.0f};
+                cam.v_world_down = {0.0f, 1.0f, 0.0f};
+                break;
+
+            case GLFW_KEY_4:
+                cam.center = {1.0f, 0.5f, 0.5f};
+                cam.v_forward = {-1.0f, 0.0f, 0.0f};
+                cam.v_world_down = {0.0f, -1.0f, 0.0f};
+                break;
+
+            case GLFW_KEY_5:
+                cam.center = {0.5f, 0.5f, 1.0f};
+                cam.v_forward = {0.0f, 0.0f, -1.0f};
+                cam.v_world_down = {1.0f, 0.0f, 0.0f};
+                break;
+
+            case GLFW_KEY_6:
+                cam.center = {0.5f, 0.5f, 0.0f};
+                cam.v_forward = {0.0f, 0.0f, 1.0f};
+                cam.v_world_down = {-1.0f, 0.0f, 0.0f};
+                break;
+        }
+    }
+}
+
+void glfw_mouse_button_callback(GLFWwindow* window, int button, int action,
+                                int mods) {
+    auto& rend = GET_RENDERER(window);
+    auto& cam = rend.camera;
+    double x, y;
+    glfwGetCursorPos(window, &x, &y);
+    if (button == GLFW_MOUSE_BUTTON_LEFT || button == GLFW_MOUSE_BUTTON_RIGHT) {
+        if (action == GLFW_PRESS) {
+            cam.begin_drag(x, y, mods & GLFW_MOD_SHIFT,
+                           button == GLFW_MOUSE_BUTTON_RIGHT);
+        } else if (action == GLFW_RELEASE) {
+            cam.end_drag();
+        }
+    }
+}
+
+void glfw_cursor_pos_callback(GLFWwindow* window, double x, double y) {
+    GET_RENDERER(window).camera.drag_update(x, y);
 }
 
 void glfw_init(GLFWwindow** window, const int width, const int height) {
@@ -101,11 +185,7 @@ void glfw_init(GLFWwindow** window, const int width, const int height) {
 }
 
 void glfw_window_size_callback(GLFWwindow* window, int width, int height) {
-    // get context
-    struct CUDAVolumeRenderer* const rend =
-        (CUDAVolumeRenderer*)glfwGetWindowUserPointer(window);
-
-    rend->resize(width, height);
+    GET_RENDERER(window).resize(width, height);
 }
 
 }  // namespace
@@ -152,6 +232,8 @@ int main(int argc, char* argv[]) {
         // SET USER POINTER AND CALLBACKS
         glfwSetWindowUserPointer(window, &rend);
         glfwSetKeyCallback(window, glfw_key_callback);
+        glfwSetMouseButtonCallback(window, glfw_mouse_button_callback);
+        glfwSetCursorPosCallback(window, glfw_cursor_pos_callback);
         glfwSetFramebufferSizeCallback(window, glfw_window_size_callback);
 
         // LOOP UNTIL DONE
