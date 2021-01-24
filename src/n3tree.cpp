@@ -1,6 +1,5 @@
 #include "volrend/n3tree.hpp"
 
-#include <iostream>
 #include <cassert>
 #include <cstring>
 #include <cstdlib>

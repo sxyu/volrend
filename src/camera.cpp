@@ -1,5 +1,4 @@
 #include "volrend/camera.hpp"
-#include <iostream>
 #include <cmath>
 
 #include <cuda_runtime.h>

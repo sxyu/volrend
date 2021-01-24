@@ -41,7 +41,7 @@ __device__ void trace_ray_naive(
         float* __restrict__ out) {
 
     float invdir, t1, t2;
-    float tmin = 0.0f, tmax = 2.0f;
+    float tmin = 0.0f, tmax = 1e6f;
 #pragma unroll
     for (int i = 0; i < 3; ++i) {
         invdir = 1.f / dir[i];
@@ -130,7 +130,7 @@ __host__ void launch_renderer(const N3Tree& tree,
         float step_size, int max_n_steps, cudaStream_t stream) {
     struct cudaResourceDesc res_desc;
 
-    // Init surface memory
+    // Init surface object
     memset(&res_desc, 0, sizeof(res_desc));
     res_desc.resType = cudaResourceTypeArray;
     res_desc.res.array.array = arr;

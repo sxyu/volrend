@@ -7,7 +7,7 @@
 #include <array>
 
 #include "volrend/cuda/common.cuh"
-#include "volrend/internal/renderer_kernel.hpp"
+#include "volrend/cuda/renderer_kernel.hpp"
 
 namespace volrend {
 
@@ -57,6 +57,7 @@ struct CUDAVolumeRenderer::Impl {
     }
 
     void resize(const int width, const int height) {
+        if (camera.width == width && camera.height == height) return;
         // save new size
         camera.width = width;
         camera.height = height;

@@ -3,7 +3,6 @@
 
 #include <cstdlib>
 #include <cstdio>
-#include <iostream>
 
 #include <cuda_gl_interop.h>
 
@@ -24,7 +23,7 @@ namespace {
 #define GET_RENDERER(window) \
     (*((CUDAVolumeRenderer*)glfwGetWindowUserPointer(window)))
 
-void glfw_fps(GLFWwindow* window) {
+void glfw_update_title(GLFWwindow* window) {
     // static fps counters
     static double stamp_prev = 0.0;
     static int frame_count = 0;
@@ -38,15 +37,9 @@ void glfw_fps(GLFWwindow* window) {
 
         const double fps = (double)frame_count / elapsed;
 
-        int width, height;
-        char tmp[128];
-
-        glfwGetFramebufferSize(window, &width, &height);
-
-        sprintf(tmp, "(%u x %u) - FPS: %.2f", width, height, fps);
-
-        glfwSetWindowTitle(window, tmp);
-
+        // char tmp[128];
+        // sprintf(tmp, "volrend viewer - FPS: %.2f", fps);
+        glfwSetWindowTitle(window, "volrend viewer");
         frame_count = 0;
     }
 
@@ -83,6 +76,18 @@ void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action,
                                             : cam.v_down;
                 cam.center += vec * speed;
             } break;
+
+            case GLFW_KEY_MINUS:
+                cam.focal *= 0.99f;
+                break;
+
+            case GLFW_KEY_EQUAL:
+                cam.focal *= 1.01f;
+                break;
+
+            case GLFW_KEY_0:
+                cam.focal = CAMERA_DEFAULT_FOCAL_LENGTH;
+                break;
 
             case GLFW_KEY_1:
                 cam.center = {0.5f, 0.0f, 0.5f};
@@ -129,18 +134,22 @@ void glfw_mouse_button_callback(GLFWwindow* window, int button, int action,
     auto& cam = rend.camera;
     double x, y;
     glfwGetCursorPos(window, &x, &y);
-    if (button == GLFW_MOUSE_BUTTON_LEFT || button == GLFW_MOUSE_BUTTON_RIGHT) {
-        if (action == GLFW_PRESS) {
-            cam.begin_drag(x, y, mods & GLFW_MOD_SHIFT,
-                           button == GLFW_MOUSE_BUTTON_RIGHT);
-        } else if (action == GLFW_RELEASE) {
-            cam.end_drag();
-        }
+    if (action == GLFW_PRESS) {
+        cam.begin_drag(
+            x, y, (mods & GLFW_MOD_SHIFT) || button == GLFW_MOUSE_BUTTON_MIDDLE,
+            button == GLFW_MOUSE_BUTTON_RIGHT);
+    } else if (action == GLFW_RELEASE) {
+        cam.end_drag();
     }
 }
 
 void glfw_cursor_pos_callback(GLFWwindow* window, double x, double y) {
     GET_RENDERER(window).camera.drag_update(x, y);
+}
+
+void glfw_scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+    auto& cam = GET_RENDERER(window).camera;
+    cam.focal *= (yoffset > 0.f) ? 1.01f : 0.99f;
 }
 
 void glfw_init(GLFWwindow** window, const int width, const int height) {
@@ -178,7 +187,7 @@ void glfw_init(GLFWwindow** window, const int width, const int height) {
     }
 
     // ignore vsync for now
-    glfwSwapInterval(0);
+    glfwSwapInterval(1);
 
     // only copy r/g/b
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
@@ -193,18 +202,19 @@ void glfw_window_size_callback(GLFWwindow* window, int width, int height) {
 
 int main(int argc, char* argv[]) {
     using namespace volrend;
+    if (argc <= 1) {
+        fprintf(stderr, "Expect argument: npz file\n");
+        return 1;
+    }
     GLFWwindow* window;
 
     glfw_init(&window, 960, 1039);
-    cudaError_t cuda_err;
-
     GLint gl_device_id;
     GLuint gl_device_count;
-    cuda_err = cuda(
-        GLGetDevices(&gl_device_count, &gl_device_id, 1, cudaGLDeviceListAll));
+    cuda(GLGetDevices(&gl_device_count, &gl_device_id, 1, cudaGLDeviceListAll));
 
     int cuda_device_id = (argc > 1) ? atoi(argv[1]) : gl_device_id;
-    cuda_err = cuda(SetDevice(cuda_device_id));
+    cuda(SetDevice(cuda_device_id));
 
     // MULTI-GPU?
     const bool multi_gpu = gl_device_id != cuda_device_id;
@@ -212,14 +222,14 @@ int main(int argc, char* argv[]) {
     // INFO
     struct cudaDeviceProp props;
 
-    cuda_err = cuda(GetDeviceProperties(&props, gl_device_id));
+    cuda(GetDeviceProperties(&props, gl_device_id));
     printf("OpenGL : %-24s (%d)\n", props.name, props.multiProcessorCount);
 
-    cuda_err = cuda(GetDeviceProperties(&props, cuda_device_id));
+    cuda(GetDeviceProperties(&props, cuda_device_id));
     printf("CUDA   : %-24s (%d)\n", props.name, props.multiProcessorCount);
 
     {
-        N3Tree tree("lego.npz");
+        N3Tree tree(argv[1]);
         CUDAVolumeRenderer rend;
 
         // get initial width/height
@@ -234,19 +244,21 @@ int main(int argc, char* argv[]) {
         glfwSetKeyCallback(window, glfw_key_callback);
         glfwSetMouseButtonCallback(window, glfw_mouse_button_callback);
         glfwSetCursorPosCallback(window, glfw_cursor_pos_callback);
+        glfwSetScrollCallback(window, glfw_scroll_callback);
         glfwSetFramebufferSizeCallback(window, glfw_window_size_callback);
 
         // LOOP UNTIL DONE
         while (!glfwWindowShouldClose(window)) {
             // MONITOR FPS
-            glfw_fps(window);
+            glfw_update_title(window);
 
             rend.render(tree);
             rend.swap();
 
             glfwSwapBuffers(window);
-            glfwPollEvents();
-            // glfwWaitEvents();
+            glFinish();
+            // glfwPollEvents();
+            glfwWaitEvents();
         }
     }
 
