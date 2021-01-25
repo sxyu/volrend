@@ -1,6 +1,7 @@
 #pragma once
 
 #include <array>
+#include <memory>
 #include "volrend/common.hpp"
 #include "glm/mat4x3.hpp"
 #include "glm/vec3.hpp"
@@ -14,18 +15,19 @@ struct Camera {
            float focal = CAMERA_DEFAULT_FOCAL_LENGTH);
     ~Camera();
 
-    /** Camera motion helpers **/
-    // Drag
+    /** Drag helpers **/
     void begin_drag(float x, float y, bool is_pan, bool about_origin);
     void drag_update(float x, float y);
     void end_drag();
 
     /** Camera params **/
-    /** Camera pose model */
+    // Camera pose model, you can modify these
     glm::vec3 v_forward, v_world_down, center;
+
+    // Vectors below are automatically updated
     glm::vec3 v_down, v_right;
 
-    // 4x3 affine transform used for actual rendering
+    // 4x3 affine transform used for actual rendering, automatically updated
     glm::mat4x3 transform;
 
     // Image size
@@ -45,17 +47,10 @@ struct Camera {
 
    private:
     void free_cuda();
-    bool is_dragging_ = false;
-    // Pan instead of rotate
-    bool is_panning_ = false;
-    // Rotate about (0.5, 0.5, 0.5)
-    bool about_origin_ = false;
-    glm::vec2 drag_start_;
-    // Save state when drag started
-    glm::vec3 drag_start_forward_;
-    glm::vec3 drag_start_right_;
-    glm::vec3 drag_start_down_;
-    glm::vec3 drag_start_center_;
+
+    // For dragging
+    struct DragState;
+    std::unique_ptr<DragState> drag_state_;
 };
 
 }  // namespace volrend

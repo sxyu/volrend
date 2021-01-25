@@ -40,7 +40,7 @@ set( CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}  -g -Xcudafe \"--display_error_number
 set( INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include" )
 set( SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src" )
 set( VENDOR_DIR "${CMAKE_CURRENT_SOURCE_DIR}/3rdparty" )
-set( IMGUI_DIR "${VENDOR_DIR}/imgui_mod" )
+set( IMGUI_DIR "${VENDOR_DIR}/imgui" )
 set( GLFW_DIR "${VENDOR_DIR}/glfw" )
 set( GLEW_DIR "${VENDOR_DIR}/glew" )
 set( GLM_DIR "${VENDOR_DIR}/glm" )
@@ -88,16 +88,16 @@ if(NOT EXISTS "${GLFW_DIR}/CMakeLists.txt")
 endif()
 
 set (_VOLREND_IMGUI_ "")
-file(GLOB IMGUI_SOURCES ${IMGUI_DIR}/volrend/imgui/*.cpp)
+file(GLOB IMGUI_SOURCES ${IMGUI_DIR}/*.cpp)
 set(IMGUI_HEADERS
-        ${IMGUI_DIR}/volrend/imgui/imconfig.h
-        ${IMGUI_DIR}/volrend/imgui/imgui.h
-        ${IMGUI_DIR}/volrend/imgui/imgui_impl_glfw.h
-        ${IMGUI_DIR}/volrend/imgui/imgui_impl_opengl3.h
-        ${IMGUI_DIR}/volrend/imgui/imgui_stdlib.h
-        ${IMGUI_DIR}/volrend/imgui/imstb_rectpack.h
-        ${IMGUI_DIR}/volrend/imgui/imstb_textedit.h
-        ${IMGUI_DIR}/volrend/imgui/imstb_truetype.h
+        ${IMGUI_DIR}/imconfig.h
+        ${IMGUI_DIR}/imgui.h
+        ${IMGUI_DIR}/imgui_impl_glfw.h
+        ${IMGUI_DIR}/imgui_impl_opengl3.h
+        ${IMGUI_DIR}/imgui_stdlib.h
+        ${IMGUI_DIR}/imstb_rectpack.h
+        ${IMGUI_DIR}/imstb_textedit.h
+        ${IMGUI_DIR}/imstb_truetype.h
     )
 
 file(GLOB VOLREND_SOURCES ${SRC_DIR}/*.cpp)

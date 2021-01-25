@@ -1,5 +1,6 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
+#include <glm/gtc/type_ptr.hpp>
 
 #include <cstdlib>
 #include <cstdio>
@@ -9,6 +10,9 @@
 #include "volrend/cuda/common.cuh"
 #include "volrend/renderer.hpp"
 #include "volrend/n3tree.hpp"
+
+#include "imgui_impl_opengl3.h"
+#include "imgui_impl_glfw.h"
 
 namespace volrend {
 
@@ -37,13 +41,67 @@ void glfw_update_title(GLFWwindow* window) {
 
         const double fps = (double)frame_count / elapsed;
 
-        // char tmp[128];
-        // sprintf(tmp, "volrend viewer - FPS: %.2f", fps);
-        glfwSetWindowTitle(window, "volrend viewer");
+        char tmp[128];
+        sprintf(tmp, "volrend viewer - FPS: %.2f", fps);
+        glfwSetWindowTitle(window, tmp);
+        // glfwSetWindowTitle(window, "volrend viewer");
         frame_count = 0;
     }
 
     frame_count++;
+}
+
+void draw_imgui(CUDAVolumeRenderer& rend) {
+    auto& cam = rend.camera;
+    ImGui_ImplOpenGL3_NewFrame();
+    ImGui_ImplGlfw_NewFrame();
+    ImGui::NewFrame();
+
+    ImGui::SetNextWindowPos(ImVec2(20.f, 20.f), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(250.f, 150.f), ImGuiCond_Once);
+    ImGui::Begin("Camera");
+
+    // Update vectors indirectly since we need to normalize on change
+    // (press update button) and it would be too confusing to keep normalizing
+    static glm::vec3 world_down_tmp = rend.camera.v_world_down;
+    static glm::vec3 world_down_prev = rend.camera.v_world_down;
+    static glm::vec3 forward_tmp = rend.camera.v_forward;
+    static glm::vec3 forward_prev = rend.camera.v_forward;
+    if (cam.v_world_down != world_down_prev)
+        world_down_tmp = world_down_prev = cam.v_world_down;
+    if (cam.v_forward != forward_prev)
+        forward_tmp = forward_prev = cam.v_forward;
+
+    ImGui::InputFloat3("center", glm::value_ptr(cam.center));
+    ImGui::SliderFloat("focal", &cam.focal, 100.f, 2000.f);
+    ImGui::Spacing();
+    ImGui::InputFloat3("world_down", glm::value_ptr(world_down_tmp));
+    ImGui::InputFloat3("forward", glm::value_ptr(forward_tmp));
+    if (ImGui::Button("update dirs")) {
+        cam.v_world_down = glm::normalize(world_down_tmp);
+        cam.v_forward = glm::normalize(forward_tmp);
+    }
+    ImGui::SameLine();
+    ImGui::TextUnformatted("Key 1-6: preset cams");
+    ImGui::End();
+
+    // Render window
+    ImGui::SetNextWindowPos(ImVec2(20.f, 180.f), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(250.f, 150.f), ImGuiCond_Once);
+    ImGui::Begin("Rendering");
+
+    static float n_samp = 1.0f / rend.step_size;
+    ImGui::SliderFloat("n_samp", &n_samp, 128.f, 1024.f);
+    if (ImGui::Button("update n_samp")) {
+        rend.step_size = 1.f / n_samp;
+    }
+    ImGui::Spacing();
+    ImGui::SliderFloat("sigma_thresh", &rend.sigma_thresh, 0.f, 0.5f);
+
+    ImGui::End();
+
+    ImGui::Render();
+    ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
 }
 
 void glfw_error_callback(int error, const char* description) {
@@ -52,6 +110,9 @@ void glfw_error_callback(int error, const char* description) {
 
 void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action,
                        int mods) {
+    ImGui_ImplGlfw_KeyCallback(window, key, scancode, action, mods);
+    if (ImGui::GetIO().WantCaptureKeyboard) return;
+
     if (action == GLFW_PRESS || action == GLFW_REPEAT) {
         auto& rend = GET_RENDERER(window);
         auto& cam = rend.camera;
@@ -130,6 +191,9 @@ void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action,
 
 void glfw_mouse_button_callback(GLFWwindow* window, int button, int action,
                                 int mods) {
+    ImGui_ImplGlfw_MouseButtonCallback(window, button, action, mods);
+    if (ImGui::GetIO().WantCaptureMouse) return;
+
     auto& rend = GET_RENDERER(window);
     auto& cam = rend.camera;
     double x, y;
@@ -148,11 +212,13 @@ void glfw_cursor_pos_callback(GLFWwindow* window, double x, double y) {
 }
 
 void glfw_scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
+    ImGui_ImplGlfw_ScrollCallback(window, xoffset, yoffset);
+    if (ImGui::GetIO().WantCaptureMouse) return;
     auto& cam = GET_RENDERER(window).camera;
     cam.focal *= (yoffset > 0.f) ? 1.01f : 0.99f;
 }
 
-void glfw_init(GLFWwindow** window, const int width, const int height) {
+GLFWwindow* glfw_init(const int width, const int height) {
     glfwSetErrorCallback(glfw_error_callback);
 
     if (!glfwInit()) exit(EXIT_FAILURE);
@@ -167,23 +233,23 @@ void glfw_init(GLFWwindow** window, const int width, const int height) {
 
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    *window =
+    GLFWwindow* window =
         glfwCreateWindow(width, height, "GLFW / CUDA Interop", NULL, NULL);
 
-    if (*window == NULL) {
+    if (window == nullptr) {
         glfwTerminate();
         exit(EXIT_FAILURE);
     }
 
-    glfwMakeContextCurrent(*window);
+    glfwMakeContextCurrent(window);
 
-    // set up GLEQ
+    // set up GLEW
     glewExperimental = GL_TRUE;
     if (glewInit() != GLEW_OK) {
         fputs("GLEW init failed\n", stderr);
         getchar();
         glfwTerminate();
-        return;
+        std::exit(EXIT_FAILURE);
     }
 
     // ignore vsync for now
@@ -191,6 +257,18 @@ void glfw_init(GLFWwindow** window, const int width, const int height) {
 
     // only copy r/g/b
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
+
+    IMGUI_CHECKVERSION();
+    ImGui::CreateContext();
+
+    ImGui_ImplGlfw_InitForOpenGL(window, false);
+    char* glsl_version = NULL;
+    ImGui_ImplOpenGL3_Init(glsl_version);
+    // Setup Dear ImGui style
+    ImGui::StyleColorsDark();
+    glfwSetCharCallback(window, ImGui_ImplGlfw_CharCallback);
+
+    return window;
 }
 
 void glfw_window_size_callback(GLFWwindow* window, int width, int height) {
@@ -206,9 +284,7 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Expect argument: npz file\n");
         return 1;
     }
-    GLFWwindow* window;
-
-    glfw_init(&window, 960, 1039);
+    GLFWwindow* window = glfw_init(960, 1039);
     GLint gl_device_id;
     GLuint gl_device_count;
     cuda(GLGetDevices(&gl_device_count, &gl_device_id, 1, cudaGLDeviceListAll));
@@ -255,12 +331,18 @@ int main(int argc, char* argv[]) {
             rend.render(tree);
             rend.swap();
 
+            draw_imgui(rend);
+
             glfwSwapBuffers(window);
             glFinish();
-            // glfwPollEvents();
-            glfwWaitEvents();
+            glfwPollEvents();
+            // glfwWaitEvents();
         }
     }
+
+    ImGui_ImplOpenGL3_Shutdown();
+    ImGui_ImplGlfw_Shutdown();
+    ImGui::DestroyContext();
 
     glfwDestroyWindow(window);
     glfwTerminate();

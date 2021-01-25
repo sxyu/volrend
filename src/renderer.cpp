@@ -35,12 +35,13 @@ struct CUDAVolumeRenderer::Impl {
         glDeleteFramebuffers(2, fb.data());
     }
 
-    void render(const N3Tree& tree, float step_size, int max_n_steps) {
+    void render(const N3Tree& tree, float step_size, float sigma_thresh,
+                float stop_thresh) {
         camera._update();
         tree.precompute_step(step_size);
         cuda(GraphicsMapResources(1, &cgr[buf_index], stream));
-        launch_renderer(tree, camera, ca[buf_index], step_size, max_n_steps,
-                        stream);
+        launch_renderer(tree, camera, ca[buf_index], step_size, sigma_thresh,
+                        stop_thresh, stream);
         cuda(GraphicsUnmapResources(1, &cgr[buf_index], stream));
     }
 
@@ -109,7 +110,7 @@ CUDAVolumeRenderer::CUDAVolumeRenderer()
     : impl_(std::make_unique<Impl>(camera)) {}
 
 void CUDAVolumeRenderer::render(const N3Tree& tree) {
-    impl_->render(tree, step_size, max_n_steps);
+    impl_->render(tree, step_size, sigma_thresh, stop_thresh);
 }
 void CUDAVolumeRenderer::swap() { impl_->swap(); }
 void CUDAVolumeRenderer::clear(float r, float g, float b, float a) {

@@ -24,8 +24,11 @@ struct CUDAVolumeRenderer {
     void resize(int width, int height);
 
     // Step size
-    float step_size = 1.0f / 512.0;
-    int max_n_steps = 512;
+    float step_size = 1.0f / 400.0;
+    // If a point has sigma < this amount, considers sigma = 0
+    float sigma_thresh = 0.f;
+    // If remaining light intensity/alpha < this amount stop marching
+    float stop_thresh = 0.01f;
 
    private:
     struct Impl;

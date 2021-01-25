@@ -7,5 +7,6 @@
 namespace volrend {
 __host__ void launch_renderer(const N3Tree& tree, const Camera& cam,
                               cudaArray_t& arr, float step_size,
-                              int max_n_steps, cudaStream_t stream);
+                              float sigma_thresh, float stop_thresh,
+                              cudaStream_t stream);
 }
