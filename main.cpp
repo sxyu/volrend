@@ -91,10 +91,11 @@ void draw_imgui(CUDAVolumeRenderer& rend) {
     ImGui::Begin("Rendering");
 
     static float inv_step_size = 1.0f / rend.options.step_size;
-    ImGui::SliderFloat("sigma_thresh", &rend.options.sigma_thresh, 0.f, 50.0f);
     if (ImGui::SliderFloat("1/step_size", &inv_step_size, 128.f, 5000.f)) {
         rend.options.step_size = 1.f / inv_step_size;
     }
+    ImGui::SliderFloat("sigma_thresh", &rend.options.sigma_thresh, 0.f, 50.0f);
+    ImGui::SliderFloat("stop_thresh", &rend.options.stop_thresh, 0.001f, 0.2f);
     ImGui::SliderFloat("bg_brightness", &rend.options.background_brightness,
                        0.f, 1.0f);
 
@@ -337,8 +338,8 @@ int main(int argc, char* argv[]) {
 
             glfwSwapBuffers(window);
             glFinish();
-            glfwPollEvents();
-            // glfwWaitEvents();
+            // glfwPollEvents();
+            glfwWaitEvents();
             // break;
         }
     }
