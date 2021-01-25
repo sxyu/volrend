@@ -90,13 +90,13 @@ void draw_imgui(CUDAVolumeRenderer& rend) {
     ImGui::SetNextWindowSize(ImVec2(250.f, 150.f), ImGuiCond_Once);
     ImGui::Begin("Rendering");
 
-    static float n_samp = 1.0f / rend.step_size;
-    ImGui::SliderFloat("n_samp", &n_samp, 128.f, 1024.f);
-    if (ImGui::Button("update n_samp")) {
-        rend.step_size = 1.f / n_samp;
+    static float inv_step_size = 1.0f / rend.options.step_size;
+    ImGui::SliderFloat("sigma_thresh", &rend.options.sigma_thresh, 0.f, 50.0f);
+    if (ImGui::SliderFloat("1/step_size", &inv_step_size, 128.f, 5000.f)) {
+        rend.options.step_size = 1.f / inv_step_size;
     }
-    ImGui::Spacing();
-    ImGui::SliderFloat("sigma_thresh", &rend.sigma_thresh, 0.f, 0.5f);
+    ImGui::SliderFloat("bg_brightness", &rend.options.background_brightness,
+                       0.f, 1.0f);
 
     ImGui::End();
 
@@ -253,7 +253,7 @@ GLFWwindow* glfw_init(const int width, const int height) {
     }
 
     // ignore vsync for now
-    glfwSwapInterval(1);
+    glfwSwapInterval(0);
 
     // only copy r/g/b
     glColorMask(GL_TRUE, GL_TRUE, GL_TRUE, GL_FALSE);
@@ -328,6 +328,8 @@ int main(int argc, char* argv[]) {
             // MONITOR FPS
             glfw_update_title(window);
 
+            rend.clear();
+
             rend.render(tree);
             rend.swap();
 
@@ -337,6 +339,7 @@ int main(int argc, char* argv[]) {
             glFinish();
             glfwPollEvents();
             // glfwWaitEvents();
+            // break;
         }
     }
 

@@ -3,13 +3,12 @@
 #include <memory>
 #include "camera.hpp"
 #include "n3tree.hpp"
+#include "render_options.hpp"
 
 namespace volrend {
 struct CUDAVolumeRenderer {
     CUDAVolumeRenderer();
     ~CUDAVolumeRenderer();
-
-    Camera camera;
 
     // Draw volumetric data
     void render(const N3Tree& tree);
@@ -23,12 +22,11 @@ struct CUDAVolumeRenderer {
     // Resize the buffer
     void resize(int width, int height);
 
-    // Step size
-    float step_size = 1.0f / 400.0;
-    // If a point has sigma < this amount, considers sigma = 0
-    float sigma_thresh = 0.f;
-    // If remaining light intensity/alpha < this amount stop marching
-    float stop_thresh = 0.01f;
+    // Camera instance
+    Camera camera;
+
+    // Rendering options
+    RenderOptions options;
 
    private:
     struct Impl;

@@ -12,7 +12,8 @@
 namespace volrend {
 
 struct CUDAVolumeRenderer::Impl {
-    Impl(Camera& camera) : camera(camera), buf_index(0) {
+    Impl(Camera& camera, RenderOptions& options)
+        : camera(camera), options(options), buf_index(0) {
         cuda(StreamCreateWithFlags(&stream, cudaStreamDefault));
 
         glCreateRenderbuffers(2, rb.data());
@@ -35,13 +36,11 @@ struct CUDAVolumeRenderer::Impl {
         glDeleteFramebuffers(2, fb.data());
     }
 
-    void render(const N3Tree& tree, float step_size, float sigma_thresh,
-                float stop_thresh) {
+    void render(const N3Tree& tree) {
         camera._update();
-        tree.precompute_step(step_size);
+        tree.precompute_step(options.sigma_thresh);
         cuda(GraphicsMapResources(1, &cgr[buf_index], stream));
-        launch_renderer(tree, camera, ca[buf_index], step_size, sigma_thresh,
-                        stop_thresh, stream);
+        launch_renderer(tree, camera, options, ca[buf_index], stream);
         cuda(GraphicsUnmapResources(1, &cgr[buf_index], stream));
     }
 
@@ -94,6 +93,7 @@ struct CUDAVolumeRenderer::Impl {
 
    private:
     Camera& camera;
+    RenderOptions& options;
     int buf_index;
 
     // GL buffers
@@ -107,11 +107,9 @@ struct CUDAVolumeRenderer::Impl {
 
 CUDAVolumeRenderer::~CUDAVolumeRenderer() {}
 CUDAVolumeRenderer::CUDAVolumeRenderer()
-    : impl_(std::make_unique<Impl>(camera)) {}
+    : impl_(std::make_unique<Impl>(camera, options)) {}
 
-void CUDAVolumeRenderer::render(const N3Tree& tree) {
-    impl_->render(tree, step_size, sigma_thresh, stop_thresh);
-}
+void CUDAVolumeRenderer::render(const N3Tree& tree) { impl_->render(tree); }
 void CUDAVolumeRenderer::swap() { impl_->swap(); }
 void CUDAVolumeRenderer::clear(float r, float g, float b, float a) {
     impl_->clear(r, g, b, a);

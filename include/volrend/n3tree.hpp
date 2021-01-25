@@ -45,9 +45,9 @@ struct N3Tree {
     bool is_data_loaded();
     bool is_cuda_loaded();
 
-    // Precompute for known step size (in CUDA memory):
-    // apply sigmoid & compute voxel alpha from sigma
-    void precompute_step(float step_sz) const;
+    // Pre-apply operations to leaf (in CUDA memory):
+    // Also applies sigmoid & relu
+    void precompute_step(float sigma_thresh) const;
 
     // Index pack/unpack
     int pack_index(int nd, int i, int j, int k);
@@ -73,7 +73,7 @@ struct N3Tree {
     std::string npz_path_, data_path_;
     bool data_loaded_, cuda_loaded_;
 
-    mutable float last_alpha_step_;
+    mutable float last_sigma_thresh_;
 
     void load_data();
     void load_cuda();
