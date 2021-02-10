@@ -36,9 +36,9 @@ __global__ void precomp_kernel(float* data,
     // Nonleaf
     if (child[tid]) return;
 
-    for (int i = 0; i < 3; ++i) {
-        rgba[i] = 1.f / (1.f + expf(-rgba[i]));
-    }
+    // for (int i = 0; i < 3; ++i) {
+        // rgba[i] = 1.f / (1.f + expf(-rgba[i]));
+    // }
     rgba[3] = fmaxf(rgba[3] * step_sz, 0.f);
     if (rgba[3] < sigma_thresh)
         rgba[3] = 0.f;

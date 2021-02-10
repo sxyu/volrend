@@ -73,7 +73,7 @@ void draw_imgui(CUDAVolumeRenderer& rend) {
         forward_tmp = forward_prev = cam.v_forward;
 
     ImGui::InputFloat3("center", glm::value_ptr(cam.center));
-    ImGui::SliderFloat("focal", &cam.focal, 100.f, 2000.f);
+    ImGui::SliderFloat("focal", &cam.focal, 300.f, 2000.f);
     ImGui::Spacing();
     ImGui::InputFloat3("world_down", glm::value_ptr(world_down_tmp));
     ImGui::InputFloat3("forward", glm::value_ptr(forward_tmp));
@@ -127,8 +127,8 @@ void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action,
             case GLFW_KEY_D:
             case GLFW_KEY_E:
             case GLFW_KEY_Q: {
-                float speed = 0.005f;
-                if (mods & GLFW_MOD_SHIFT) speed *= 2.f;
+                float speed = 0.002f;
+                if (mods & GLFW_MOD_SHIFT) speed *= 5.f;
                 if (key == GLFW_KEY_S || key == GLFW_KEY_A || key == GLFW_KEY_E)
                     speed = -speed;
                 const auto& vec = (key == GLFW_KEY_A || key == GLFW_KEY_D)
@@ -338,8 +338,8 @@ int main(int argc, char* argv[]) {
 
             glfwSwapBuffers(window);
             glFinish();
-            // glfwPollEvents();
-            glfwWaitEvents();
+            glfwPollEvents();
+            // glfwWaitEvents();
             // break;
         }
     }
