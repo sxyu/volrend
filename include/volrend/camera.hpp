@@ -20,9 +20,14 @@ struct Camera {
     void drag_update(float x, float y);
     void end_drag();
 
+    void set_ndc(float ndc_focal, float ndc_width, float ndc_height);
+
     /** Camera params **/
     // Camera pose model, you can modify these
     glm::vec3 v_forward, v_world_down, center;
+
+    // Origin for about-origin rotation
+    glm::vec3 v_origin;
 
     // Vectors below are automatically updated
     glm::vec3 v_down, v_right;

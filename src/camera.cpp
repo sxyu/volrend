@@ -27,9 +27,10 @@ Camera::Camera(int width, int height, float focal)
       height(height),
       focal(focal),
       drag_state_(std::make_unique<DragState>()) {
-    center = {0.5f, 0.0f, 0.5f};
-    v_forward = {0.0f, 1.0f, 0.0f};
+    center = {-0.35f, 0.5, 1.35f};
+    v_forward = {0.7071068f, 0.0f, -0.7071068f};
     v_world_down = {0.0f, 0.0f, -1.0f};
+    v_origin = {0.5f, 0.5f, 0.5f};
     _update();
 }
 
@@ -84,14 +85,13 @@ void Camera::drag_update(float x, float y) {
                              drag_state_->drag_start_right);
         // Prevent flip over pole
         if (dot < 0.f) return;
-        v_forward = v_forward_new;
+        v_forward = glm::normalize(v_forward_new);
 
         if (drag_state_->about_origin) {
-            const glm::vec3 world_cen(0.5f, 0.5f, 0.5f);
             center = glm::vec3(m * glm::vec4(drag_state_->drag_start_center -
-                                                 world_cen,
+                                                 v_origin,
                                              1.f)) +
-                     world_cen;
+                     v_origin;
         }
         _update(false);
     }
@@ -102,6 +102,15 @@ void Camera::free_cuda() {
     if (device.transform != nullptr) {
         cuda(Free(device.transform));
     }
+}
+
+void Camera::set_ndc(float ndc_focal, float ndc_width, float ndc_height) {
+    focal = 1800.f;
+    center = {0.f, 0.f, 0.0f};
+    v_forward = {0.0f, 0.0f, -1.0f};
+    v_world_down = {0.0f, -1.0f, 0.0f};
+    v_origin = {0.0f, 0.0f, -2.0f};
+    _update();
 }
 
 }  // namespace volrend

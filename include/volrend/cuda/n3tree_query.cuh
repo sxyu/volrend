@@ -8,9 +8,10 @@ namespace device {
 __device__ __inline__ static void query_single_from_root(const float* __restrict__ data,
                                       const int32_t* __restrict__ child,
                                       float* __restrict__ xyz,
-                                      float* __restrict__ out,
+                                      const float** out,
                                       float* __restrict__ cube_sz,
-                                      const int N) {
+                                      const int N,
+                                      const int data_dim) {
 
     float fN = (float) N, inv_fN = 1.f / fN;
     xyz[0] = max(min(xyz[0], 1.f - 1e-6f), 0.f);
@@ -33,11 +34,10 @@ __device__ __inline__ static void query_single_from_root(const float* __restrict
 
         // Add to output
         if (skip == 0) {
-            const float* val = data + (ptr + index) * 4;
-            out[0] = val[0];
-            out[1] = val[1];
-            out[2] = val[2];
-            out[3] = val[3];
+            const float* val = data + (ptr + index) * data_dim;
+            // cudaMemcpyAsync(out, val, data_dim * sizeof(float),
+            //         cudaMemcpyDeviceToDevice);
+            *out = val;
             break;
         }
         *cube_sz *= inv_fN;

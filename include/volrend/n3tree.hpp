@@ -20,6 +20,7 @@ struct N3Tree {
 
     // Spatial branching factor
     int N;
+    int sh_order;
     // Dimensionality of data on leaf (e.g. 4 for rgba)
     int data_dim;
     // Number of internal nodes
@@ -38,9 +39,10 @@ struct N3Tree {
     // Get data at node node in given position of subgrid
     Rgba get_data(int nd, int i, int j, int k);
 
+    // FIXME No longer supported
     // Query. Indices size must be divisible by 3 in order: xyz xyz
     // Returns rgba rgba...
-    std::vector<float> operator[](const std::vector<float>& indices) const;
+    // std::vector<float> operator[](const std::vector<float>& indices) const;
 
     bool is_data_loaded();
     bool is_cuda_loaded();
@@ -52,6 +54,10 @@ struct N3Tree {
     // Index pack/unpack
     int pack_index(int nd, int i, int j, int k);
     std::tuple<int, int, int, int> unpack_index(int packed);
+
+    // NDC config
+    bool use_ndc;
+    float ndc_width, ndc_height, ndc_focal;
 
     // CUDA memory
     mutable struct {
@@ -65,12 +71,13 @@ struct N3Tree {
 
     // Main data holder
     std::vector<float> data_;
+    cnpy::NpyArray data_cnpy_;
 
     // Child link data holder
     cnpy::NpyArray child_;
 
     // Paths
-    std::string npz_path_, data_path_;
+    std::string npz_path_, data_path_, poses_bounds_path_;
     bool data_loaded_, cuda_loaded_;
 
     mutable float last_sigma_thresh_;

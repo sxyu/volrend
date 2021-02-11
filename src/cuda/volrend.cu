@@ -5,7 +5,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include "volrend/n3tree.hpp"
-#include "volrend/cuda/rt_naive.cuh"
+#include "volrend/cuda/rt_core.cuh"
 #include "volrend/render_options.hpp"
 
 namespace volrend {
@@ -48,6 +48,31 @@ __host__ __device__ __inline__ static void screen2worlddir(
     out[1] = transform[1] * x + transform[4] * y + transform[7] * z;
     out[2] = transform[2] * x + transform[5] * y + transform[8] * z;
 }
+__host__ __device__ __inline__ static void world2ndc(
+        int ndc_width, int ndc_height, float ndc_focal,
+        float* __restrict__ dir,
+        float* __restrict__ cen, float near = 1.f) {
+    float t = -(near + cen[2]) / dir[2];
+    for (int i = 0; i < 3; ++i) {
+        cen[i] = cen[i] + t * dir[i];
+    }
+
+    dir[0] = -((2 * ndc_focal) / ndc_width) * (dir[0] / dir[2] - cen[0] / cen[2]);
+    dir[1] = -((2 * ndc_focal) / ndc_height) * (dir[1] / dir[2] - cen[1] / cen[2]);
+    dir[2] = -2 * near / cen[2];
+
+    cen[0] = -((2 * ndc_focal) / ndc_width) * (cen[0] / cen[2]);
+    cen[1] = -((2 * ndc_focal) / ndc_height) * (cen[1] / cen[2]);
+    cen[2] = 1 + 2 * near / cen[2];
+
+    float norm = sqrtf(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
+    dir[0] /= norm;
+    dir[1] /= norm;
+    dir[2] /= norm;
+
+    for (int i = 0; i < 3; ++i)
+        cen[i] = cen[i] * 0.5f + 0.5f;
+}
 
 namespace device {
 // Primary rendering kernel
@@ -61,9 +86,16 @@ __global__ static void render_kernel(
         const float* __restrict__ tree_data,
         const int32_t* __restrict__ tree_child,
         int tree_N,
+        int data_dim,
+        int sh_order,
+        bool use_ndc,
+        float ndc_width,
+        float ndc_height,
+        float ndc_focal,
         float step_size,
         float stop_thresh,
-        float background_brightness) {
+        float background_brightness,
+        bool show_miss) {
     CUDA_GET_THREAD_ID(idx, width * height);
     const int x   = idx % width;
     const int y   = idx / width;
@@ -71,11 +103,19 @@ __global__ static void render_kernel(
     const float x_norm = x / (0.5f * width) - 1.0f;
     const float y_norm = y / (0.5f * height) - 1.0f;
 
-    float dir[3], out[3];
-    screen2worlddir(x_norm, y_norm, focal_norm_x, focal_norm_y, transform, dir);
+    float dir[3], vdir[3], cen[3], out[3];
+    screen2worlddir(x_norm, y_norm, focal_norm_x, focal_norm_y, transform, vdir);
+    for (int i = 0; i < 3; ++i) {
+        cen[i] = transform[9 + i];
+        dir[i] = vdir[i];
+    }
+    if (use_ndc) {
+        world2ndc(ndc_width, ndc_height, ndc_focal, dir, cen);
+    }
 
-    trace_ray_naive(tree_data, tree_child, tree_N,
-            dir, transform + 9, step_size, stop_thresh, background_brightness, out);
+    trace_ray(tree_data, tree_child, tree_N, data_dim, sh_order,
+            dir, vdir, cen, step_size, stop_thresh, background_brightness,
+            show_miss, out);
 
     // pixel color
     uint8_t rgbx[4];
@@ -118,8 +158,15 @@ __host__ void launch_renderer(const N3Tree& tree,
             tree.device.data,
             tree.device.child,
             tree.N,
+            tree.data_dim,
+            tree.sh_order,
+            tree.use_ndc,
+            tree.ndc_width,
+            tree.ndc_height,
+            tree.ndc_focal,
             options.step_size,
             options.stop_thresh,
-            options.background_brightness);
+            options.background_brightness,
+            options.show_miss);
 }
 }  // namespace volrend

@@ -73,7 +73,7 @@ void draw_imgui(CUDAVolumeRenderer& rend) {
         forward_tmp = forward_prev = cam.v_forward;
 
     ImGui::InputFloat3("center", glm::value_ptr(cam.center));
-    ImGui::SliderFloat("focal", &cam.focal, 300.f, 2000.f);
+    ImGui::SliderFloat("focal", &cam.focal, 300.f, 3500.f);
     ImGui::Spacing();
     ImGui::InputFloat3("world_down", glm::value_ptr(world_down_tmp));
     ImGui::InputFloat3("forward", glm::value_ptr(forward_tmp));
@@ -94,10 +94,11 @@ void draw_imgui(CUDAVolumeRenderer& rend) {
     if (ImGui::SliderFloat("1/step_size", &inv_step_size, 128.f, 5000.f)) {
         rend.options.step_size = 1.f / inv_step_size;
     }
-    ImGui::SliderFloat("sigma_thresh", &rend.options.sigma_thresh, 0.f, 50.0f);
-    ImGui::SliderFloat("stop_thresh", &rend.options.stop_thresh, 0.001f, 0.2f);
+    ImGui::SliderFloat("sigma_thresh", &rend.options.sigma_thresh, 0.f, 100.0f);
+    ImGui::SliderFloat("stop_thresh", &rend.options.stop_thresh, 0.001f, 0.4f);
     ImGui::SliderFloat("bg_brightness", &rend.options.background_brightness,
                        0.f, 1.0f);
+    ImGui::Checkbox("show_miss", &rend.options.show_miss);
 
     ImGui::End();
 
@@ -152,37 +153,37 @@ void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action,
                 break;
 
             case GLFW_KEY_1:
-                cam.center = {0.5f, 0.0f, 0.5f};
+                cam.center = {0.5f, -0.5f, 0.5f};
                 cam.v_forward = {0.0f, 1.0f, 0.0f};
                 cam.v_world_down = {0.0f, 0.0f, -1.0f};
                 break;
 
             case GLFW_KEY_2:
-                cam.center = {0.5f, 1.0f, 0.5f};
+                cam.center = {0.5f, 1.5f, 0.5f};
                 cam.v_forward = {0.0f, -1.0f, 0.0f};
                 cam.v_world_down = {0.0f, 0.0f, 1.0f};
                 break;
 
             case GLFW_KEY_3:
-                cam.center = {0.0f, 0.5f, 0.5f};
+                cam.center = {-0.5f, 0.5f, 0.5f};
                 cam.v_forward = {1.0f, 0.0f, 0.0f};
                 cam.v_world_down = {0.0f, 1.0f, 0.0f};
                 break;
 
             case GLFW_KEY_4:
-                cam.center = {1.0f, 0.5f, 0.5f};
+                cam.center = {1.5f, 0.5f, 0.5f};
                 cam.v_forward = {-1.0f, 0.0f, 0.0f};
                 cam.v_world_down = {0.0f, -1.0f, 0.0f};
                 break;
 
             case GLFW_KEY_5:
-                cam.center = {0.5f, 0.5f, 1.0f};
+                cam.center = {0.5f, 0.5f, 1.5f};
                 cam.v_forward = {0.0f, 0.0f, -1.0f};
                 cam.v_world_down = {1.0f, 0.0f, 0.0f};
                 break;
 
             case GLFW_KEY_6:
-                cam.center = {0.5f, 0.5f, 0.0f};
+                cam.center = {0.5f, 0.5f, -0.5f};
                 cam.v_forward = {0.0f, 0.0f, 1.0f};
                 cam.v_world_down = {-1.0f, 0.0f, 0.0f};
                 break;
@@ -308,6 +309,10 @@ int main(int argc, char* argv[]) {
     {
         N3Tree tree(argv[1]);
         CUDAVolumeRenderer rend;
+        if (tree.use_ndc) {
+            rend.camera.set_ndc(tree.ndc_focal, tree.ndc_width,
+                                tree.ndc_height);
+        }
 
         // get initial width/height
         {
@@ -338,8 +343,8 @@ int main(int argc, char* argv[]) {
 
             glfwSwapBuffers(window);
             glFinish();
-            glfwPollEvents();
-            // glfwWaitEvents();
+            // glfwPollEvents();
+            glfwWaitEvents();
             // break;
         }
     }
