@@ -17,6 +17,9 @@ cmake ..
 make -j12
 ```
 
+On Ubuntu, to get the dependencies, try
+`sudo apt-get install libgl1-mesa-dev libxi-dev libxinerama-dev libxcursor-dev libxrandr-dev libgl1-mesa-dev libglu1-mesa-dev`
+
 ## Run
 ```sh
 ./volrend <name>.npz
