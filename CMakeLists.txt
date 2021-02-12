@@ -200,7 +200,7 @@ if ( NOT WILL_USE_SYSTEM_GLFW )
     include_directories( "${GLFW_DIR}/include" )
 else()
     message ( STATUS "Using system glfw3" )
-    set( DEPENDENCIES ${DEPENDENCIES} glfw3 )
+    set( DEPENDENCIES ${DEPENDENCIES} glfw )
 endif()
 
 find_package(Threads REQUIRED)
