@@ -4,7 +4,11 @@
 #include <cstring>
 #include <cstdlib>
 #include <fstream>
+#ifdef VOLREND_OPENEXR
 #include <OpenEXR/ImfRgbaFile.h>
+#else
+#include "ilm/half.h"
+#endif
 
 namespace volrend {
 
@@ -66,11 +70,11 @@ void N3Tree::open(const std::string& path) {
                       << "call shrink_to_fit() before saving to save space\n";
         }
         if (data_node.word_size == 2) {
-            std::cout << "INFO: Using half precision\n";
+            std::cout << "INFO: Found data stored in half precision\n";
             const half* ptr = data_node.data<half>();
             data_ = std::vector<float>(ptr, ptr + data_node.num_vals);
         } else {
-            std::cout << "INFO: Using single precision\n";
+            std::cout << "INFO: Found data stored in single precision\n";
             // Avoid copy
             std::swap(data_cnpy_, npz["data"]);
         }
@@ -101,6 +105,7 @@ void N3Tree::open(const std::string& path) {
 }
 
 void N3Tree::load_data() {
+#ifdef VOLREND_OPENEXR
     std::cout << "INFO: Loading with OpenEXR (legacy)\n";
     Imf::RgbaInputFile file(data_path_.c_str());
     Imath::Box2i dw = file.dataWindow();
@@ -116,6 +121,11 @@ void N3Tree::load_data() {
     // FIXME get rid of this copy (low priority)
     data_ = std::vector<float>(loaded, loaded + height * width * data_dim);
     data_loaded_ = true;
+#else
+    throw std::runtime_error(
+        "Volrend was not built with OpenEXR, "
+        "legacy format is not available");
+#endif
 }
 
 int32_t N3Tree::get_child(int nd, int i, int j, int k) {

@@ -1,5 +1,7 @@
 #pragma once
 
+#include "volrend/common.hpp"
+
 #include <string>
 #include <vector>
 #include <array>

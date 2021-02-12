@@ -42,9 +42,9 @@ void glfw_update_title(GLFWwindow* window) {
         const double fps = (double)frame_count / elapsed;
 
         char tmp[128];
-        sprintf(tmp, "volrend viewer - FPS: %.2f", fps);
-        glfwSetWindowTitle(window, tmp);
-        // glfwSetWindowTitle(window, "volrend viewer");
+        // sprintf(tmp, "volrend viewer - FPS: %.2f", fps);
+        // glfwSetWindowTitle(window, tmp);
+        glfwSetWindowTitle(window, "volrend viewer");
         frame_count = 0;
     }
 

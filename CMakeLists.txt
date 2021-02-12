@@ -21,6 +21,7 @@ set(VOLREND_VERSION ${VOLREND_VERSION_MAJOR}.${VOLREND_VERSION_MINOR}.${VOLREND_
 
 option( VOLREND_USE_SYSTEM_GLFW
     "Use system glfw rather than the included glfw submodule if available" ON )
+option( VOLREND_USE_OPENEXR "Use OpenEXR if we can find it" ON )
 option( VOLREND_BUILD_INSTALL "Build the install target" ON )
 option( VOLREND_BUILD_PYTHON "Build Python bindings" OFF )
 option( VOLREND_USE_FFAST_MATH "Use -ffast-math" OFF )
@@ -87,7 +88,6 @@ if(NOT EXISTS "${GLFW_DIR}/CMakeLists.txt")
    message(FATAL_ERROR "A submodule as not downloaded! GIT_SUBMODULE was turned off or failed. Please update submodules and try again.")
 endif()
 
-set (_VOLREND_IMGUI_ "")
 file(GLOB IMGUI_SOURCES ${IMGUI_DIR}/*.cpp)
 set(IMGUI_HEADERS
         ${IMGUI_DIR}/imconfig.h
@@ -105,11 +105,6 @@ file(GLOB VOLREND_SOURCES_CUDA ${SRC_DIR}/cuda/*.cu)
 set(VOLREND_SOURCES ${VOLREND_SOURCES} ${VOLREND_SOURCES_CUDA})
 file(GLOB VOLREND_PUBLIC_HEADERS ${INCLUDE_DIR}/volrend/*.hpp)
 file(GLOB VOLREND_PRIVATE_HEADERS ${INCLUDE_DIR}/volrend/internal/*.hpp)
-
-# create volrend.hpp
-set ( COMMON_HPP_PATH "${PROJECT_BINARY_DIR}/include/volrend/common.hpp" )
-configure_file( common.hpp.in "${COMMON_HPP_PATH}" )
-set ( VOLREND_PUBLIC_HEADERS ${VOLREND_PUBLIC_HEADERS} "${COMMON_HPP_PATH}")
 
 set ( VOLREND_HEADERS ${VOLREND_PUBLIC_HEADERS} ${VOLREND_PRIVATE_HEADERS} )
 
@@ -137,7 +132,34 @@ else()
 endif()
 
 # require OpenEXR
-find_package (OpenEXR REQUIRED)
+set (_VOLREND_OPENEXR_ "// ")
+if ( VOLREND_USE_OPENEXR )
+    find_package (OpenEXR)
+
+    if (OpenEXR_FOUND)
+        set(
+            DEPENDENCIES
+            ${DEPENDENCIES}
+            OpenEXR::OpenEXR
+        )
+        message ( STATUS "Found OpenEXR" )
+	set (_VOLREND_OPENEXR_ "")
+    else( OpenEXR_FOUND )
+        message ( STATUS "Couldn't find OpenEXR" )
+    endif( OpenEXR_FOUND )
+else ( VOLREND_USE_OPENEXR )
+    message ( STATUS "OpenEXR disabled by user" )
+    set ( OpenEXR_FOUND OFF )
+endif ( VOLREND_USE_OPENEXR )
+
+if (NOT OpenEXR_FOUND)
+    set (VOLREND_VENDOR_SOURCES
+        ${VOLREND_VENDOR_SOURCES}
+        ${VENDOR_DIR}/misc/ilm/eLut.cpp
+        ${VENDOR_DIR}/misc/ilm/half.cpp
+        ${VENDOR_DIR}/misc/ilm/toFloat.cpp
+    )
+endif()
 
 add_definitions(-DGLEW_STATIC -DTINYEXR_USE_MINIZ=0)
 
@@ -183,6 +205,11 @@ endif()
 
 find_package(Threads REQUIRED)
 
+# create volrend.hpp
+set ( COMMON_HPP_PATH "${PROJECT_BINARY_DIR}/include/volrend/common.hpp" )
+configure_file( common.hpp.in "${COMMON_HPP_PATH}" )
+set ( VOLREND_PUBLIC_HEADERS ${VOLREND_PUBLIC_HEADERS} "${COMMON_HPP_PATH}")
+
 add_library( ${PROJ_LIB_NAME} STATIC ${VOLREND_SOURCES}
     ${IMGUI_SOURCES} ${VOLREND_VENDOR_SOURCES} )
 set_target_properties( ${PROJ_LIB_NAME}
@@ -202,7 +229,6 @@ target_link_libraries( ${PROJ_LIB_NAME} PUBLIC
     ${DEPENDENCIES}
     ${CMAKE_THREAD_LIBS_INIT}
     ${CMAKE_DL_LIBS}
-    OpenEXR::OpenEXR
 )
 
 if (VOLREND_BUILD_INSTALL)

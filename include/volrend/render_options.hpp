@@ -1,5 +1,7 @@
 #pragma once
 
+#include "volrend/common.hpp"
+
 struct RenderOptions {
     float step_size = 1.0f / 1000.0;
     // If a point has sigma < this amount, considers sigma = 0

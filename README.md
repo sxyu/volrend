@@ -17,9 +17,26 @@ cmake ..
 make -j12
 ```
 
+## Run
+```sh
+./volrend <name>.npz
+```
+For LLFF scenes, we also expect
+```sh
+<name>_poses_bounds.npy
+```
+In the same directory. This may be copied directly from the scene's `poses_bounds.npy` in the LLFF dataset.
+
+Note: In older octrees, an OpenEXR file was used to store the image data, this was
+```sh
+<name>_data.exr
+```
+In the same direcotry.
+
 ### Dependencies
 - C++14
 - OpenGL
     - any dependencies of GLFW
 - CUDA Toolkit (tested on CUDA version 11.2)
-- OpenEXR (I installed from source <https://github.com/AcademySoftwareFoundation/openexr>)
+- OpenEXR *Now optional* 
+(I installed from source <https://github.com/AcademySoftwareFoundation/openexr>)
