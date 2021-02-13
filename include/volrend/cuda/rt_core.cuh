@@ -131,39 +131,42 @@ __device__ __inline__ void trace_ray(
             _dda_unit(pos, invdir, &subcube_tmin, &subcube_tmax);
 
             const float t_subcube = (subcube_tmax - subcube_tmin) / cube_sz;
+
             const float delta_t = t_subcube + step_size; //max(t_subcube, step_size);
-            att = expf(-delta_t * tree_val[data_dim - 1]);
-            const float weight = light_intensity * (1.f - att);
+            if (tree_val[data_dim - 1] > 1e-2) {
+                att = expf(-delta_t * tree_val[data_dim - 1]);
+                const float weight = light_intensity * (1.f - att);
 
-            if (sh_order >= 0) {
-                // _eval_sh(sh_order, sh_mult, tree_val, rgb);
+                if (sh_order >= 0) {
+                    // _eval_sh(sh_order, sh_mult, tree_val, rgb);
 #pragma unroll 3
-                for (int t = 0; t < 3; ++ t) {
-                    int off = t * n_coe;
-                    tmp = sh_mult[0] * tree_val[off] +
-                                  sh_mult[1] * tree_val[off + 1] +
-                                  sh_mult[2] * tree_val[off + 2];
+                    for (int t = 0; t < 3; ++ t) {
+                        int off = t * n_coe;
+                        tmp = sh_mult[0] * tree_val[off] +
+                            sh_mult[1] * tree_val[off + 1] +
+                            sh_mult[2] * tree_val[off + 2];
 #pragma unroll 6
-                    for (int i = 3; i < n_coe; ++i) {
-                        tmp += sh_mult[i] * tree_val[off + i];
+                        for (int i = 3; i < n_coe; ++i) {
+                            tmp += sh_mult[i] * tree_val[off + i];
+                        }
+                        out[t] += weight / (1.f + expf(-tmp));
                     }
-                    out[t] += weight / (1.f + expf(-tmp));
+                } else {
+                    for (int j = 0; j < 3; ++j) {
+                        out[j] += tree_val[j] * weight;
+                    }
                 }
-            } else {
-                for (int j = 0; j < 3; ++j) {
-                    out[j] += tree_val[j] * weight;
+
+                light_intensity *= att;
+
+                if (light_intensity < stop_thresh) {
+                    // Almost full opacity, stop
+                    float scale = 1.f / (1.f - light_intensity);
+                    out[0] *= scale;
+                    out[1] *= scale;
+                    out[2] *= scale;
+                    return;
                 }
-            }
-
-            light_intensity *= att;
-
-            if (light_intensity < stop_thresh) {
-                // Almost full opacity, stop
-                float scale = 1.f / (1.f - light_intensity);
-                out[0] *= scale;
-                out[1] *= scale;
-                out[2] *= scale;
-                return;
             }
             t += delta_t;
         }
