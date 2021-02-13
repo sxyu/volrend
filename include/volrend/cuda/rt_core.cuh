@@ -53,20 +53,6 @@ __device__ __inline__ void _precalc_sh(
     }
 }
 
-__device__ __inline__ void _eval_sh(
-    const int order,
-    const float* __restrict__ mult,
-    const float* __restrict__ sh,
-    float* __restrict__ rgb_out) {
-    const int n_coe = (order + 1) * (order + 1);
-    for (int t = 0; t < 3; ++ t) {
-        rgb_out[t] = 0.f;
-        for (int i = 0; i < n_coe; ++i) {
-            rgb_out[t] += mult[i] * sh[t * n_coe + i];
-        }
-    }
-}
-
 __device__ __inline__ void _dda_unit(
         const float* __restrict__ cen,
         const float* __restrict__ _invdir,
@@ -78,7 +64,7 @@ __device__ __inline__ void _dda_unit(
 #pragma unroll
     for (int i = 0; i < 3; ++i) {
         t1 = - cen[i] * _invdir[i];
-        t2 = (1.f - cen[i])* _invdir[i];
+        t2 = t1 +  _invdir[i];
         *tmin = max(*tmin, min(t1, t2));
         *tmax = min(*tmax, max(t1, t2));
     }
@@ -103,7 +89,7 @@ __device__ __inline__ void trace_ray(
     float invdir[3];
 #pragma unroll
     for (int i = 0; i < 3; ++i) {
-        invdir[i] = 1.f / dir[i];
+        invdir[i] = 1.f / (dir[i] + 1e-9);
     }
     _dda_unit(cen, invdir, &tmin, &tmax);
 
@@ -118,7 +104,7 @@ __device__ __inline__ void trace_ray(
         return;
     } else {
         out[0] = out[1] = out[2] = 0.0f;
-        float pos[3], rgb[3];
+        float pos[3], tmp;
         const float* tree_val;
         float sh_mult[49];
         if (sh_order >= 0) {
@@ -129,13 +115,14 @@ __device__ __inline__ void trace_ray(
         // int n_steps = (int) ceilf((tmax - tmin) / step_size);
         // for (int i = 0 ; i < n_steps; ++i) {
         float t = tmin;
+        const int n_coe = (sh_order + 1) * (sh_order + 1);
+        float cube_sz;
         while (t < tmax) {
             // const float t = tmin + i * step_size;
             for (int j = 0; j < 3; ++j) {
                 pos[j] = cen[j] + t * dir[j];
             }
 
-            float cube_sz;
             query_single_from_root(tree_data, tree_child,
                     pos, &tree_val, &cube_sz, tree_N, data_dim);
 
@@ -143,15 +130,24 @@ __device__ __inline__ void trace_ray(
             float subcube_tmin, subcube_tmax;
             _dda_unit(pos, invdir, &subcube_tmin, &subcube_tmax);
 
-            const float t_subcube = (subcube_tmax - subcube_tmin) * cube_sz;
-            const float delta_t = max(t_subcube, step_size);
+            const float t_subcube = (subcube_tmax - subcube_tmin) / cube_sz;
+            const float delta_t = t_subcube + step_size; //max(t_subcube, step_size);
             att = expf(-delta_t * tree_val[data_dim - 1]);
             const float weight = light_intensity * (1.f - att);
 
             if (sh_order >= 0) {
-                _eval_sh(sh_order, sh_mult, tree_val, rgb);
-                for (int j = 0; j < 3; ++j) {
-                    out[j] += weight / (1.f + expf(-rgb[j]));
+                // _eval_sh(sh_order, sh_mult, tree_val, rgb);
+#pragma unroll 3
+                for (int t = 0; t < 3; ++ t) {
+                    int off = t * n_coe;
+                    tmp = sh_mult[0] * tree_val[off] +
+                                  sh_mult[1] * tree_val[off + 1] +
+                                  sh_mult[2] * tree_val[off + 2];
+#pragma unroll 6
+                    for (int i = 3; i < n_coe; ++i) {
+                        tmp += sh_mult[i] * tree_val[off + i];
+                    }
+                    out[t] += weight / (1.f + expf(-tmp));
                 }
             } else {
                 for (int j = 0; j < 3; ++j) {

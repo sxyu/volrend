@@ -17,8 +17,14 @@ __global__ void precomp_kernel(float* data,
     CUDA_GET_THREAD_ID(tid, N);
     float* rgba = data + tid * data_dim;
 
-    // Nonleaf
+    // Nonleaf (TODO don't even need to store these, waste of 1/7)
     if (child[tid]) return;
+
+    for (int i = 0; i < data_dim; ++i) {
+        if (isnan(rgba[i]))
+            rgba[i] = 0.f;
+        rgba[i] = min(max(rgba[i], -1e9f), 1e9f);
+    }
 
     // for (int i = 0; i < 3; ++i) {
         // rgba[i] = 1.f / (1.f + expf(-rgba[i]));
