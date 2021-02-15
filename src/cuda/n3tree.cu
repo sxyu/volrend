@@ -56,7 +56,6 @@ void N3Tree::load_cuda() {
     cuda(MemcpyAsync(device.offset, offset.data(), 3 * sizeof(float),
                 cudaMemcpyHostToDevice));
     cuda_loaded_ = true;
-    last_sigma_thresh_ = -1.f;
     precompute_step(0.f);
 }
 
@@ -66,9 +65,9 @@ void N3Tree::free_cuda() {
     if (device.offset != nullptr) cuda(Free(device.offset));
 }
 
-void N3Tree::precompute_step(float sigma_thresh) const {
+bool N3Tree::precompute_step(float sigma_thresh) const {
     if (last_sigma_thresh_ == sigma_thresh) {
-        return;
+        return false;
     }
     last_sigma_thresh_ = sigma_thresh;
     const size_t data_count = capacity * N3_;
@@ -85,5 +84,6 @@ void N3Tree::precompute_step(float sigma_thresh) const {
             data_count,
             data_dim
         );
+    return true;
 }
 }  // namespace volrend

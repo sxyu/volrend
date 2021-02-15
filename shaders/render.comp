@@ -1,0 +1,242 @@
+#version 430 core
+
+layout(local_size_x = 8, local_size_y = 8) in;
+
+// Computer vision style camera
+struct Camera {
+    mat4x3 transform;
+    vec2 focal;
+};
+
+struct N3TreeSpec {
+    int N;
+    int data_dim;
+    int sh_order;
+    int n_coe;
+    float ndc_width;
+    float ndc_height;
+    float ndc_focal;
+};
+
+struct RenderOptions {
+    // Epsilon added to each step
+    float step_size;
+    // If remaining light intensity/alpha < this amount stop marching
+    float stop_thresh;
+    // Background brightness
+    float background_brightness;
+    // Color rays which do not hit anything in the bounding box magenta
+    bool show_miss;
+};
+
+uniform Camera cam;
+uniform RenderOptions opt;
+uniform N3TreeSpec tree;
+
+// The output image texture
+layout(rgba32f, binding = 0) uniform image2D img_output;
+
+// SSBO tree data
+layout(std430, binding = 0) buffer TreeDataBuffer {
+    float tree_data[];
+};
+layout(std430, binding = 1) buffer TreeChildBuffer {
+    int tree_child[];
+};
+
+// **** N^3 TREE IMPLEMENTATION ****
+
+// Tree query, returns
+// (start index of leaf node in tree_data, leaf node scale 2^depth)
+ivec2 query_single_from_root(inout vec3 xyz) {
+    const float fN = tree.N;
+    const int N3 = tree.N * tree.N * tree.N;
+    xyz =  max(min(xyz, 1.f - 1e-6f), 0.f);
+    int ptr = 0;
+    int sub_ptr = 0;
+    float cube_sz = 1;
+    while (true) {
+        xyz *= fN;
+        const vec3 idx = floor(xyz);
+        const float ind = idx.x * fN * fN + idx.y * fN + idx.z;
+        xyz -= idx;
+
+        // Find child offset
+        sub_ptr = ptr + int(ind);
+        const int skip = tree_child[sub_ptr];
+
+        // Add to output
+        if (skip == 0) {
+            break;
+        }
+        cube_sz++;
+        ptr += skip * N3;
+    }
+    cube_sz = pow(fN, cube_sz);
+    return ivec2(sub_ptr, cube_sz);
+}
+
+
+// **** CORE RAY TRACER IMPLEMENTATION ****
+
+#define M_PI 3.1415926535897932384626433832795
+const float C0 = 0.5 * sqrt(1.0 / M_PI);
+const float C1 = sqrt(3 / (4 * M_PI));
+const float C2[] = {0.5f * sqrt(15.0f / M_PI),
+    -0.5f * sqrt(15.0f / M_PI),
+    0.25f * sqrt(5.0f / M_PI),
+    -0.5f * sqrt(15.0f / M_PI),
+    0.25f * sqrt(15.0f / M_PI)};
+
+const float C3[] = {-0.25f * sqrt(35 / (2 * M_PI)),
+    0.5f * sqrt(105 / M_PI),
+    -0.25f * sqrt(21/(2 * M_PI)),
+    0.25f * sqrt(7 / M_PI),
+    -0.25f * sqrt(21/(2 * M_PI)),
+    0.25f * sqrt(105 / M_PI),
+    -0.25f * sqrt(35/(2 * M_PI))
+};
+
+void precalc_sh(const int order, const vec3 dir, inout float out_mult[16]) {
+    out_mult[0] = C0;
+    const float x = dir[0], y = dir[1], z = dir[2];
+    out_mult[1] = - C1 * y;
+    out_mult[2] = C1 * z;
+    out_mult[3] = -C1 * x;
+    if (order > 1) {
+        const float xx = x * x, yy = y * y, zz = z * z;
+        out_mult[4] = C2[0] * x * y;
+        out_mult[5] = C2[1] * y * z;
+        out_mult[6] = C2[2] * (2.0 * zz - xx - yy);
+        out_mult[7] = C2[3] * x * z;
+        out_mult[8] = C2[4] * (xx - yy);
+        if (order > 2) {
+            const float tmp_zzxxyy = 4 * zz - xx - yy;
+            out_mult[9] = C3[0] * y * (3 * xx - yy);
+            out_mult[10] = C3[1] * x * y * z;
+            out_mult[11] = C3[2] * y * tmp_zzxxyy;
+            out_mult[12] = C3[3] * z * (2 * zz - 3 * xx - 3 * yy);
+            out_mult[13] = C3[4] * x * tmp_zzxxyy;
+            out_mult[14] = C3[5] * z * (xx - yy);
+            out_mult[15] = C3[6] * x * (xx - 3 * yy);
+        }
+    }
+}
+
+vec2 dda_unit(vec3 cen, vec3 invdir) {
+    float t1, t2;
+    float tmin = 0.0f;
+    float tmax = 1e9f;
+    for (int i = 0; i < 3; ++i) {
+        t1 = -cen[i] * invdir[i];
+        t2 = t1 + invdir[i];
+        tmin = max(tmin, min(t1, t2));
+        tmax = min(tmax, max(t1, t2));
+    }
+    return vec2(tmin, tmax);
+}
+
+vec3 trace_ray(vec3 dir, vec3 vdir, vec3 cen) {
+    vec3 output_color;
+    vec3 invdir = 1.f / (dir + 1e-9);
+    vec2 tbounds = dda_unit(cen, invdir);
+
+    if (tbounds.y < 0 || tbounds.x > tbounds.y) {
+        // Ray doesn't hit box
+        if (opt.show_miss) {
+            output_color = vec3(1.f, 0.f, 1.f);
+        } else {
+            output_color = vec3(opt.background_brightness);
+        }
+    } else {
+        output_color = vec3(.0f);
+        float sh_mult[16];
+        if (tree.sh_order >= 0) {
+            precalc_sh(tree.sh_order, vdir, sh_mult);
+        }
+
+        float light_intensity = 1.f;
+        float t = tbounds.x;
+        float cube_sz;
+        while (t < tbounds.y) {
+            vec3 pos = cen + t * dir;
+            ivec2 query_result = query_single_from_root(pos);
+            int doffset = query_result.x * tree.data_dim;
+            int cube_sz = query_result.y;
+
+            vec2 subcube_tbounds = dda_unit(pos, invdir);
+
+            const float t_subcube = (subcube_tbounds.y - subcube_tbounds.x) / float(cube_sz);
+
+            const float delta_t = t_subcube + opt.step_size;
+            if (tree_data[doffset + tree.data_dim - 1] > 1e-2) {
+                const float att = min(exp(-delta_t * tree_data[doffset + tree.data_dim - 1]), 1.f);
+                const float weight = light_intensity * (1.f - att);
+
+                if (tree.sh_order >= 0) {
+                    int off = 0;
+                    for (int t = 0; t < 3; ++ t) {
+                        float tmp = sh_mult[0] * tree_data[doffset + off] +
+                            sh_mult[1] * tree_data[doffset + off + 1] +
+                            sh_mult[2] * tree_data[doffset + off + 2];
+                        for (int i = 3; i < tree.n_coe; ++i) {
+                            tmp += sh_mult[i] * tree_data[doffset + off + i];
+                        }
+                        output_color[t] += weight / (1.f + exp(-tmp));
+                        off += tree.n_coe;
+                    }
+                } else {
+                    for (int j = 0; j < 3; ++j) {
+                        output_color[j] += tree_data[doffset + j] * weight;
+                    }
+                }
+
+                light_intensity *= att;
+                if (light_intensity < opt.stop_thresh) {
+                    // Almost full opacity, stop
+                    output_color *= 1.f / (1.f - light_intensity);
+                    return output_color;
+                }
+            }
+            t += delta_t;
+        }
+        output_color += light_intensity * opt.background_brightness;
+    }
+    return output_color;
+}
+
+// **** NDC ****
+void world2ndc(inout vec3 dir, inout vec3 cen, float near = 1.f) {
+    float t = -(near + cen[2]) / dir[2];
+    cen += t * dir;
+
+    dir[0] = -((2 * tree.ndc_focal) / tree.ndc_width) * (dir[0] / dir[2] - cen[0] / cen[2]);
+    dir[1] = -((2 * tree.ndc_focal) / tree.ndc_height) * (dir[1] / dir[2] - cen[1] / cen[2]);
+    dir[2] = -2 * near / cen[2];
+
+    cen[0] = -((2 * tree.ndc_focal) / tree.ndc_width) * (cen[0] / cen[2]);
+    cen[1] = -((2 * tree.ndc_focal) / tree.ndc_height) * (cen[1] / cen[2]);
+    cen[2] = 1 + 2 * near / cen[2];
+
+    dir = normalize(dir);
+    cen = cen * 0.5 + 0.5;
+}
+
+void main()
+{
+    ivec2 img_size = imageSize(img_output);
+    ivec2 pix = ivec2(gl_GlobalInvocationID.xy);
+
+    vec2 xy = pix * 2.0 / img_size - 1.0;
+    vec3 dir = normalize(vec3(xy / cam.focal, 1.0));
+    dir = normalize(mat3(cam.transform) * dir);
+    vec3 cen = cam.transform[3];
+
+    vec3 rgb;
+    vec3 vdir = dir;
+    if (tree.ndc_width > 0.f) {
+        world2ndc(dir, cen);
+    }
+    rgb = trace_ray(dir, vdir, cen);
+    imageStore(img_output, pix, vec4(rgb, 1.0));
+}

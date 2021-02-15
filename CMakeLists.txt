@@ -22,6 +22,7 @@ set(VOLREND_VERSION ${VOLREND_VERSION_MAJOR}.${VOLREND_VERSION_MINOR}.${VOLREND_
 option( VOLREND_USE_SYSTEM_GLFW
     "Use system glfw rather than the included glfw submodule if available" ON )
 option( VOLREND_USE_OPENEXR "Use OpenEXR if we can find it" ON )
+option( VOLREND_USE_CUDA "Use CUDA" OFF )
 option( VOLREND_BUILD_INSTALL "Build the install target" ON )
 option( VOLREND_BUILD_PYTHON "Build Python bindings" OFF )
 option( VOLREND_USE_FFAST_MATH "Use -ffast-math" OFF )
@@ -32,11 +33,15 @@ set( CMAKE_CXX_STANDARD_REQUIRED ON)
 set( CMAKE_MODULE_PATH "${CMAKE_CURRENT_SOURCE_DIR}/cmake" )
 
 # CUDA
-enable_language(CUDA)
-message(STATUS "CUDA enabled")
-set( CMAKE_CUDA_STANDARD 14 )
-set( CMAKE_CUDA_STANDARD_REQUIRED ON)
-set( CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}  -g -Xcudafe \"--display_error_number --diag_suppress=3057 --diag_suppress=3058 --diag_suppress=3059 --diag_suppress=3060\" -lineinfo")
+set (_VOLREND_CUDA_ "// ")
+if (VOLREND_USE_CUDA)
+    set (_VOLREND_CUDA_ "")
+    enable_language(CUDA)
+    message(STATUS "CUDA enabled")
+    set( CMAKE_CUDA_STANDARD 14 )
+    set( CMAKE_CUDA_STANDARD_REQUIRED ON)
+    set( CMAKE_CUDA_FLAGS "${CMAKE_CUDA_FLAGS}  -g -Xcudafe \"--display_error_number --diag_suppress=3057 --diag_suppress=3058 --diag_suppress=3059 --diag_suppress=3060\" -lineinfo")
+endif(VOLREND_USE_CUDA)
 
 set( INCLUDE_DIR "${CMAKE_CURRENT_SOURCE_DIR}/include" )
 set( SRC_DIR "${CMAKE_CURRENT_SOURCE_DIR}/src" )
@@ -62,7 +67,9 @@ elseif( MSVC )
     set(CMAKE_CXX_FLAGS_DEBUG "${CMAKE_CXX_FLAGS_DEBUG} /MTd")
     set(CMAKE_CXX_FLAGS_RELEASE "${CMAKE_CXX_FLAGS_RELEASE} /MT /GLT /Ox")
     set(CMAKE_C_FLAGS_DEBUG "${CMAKE_C_FLAGS_DEBUG} /MTd")
-    set(CMAKE_CUDA_FLAGS_RELEASE "${CMAKE_CUDA_FLAGS_RELEASE} -Xcompiler=\"/MT\"" )
+    if (VOLREND_USE_CUDA)
+        set(CMAKE_CUDA_FLAGS_RELEASE "${CMAKE_CUDA_FLAGS_RELEASE} -Xcompiler=\"/MT\"" )
+    endif()
     set(CMAKE_C_FLAGS_RELEASE "${CMAKE_C_FLAGS_RELEASE} /MT /GLT")
 endif ( )
 
@@ -101,12 +108,22 @@ set(IMGUI_HEADERS
     )
 
 file(GLOB VOLREND_SOURCES ${SRC_DIR}/*.cpp)
-file(GLOB VOLREND_SOURCES_CUDA ${SRC_DIR}/cuda/*.cu)
-set(VOLREND_SOURCES ${VOLREND_SOURCES} ${VOLREND_SOURCES_CUDA})
 file(GLOB VOLREND_PUBLIC_HEADERS ${INCLUDE_DIR}/volrend/*.hpp)
 file(GLOB VOLREND_PRIVATE_HEADERS ${INCLUDE_DIR}/volrend/internal/*.hpp)
 
-set ( VOLREND_HEADERS ${VOLREND_PUBLIC_HEADERS} ${VOLREND_PRIVATE_HEADERS} )
+if (VOLREND_USE_CUDA)
+    file(GLOB VOLREND_SOURCES_CUDA ${SRC_DIR}/cuda/*.cu)
+    file(GLOB VOLREND_CUDA_HEADERS
+            ${INCLUDE_DIR}/volrend/cuda/*.cuh
+            ${INCLUDE_DIR}/volrend/cuda/*.hpp)
+else (VOLREND_USE_CUDA)
+    set(VOLREND_SOURCES_CUDA )
+    set(VOLREND_CUDA_HEADERS )
+endif (VOLREND_USE_CUDA)
+
+set(VOLREND_SOURCES ${VOLREND_SOURCES} ${VOLREND_SOURCES_CUDA})
+set(VOLREND_HEADERS ${VOLREND_PUBLIC_HEADERS} ${VOLREND_PRIVATE_HEADERS}
+    ${VOLREND_CUDA_HEADERS})
 
 set( VOLREND_VENDOR_SOURCES
     ${GLEW_DIR}/src/glew.c
@@ -167,9 +184,11 @@ include_directories(
     ${CNPY_DIR}
     ${GLEW_DIR}/include
     ${GLM_DIR}
-    ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES}
     ${VENDOR_DIR}/misc
 )
+if (VOLREND_SOURCES_CUDA)
+include_directories ( ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
+endif()
 
 find_package(OpenGL REQUIRED)
 set( DEPENDENCIES ${DEPENDENCIES}
@@ -212,8 +231,11 @@ set ( VOLREND_PUBLIC_HEADERS ${VOLREND_PUBLIC_HEADERS} "${COMMON_HPP_PATH}")
 
 add_library( ${PROJ_LIB_NAME} STATIC ${VOLREND_SOURCES}
     ${IMGUI_SOURCES} ${VOLREND_VENDOR_SOURCES} )
-set_target_properties( ${PROJ_LIB_NAME}
-                           PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+
+if (VOLREND_USE_CUDA)
+    set_target_properties( ${PROJ_LIB_NAME}
+                               PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+endif()
 
 target_include_directories(
     ${PROJ_LIB_NAME} PUBLIC

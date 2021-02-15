@@ -51,8 +51,6 @@ struct Camera {
     void _update(bool copy_cuda = true);
 
    private:
-    void free_cuda();
-
     // For dragging
     struct DragState;
     std::unique_ptr<DragState> drag_state_;

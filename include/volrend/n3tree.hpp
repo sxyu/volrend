@@ -14,7 +14,7 @@ using Rgba = std::array<float, 4>;
 
 // Read-only N3Tree loader
 struct N3Tree {
-    N3Tree() = delete;
+    N3Tree();
     explicit N3Tree(const std::string& path);
     ~N3Tree();
 
@@ -47,11 +47,15 @@ struct N3Tree {
     // std::vector<float> operator[](const std::vector<float>& indices) const;
 
     bool is_data_loaded();
+#ifdef VOLREND_CUDA
     bool is_cuda_loaded();
+#endif
 
-    // Pre-apply operations to leaf (in CUDA memory):
-    // Also applies sigmoid & relu
-    void precompute_step(float sigma_thresh) const;
+    // Pre-apply operations to leaf
+    // CUDA: performs in CUDA memory
+    // CS: copies from data_/data_cnpy_ to data_proc_ (CPU)
+    // returns true iff data was modified
+    bool precompute_step(float sigma_thresh) const;
 
     // Index pack/unpack
     int pack_index(int nd, int i, int j, int k);
@@ -61,12 +65,21 @@ struct N3Tree {
     bool use_ndc;
     float ndc_width, ndc_height, ndc_focal;
 
+#ifdef VOLREND_CUDA
     // CUDA memory
     mutable struct {
         float* data = nullptr;
         int32_t* child = nullptr;
         float* offset = nullptr;
     } device;
+
+#else
+    // Preprocessed data
+    mutable std::vector<float> data_proc_;
+#endif
+
+    // Child link data holder
+    cnpy::NpyArray child_;
 
    private:
     int N2_, N3_;
@@ -75,18 +88,19 @@ struct N3Tree {
     std::vector<float> data_;
     cnpy::NpyArray data_cnpy_;
 
-    // Child link data holder
-    cnpy::NpyArray child_;
-
     // Paths
     std::string npz_path_, data_path_, poses_bounds_path_;
-    bool data_loaded_, cuda_loaded_;
+    bool data_loaded_;
 
     mutable float last_sigma_thresh_;
 
     void load_data();
+
+#ifdef VOLREND_CUDA
+    bool cuda_loaded_;
     void load_cuda();
     void free_cuda();
+#endif
 };
 
 }  // namespace volrend

@@ -1,6 +1,6 @@
 # N3-Tree Volume Rendering
 
-This is a real-time volume renderer built using CUDA + OpenGL interop.
+This is a real-time volume renderer built using OpenGL *computer shaders*
 Here, we use a N^3 tree to model volumetric emission and absorption at RGB frequencies
 (by N^3 tree we mean octree but with branching factor N, the standard case is N=2).
 
@@ -40,6 +40,7 @@ In the same direcotry.
 - C++14
 - OpenGL
     - any dependencies of GLFW
-- CUDA Toolkit (tested on CUDA version 11.2)
 - OpenEXR *Now optional* 
 (I installed from source <https://github.com/AcademySoftwareFoundation/openexr>)
+
+This version does not require CUDA Toolkit.

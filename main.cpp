@@ -5,9 +5,6 @@
 #include <cstdlib>
 #include <cstdio>
 
-#include <cuda_gl_interop.h>
-
-#include "volrend/cuda/common.cuh"
 #include "volrend/renderer.hpp"
 #include "volrend/n3tree.hpp"
 
@@ -16,23 +13,20 @@
 
 namespace volrend {
 
-// ORIGINAL CODE FROM
+// Starting CUDA/OpenGL interop code from
 // https://gist.github.com/allanmac/4ff11985c3562830989f
-
-// FPS COUNTER FROM HERE:
-// http://antongerdelan.net/opengl/glcontext2.html
 
 namespace {
 
 #define GET_RENDERER(window) \
-    (*((CUDAVolumeRenderer*)glfwGetWindowUserPointer(window)))
+    (*((VolumeRenderer*)glfwGetWindowUserPointer(window)))
 
 void glfw_update_title(GLFWwindow* window) {
     // static fps counters
+    // Source: http://antongerdelan.net/opengl/glcontext2.html
     static double stamp_prev = 0.0;
     static int frame_count = 0;
 
-    // locals
     const double stamp_curr = glfwGetTime();
     const double elapsed = stamp_curr - stamp_prev;
 
@@ -51,7 +45,7 @@ void glfw_update_title(GLFWwindow* window) {
     frame_count++;
 }
 
-void draw_imgui(CUDAVolumeRenderer& rend) {
+void draw_imgui(VolumeRenderer& rend) {
     auto& cam = rend.camera;
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -84,6 +78,7 @@ void draw_imgui(CUDAVolumeRenderer& rend) {
     ImGui::SameLine();
     ImGui::TextUnformatted("Key 1-6: preset cams");
     ImGui::End();
+    // End camera window
 
     // Render window
     ImGui::SetNextWindowPos(ImVec2(20.f, 180.f), ImGuiCond_Once);
@@ -99,8 +94,11 @@ void draw_imgui(CUDAVolumeRenderer& rend) {
     ImGui::SliderFloat("bg_brightness", &rend.options.background_brightness,
                        0.f, 1.0f);
     ImGui::Checkbox("show_miss", &rend.options.show_miss);
+    ImGui::SameLine();
+    ImGui::Text("Backend: %s", rend.get_backend());
 
     ImGui::End();
+    // End render window
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -236,7 +234,7 @@ GLFWwindow* glfw_init(const int width, const int height) {
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
     GLFWwindow* window =
-        glfwCreateWindow(width, height, "GLFW / CUDA Interop", NULL, NULL);
+        glfwCreateWindow(width, height, "volrend viewer", NULL, NULL);
 
     if (window == nullptr) {
         glfwTerminate();
@@ -286,33 +284,17 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Expect argument: npz file\n");
         return 1;
     }
+    const int device_id = (argc > 1) ? atoi(argv[1]) : -1;
     GLFWwindow* window = glfw_init(960, 1039);
-    GLint gl_device_id;
-    GLuint gl_device_count;
-    cuda(GLGetDevices(&gl_device_count, &gl_device_id, 1, cudaGLDeviceListAll));
-
-    int cuda_device_id = (argc > 1) ? atoi(argv[1]) : gl_device_id;
-    cuda(SetDevice(cuda_device_id));
-
-    // MULTI-GPU?
-    const bool multi_gpu = gl_device_id != cuda_device_id;
-
-    // INFO
-    struct cudaDeviceProp props;
-
-    cuda(GetDeviceProperties(&props, gl_device_id));
-    printf("OpenGL : %-24s (%d)\n", props.name, props.multiProcessorCount);
-
-    cuda(GetDeviceProperties(&props, cuda_device_id));
-    printf("CUDA   : %-24s (%d)\n", props.name, props.multiProcessorCount);
-
     {
+        VolumeRenderer rend(device_id);
+        // N3Tree tree;
         N3Tree tree(argv[1]);
-        CUDAVolumeRenderer rend;
         if (tree.use_ndc) {
             rend.camera.set_ndc(tree.ndc_focal, tree.ndc_width,
                                 tree.ndc_height);
         }
+        rend.set(tree);
 
         // get initial width/height
         {
@@ -334,10 +316,7 @@ int main(int argc, char* argv[]) {
             // MONITOR FPS
             glfw_update_title(window);
 
-            rend.clear();
-
-            rend.render(tree);
-            rend.swap();
+            rend.render();
 
             draw_imgui(rend);
 
@@ -352,8 +331,6 @@ int main(int argc, char* argv[]) {
     ImGui_ImplOpenGL3_Shutdown();
     ImGui_ImplGlfw_Shutdown();
     ImGui::DestroyContext();
-
     glfwDestroyWindow(window);
     glfwTerminate();
-    cuda(DeviceReset());
 }

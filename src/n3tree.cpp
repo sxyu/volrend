@@ -4,6 +4,8 @@
 #include <cstring>
 #include <cstdlib>
 #include <fstream>
+#include <thread>
+#include <atomic>
 #ifdef VOLREND_OPENEXR
 #include <OpenEXR/ImfRgbaFile.h>
 #else
@@ -12,12 +14,23 @@
 
 namespace volrend {
 
+void precomp_kernel(float* data, const int32_t* __restrict__ child,
+                    float step_sz, float sigma_thresh, const int N,
+                    const int data_dim) {}
+
+N3Tree::N3Tree() {}
 N3Tree::N3Tree(const std::string& path) : npz_path_(path) { open(path); }
-N3Tree::~N3Tree() { free_cuda(); }
+N3Tree::~N3Tree() {
+#ifdef VOLREND_CUDA
+    free_cuda();
+#endif
+}
 
 void N3Tree::open(const std::string& path) {
     data_loaded_ = false;
+#ifdef VOLREND_CUDA
     cuda_loaded_ = false;
+#endif
     npz_path_ = path;
     assert(path.size() > 3 && path.substr(path.size() - 4) == ".npz");
 
@@ -101,7 +114,10 @@ void N3Tree::open(const std::string& path) {
             ndc_focal = ptr[14];
         }
     }
+    last_sigma_thresh_ = -1.f;
+#ifdef VOLREND_CUDA
     load_cuda();
+#endif
 }
 
 void N3Tree::load_data() {
@@ -143,7 +159,9 @@ int32_t N3Tree::get_child(int nd, int i, int j, int k) {
 }
 
 bool N3Tree::is_data_loaded() { return data_loaded_; }
+#ifdef VOLREND_CUDA
 bool N3Tree::is_cuda_loaded() { return cuda_loaded_; }
+#endif
 
 int N3Tree::pack_index(int nd, int i, int j, int k) {
     assert(i < N && j < N && k < N && i >= 0 && j >= 0 && k >= 0);
@@ -159,5 +177,54 @@ std::tuple<int, int, int, int> N3Tree::unpack_index(int packed) {
     packed /= N;
     return {packed, i, j, k};
 }
+
+#ifndef VOLREND_CUDA
+bool N3Tree::precompute_step(float sigma_thresh) const {
+    if (last_sigma_thresh_ == sigma_thresh) {
+        return false;
+    }
+    last_sigma_thresh_ = sigma_thresh;
+    const size_t data_count = capacity * N3_;
+    const float* data_ptr =
+        data_.empty() ? data_cnpy_.data<float>() : data_.data();
+    data_proc_.resize(data_count * data_dim);
+    float* data_out_ptr = data_proc_.data();
+    const int32_t* child_ptr = child_.data<int32_t>();
+    float step_sz = 1.f / scale;
+
+    std::atomic<size_t> counter(0);
+    auto worker = [&]() {
+        while (true) {
+            size_t i = counter++;
+            if (i >= data_count) {
+                break;
+            }
+            const float* rgba = data_ptr + i * data_dim;
+            float* rgba_out = data_out_ptr + i * data_dim;
+            if (child_ptr[i]) continue;
+
+            for (int i = 0; i < data_dim; ++i) {
+                if (isnan(rgba[i]))
+                    rgba_out[i] = 0.f;
+                else {
+                    rgba_out[i] = std::min(std::max(rgba[i], -1e9f), 1e9f);
+                }
+            }
+
+            const int alpha_idx = data_dim - 1;
+            if (rgba[alpha_idx] < sigma_thresh)
+                rgba_out[alpha_idx] = 0.f;
+            else
+                rgba_out[alpha_idx] = rgba[alpha_idx] * step_sz;
+        }
+    };
+    std::vector<std::thread> thds;
+    for (int i = 0; i < std::thread::hardware_concurrency(); ++i) {
+        thds.emplace_back(worker);
+    }
+    for (auto& thd : thds) thd.join();
+    return true;
+}
+#endif
 
 }  // namespace volrend

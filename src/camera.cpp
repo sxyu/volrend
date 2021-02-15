@@ -1,7 +1,6 @@
 #include "volrend/camera.hpp"
 #include <cmath>
 
-#include <cuda_runtime.h>
 #include <glm/geometric.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/gtc/type_ptr.hpp>
@@ -34,7 +33,13 @@ Camera::Camera(int width, int height, float focal)
     _update();
 }
 
-Camera::~Camera() { free_cuda(); }
+Camera::~Camera() {
+#ifdef VOLREND_CUDA
+    if (device.transform != nullptr) {
+        cuda(Free(device.transform));
+    }
+#endif
+}
 
 void Camera::_update(bool copy_cuda) {
     v_right = glm::normalize(glm::cross(v_world_down, v_forward));
@@ -44,6 +49,7 @@ void Camera::_update(bool copy_cuda) {
     transform[2] = v_forward;
     transform[3] = center;
 
+#ifdef VOLREND_CUDA
     if (copy_cuda) {
         if (device.transform == nullptr) {
             cuda(Malloc((void**)&device.transform, 12 * sizeof(transform[0])));
@@ -51,6 +57,7 @@ void Camera::_update(bool copy_cuda) {
         cuda(MemcpyAsync(device.transform, glm::value_ptr(transform),
                          12 * sizeof(transform[0]), cudaMemcpyHostToDevice));
     }
+#endif
 }
 
 void Camera::begin_drag(float x, float y, bool is_pan, bool about_origin) {
@@ -97,12 +104,6 @@ void Camera::drag_update(float x, float y) {
     }
 }
 void Camera::end_drag() { drag_state_->is_dragging = false; }
-
-void Camera::free_cuda() {
-    if (device.transform != nullptr) {
-        cuda(Free(device.transform));
-    }
-}
 
 void Camera::set_ndc(float ndc_focal, float ndc_width, float ndc_height) {
     focal = 1800.f;

@@ -88,7 +88,6 @@ __global__ static void render_kernel(
         int tree_N,
         int data_dim,
         int sh_order,
-        bool use_ndc,
         float ndc_width,
         float ndc_height,
         float ndc_focal,
@@ -109,7 +108,7 @@ __global__ static void render_kernel(
         cen[i] = transform[9 + i];
         dir[i] = vdir[i];
     }
-    if (use_ndc) {
+    if (ndc_width > 0.f) {
         world2ndc(ndc_width, ndc_height, ndc_focal, dir, cen);
     }
 
@@ -160,8 +159,7 @@ __host__ void launch_renderer(const N3Tree& tree,
             tree.N,
             tree.data_dim,
             tree.sh_order,
-            tree.use_ndc,
-            tree.ndc_width,
+            tree.use_ndc ? tree.ndc_width : -1,
             tree.ndc_height,
             tree.ndc_focal,
             options.step_size,

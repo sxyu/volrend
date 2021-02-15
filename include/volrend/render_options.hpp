@@ -2,6 +2,8 @@
 
 #include "volrend/common.hpp"
 
+namespace volrend {
+
 struct RenderOptions {
     float step_size = 1.0f / 1000.0;
     // If a point has sigma < this amount, considers sigma = 0
@@ -13,3 +15,5 @@ struct RenderOptions {
     // Color rays which do not hit anything in the bounding box magenta
     bool show_miss = false;
 };
+
+}  // namespace volrend
