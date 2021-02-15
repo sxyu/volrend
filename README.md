@@ -17,7 +17,7 @@ cmake ..
 make -j12
 ```
 
-Pass `-VOLREND_USE_CUDA=ON` to use CUDA-OpenGL interop renderer instead of compute shader.
+Pass `-DVOLREND_USE_CUDA=ON` to use CUDA-OpenGL interop renderer instead of compute shader.
 It is slower but currently the CS renderer has a mysterious performance issue when camera is inside a
 dense part of the voxel grid.
 
@@ -42,11 +42,11 @@ In the same direcotry.
 
 ### Dependencies
 - C++14
-- OpenGL
+- OpenGL 4.3 + (4.3 needed for SSBO)
     - any dependencies of GLFW
 
 #### Optional
 - CUDA Toolkit, I use 11.0
-    - Pass `-VOLREND_USE_CUDA=ON` to cmake to use the CUDA renderer
+    - Pass `-DVOLREND_USE_CUDA=ON` to cmake to use the CUDA renderer
 - OpenEXR
 (I installed from source <https://github.com/AcademySoftwareFoundation/openexr>)
