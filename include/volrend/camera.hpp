@@ -19,6 +19,8 @@ struct Camera {
     void begin_drag(float x, float y, bool is_pan, bool about_origin);
     void drag_update(float x, float y);
     void end_drag();
+    /** Move center by +=xyz, correctly handling drag **/
+    void move(const glm::vec3& xyz);
 
     void set_ndc(float ndc_focal, float ndc_width, float ndc_height);
 

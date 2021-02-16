@@ -104,6 +104,12 @@ void Camera::drag_update(float x, float y) {
     }
 }
 void Camera::end_drag() { drag_state_->is_dragging = false; }
+void Camera::move(const glm::vec3& xyz) {
+    center += xyz;
+    if (drag_state_->is_dragging) {
+        drag_state_->drag_start_center += xyz;
+    }
+}
 
 void Camera::set_ndc(float ndc_focal, float ndc_width, float ndc_height) {
     focal = 1800.f;

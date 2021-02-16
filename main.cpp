@@ -67,7 +67,8 @@ void draw_imgui(VolumeRenderer& rend) {
         forward_tmp = forward_prev = cam.v_forward;
 
     ImGui::InputFloat3("center", glm::value_ptr(cam.center));
-    ImGui::SliderFloat("focal", &cam.focal, 300.f, 3500.f);
+    // ImGui::SliderFloat("focal", &cam.focal, 300.f, 3500.f);
+    ImGui::SliderFloat("focal", &cam.focal, 300.f, 7000.f);
     ImGui::Spacing();
     ImGui::InputFloat3("world_down", glm::value_ptr(world_down_tmp));
     ImGui::InputFloat3("forward", glm::value_ptr(forward_tmp));
@@ -135,7 +136,7 @@ void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action,
                                       : (key == GLFW_KEY_W || key == GLFW_KEY_S)
                                             ? cam.v_forward
                                             : cam.v_down;
-                cam.center += vec * speed;
+                cam.move(vec * speed);
             } break;
 
             case GLFW_KEY_MINUS:

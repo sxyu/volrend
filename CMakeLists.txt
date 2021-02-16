@@ -22,7 +22,7 @@ set(VOLREND_VERSION ${VOLREND_VERSION_MAJOR}.${VOLREND_VERSION_MINOR}.${VOLREND_
 option( VOLREND_USE_SYSTEM_GLFW
     "Use system glfw rather than the included glfw submodule if available" ON )
 option( VOLREND_USE_OPENEXR "Use OpenEXR if we can find it" ON )
-option( VOLREND_USE_CUDA "Use CUDA" OFF )
+option( VOLREND_USE_CUDA "Use CUDA" ON )
 option( VOLREND_BUILD_INSTALL "Build the install target" ON )
 option( VOLREND_BUILD_PYTHON "Build Python bindings" OFF )
 option( VOLREND_USE_FFAST_MATH "Use -ffast-math" OFF )

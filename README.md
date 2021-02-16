@@ -17,9 +17,10 @@ cmake ..
 make -j12
 ```
 
-Pass `-DVOLREND_USE_CUDA=ON` to use CUDA-OpenGL interop renderer instead of compute shader.
-It is slower but currently the CS renderer has a mysterious performance issue when camera is inside a
-dense part of the voxel grid.
+- Pass `-DVOLREND_USE_CUDA=ON` to use CUDA-OpenGL interop renderer.
+- Pass `-DVOLREND_USE_CUDA=OFF` to use compute shader backend.
+It has has a mysterious performance issue when camera is inside the voxel grid. However,
+it is very fast outside and can work without CUDA.
 
 On Ubuntu, to get the dependencies, try
 `sudo apt-get install libgl1-mesa-dev libxi-dev libxinerama-dev libxcursor-dev libxrandr-dev libgl1-mesa-dev libglu1-mesa-dev`
@@ -47,6 +48,6 @@ In the same direcotry.
 
 #### Optional
 - CUDA Toolkit, I use 11.0
-    - Pass `-DVOLREND_USE_CUDA=ON` to cmake to use the CUDA renderer
+    - Pass `-DVOLREND_USE_CUDA=OFF` to disable it.
 - OpenEXR
 (I installed from source <https://github.com/AcademySoftwareFoundation/openexr>)
