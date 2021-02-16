@@ -285,7 +285,7 @@ int main(int argc, char* argv[]) {
         fprintf(stderr, "Expect argument: npz file\n");
         return 1;
     }
-    const int device_id = (argc > 1) ? atoi(argv[1]) : -1;
+    const int device_id = (argc > 2) ? atoi(argv[2]) : -1;
     GLFWwindow* window = glfw_init(960, 1039);
     {
         VolumeRenderer rend(device_id);
