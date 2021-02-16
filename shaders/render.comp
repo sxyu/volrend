@@ -51,7 +51,7 @@ layout(std430, binding = 1) readonly restrict buffer TreeChildBuffer {
 int query_single_from_root(inout vec3 xyz, out float cube_sz) {
     const float fN = tree.N;
     const int N3 = tree.N * tree.N * tree.N;
-    xyz =  clamp(xyz, 0.f, 1.f);
+    xyz =  clamp(xyz, 0.f, 1.f - 1e-6f);
     int ptr = 0;
     int sub_ptr = 0;
     vec3 idx;
