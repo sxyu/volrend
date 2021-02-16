@@ -6,8 +6,7 @@
 
 #define CUDA_GET_THREAD_ID(tid, Q) const int tid = blockIdx.x * blockDim.x + threadIdx.x; \
                       if (tid >= Q) return
-#define N_CUDA_THREADS 1024
-#define N_BLOCKS_NEEDED(Q) ((Q - 1) / N_CUDA_THREADS + 1)
+#define N_BLOCKS_NEEDED(Q, N_CUDA_THREADS) ((Q - 1) / N_CUDA_THREADS + 1)
 
 template <typename scalar_t>
 __device__ __inline__ bool outside_grid(const scalar_t* __restrict__ q) {

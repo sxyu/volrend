@@ -75,7 +75,9 @@ bool N3Tree::precompute_step(float sigma_thresh) const {
     cuda(MemcpyAsync(device.data, data_ptr, data_count * data_dim * sizeof(float),
                 cudaMemcpyHostToDevice));
 
-    device::precomp_kernel<<<N_BLOCKS_NEEDED(data_count), N_CUDA_THREADS>>>
+    const int N_CUDA_THREADS = 512;
+
+    device::precomp_kernel<<<N_BLOCKS_NEEDED(data_count, N_CUDA_THREADS), N_CUDA_THREADS>>>
         (
             device.data,
             device.child,

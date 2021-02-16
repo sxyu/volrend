@@ -146,7 +146,11 @@ __host__ void launch_renderer(const N3Tree& tree,
     cudaSurfaceObject_t surf_obj = 0;
     cudaCreateSurfaceObject(&surf_obj, &res_desc);
 
-    const int blocks = N_BLOCKS_NEEDED(cam.width * cam.height);
+    // 128 is weirdly faster for me than 1024
+    // Not sure if this scales to a good GPU
+    const int N_CUDA_THREADS = 128;
+
+    const int blocks = N_BLOCKS_NEEDED(cam.width * cam.height, N_CUDA_THREADS);
     float focal_norm_x = cam.focal / (cam.width * 0.5f);
     float focal_norm_y = cam.focal / (cam.height * 0.5f);
 

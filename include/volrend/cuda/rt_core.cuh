@@ -106,7 +106,7 @@ __device__ __inline__ void trace_ray(
         out[0] = out[1] = out[2] = 0.0f;
         float pos[3], tmp;
         const float* tree_val;
-        float sh_mult[49];
+        float sh_mult[16];
         if (sh_order >= 0) {
             _precalc_sh(sh_order, vdir, sh_mult);
         }
