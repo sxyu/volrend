@@ -31,7 +31,7 @@ struct N3Tree {
     int capacity;
 
     // Scaling for coordinates
-    float scale;
+    std::array<float, 3> scale;
     // Translation
     std::array<float, 3> offset;
 
@@ -51,12 +51,6 @@ struct N3Tree {
     bool is_cuda_loaded();
 #endif
 
-    // Pre-apply operations to leaf
-    // CUDA: performs in CUDA memory
-    // CS: copies from data_/data_cnpy_ to data_proc_ (CPU)
-    // returns true iff data was modified
-    bool precompute_step(float sigma_thresh) const;
-
     // Index pack/unpack
     int pack_index(int nd, int i, int j, int k);
     std::tuple<int, int, int, int> unpack_index(int packed);
@@ -71,12 +65,11 @@ struct N3Tree {
         float* data = nullptr;
         int32_t* child = nullptr;
         float* offset = nullptr;
+        float* scale = nullptr;
     } device;
-
-#else
-    // Preprocessed data
-    mutable std::vector<float> data_proc_;
 #endif
+    float* data_ptr();
+    const float* data_ptr() const;
 
     // Child link data holder
     cnpy::NpyArray child_;

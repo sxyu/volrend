@@ -29,7 +29,7 @@ struct Camera {
     glm::vec3 v_forward, v_world_down, center;
 
     // Origin for about-origin rotation
-    glm::vec3 v_origin;
+    glm::vec3 origin;
 
     // Vectors below are automatically updated
     glm::vec3 v_down, v_right;

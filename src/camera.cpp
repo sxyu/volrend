@@ -26,10 +26,10 @@ Camera::Camera(int width, int height, float focal)
       height(height),
       focal(focal),
       drag_state_(std::make_unique<DragState>()) {
-    center = {-0.35f, 0.5, 1.35f};
+    center = {-2.2f, 0.0, 2.2f};
     v_forward = {0.7071068f, 0.0f, -0.7071068f};
     v_world_down = {0.0f, 0.0f, -1.0f};
-    v_origin = {0.5f, 0.5f, 0.5f};
+    origin = {0.0f, 0.0f, 0.0f};
     _update();
 }
 
@@ -95,10 +95,10 @@ void Camera::drag_update(float x, float y) {
         v_forward = glm::normalize(v_forward_new);
 
         if (drag_state_->about_origin) {
-            center = glm::vec3(m * glm::vec4(drag_state_->drag_start_center -
-                                                 v_origin,
-                                             1.f)) +
-                     v_origin;
+            center =
+                glm::vec3(m * glm::vec4(drag_state_->drag_start_center - origin,
+                                        1.f)) +
+                origin;
         }
         _update(false);
     }
@@ -116,7 +116,7 @@ void Camera::set_ndc(float ndc_focal, float ndc_width, float ndc_height) {
     center = {0.f, 0.f, 0.0f};
     v_forward = {0.0f, 0.0f, -1.0f};
     v_world_down = {0.0f, -1.0f, 0.0f};
-    v_origin = {0.0f, 0.0f, -2.0f};
+    origin = {0.0f, 0.0f, -2.0f};
     _update();
 }
 

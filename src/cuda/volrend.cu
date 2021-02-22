@@ -69,9 +69,16 @@ __host__ __device__ __inline__ static void world2ndc(
     dir[0] /= norm;
     dir[1] /= norm;
     dir[2] /= norm;
+}
 
-    for (int i = 0; i < 3; ++i)
-        cen[i] = cen[i] * 0.5f + 0.5f;
+template <typename scalar_t>
+__device__ __inline__ scalar_t _get_delta_scale(
+    const scalar_t* __restrict__ scaling,
+    const scalar_t* __restrict__ dir) {
+    const scalar_t dx = dir[0] / scaling[0],
+                   dy = dir[1] / scaling[1],
+                   dz = dir[2] / scaling[2];
+    return sqrtf(dx * dx + dy * dy + dz * dz);
 }
 
 namespace device {
@@ -85,6 +92,8 @@ __global__ static void render_kernel(
         const float* __restrict__ transform,
         const float* __restrict__ tree_data,
         const int32_t* __restrict__ tree_child,
+        const float* __restrict__ tree_offset,
+        const float* __restrict__ tree_scale,
         int tree_N,
         int data_dim,
         int sh_order,
@@ -93,6 +102,7 @@ __global__ static void render_kernel(
         float ndc_focal,
         float step_size,
         float stop_thresh,
+        float sigma_thresh,
         float background_brightness,
         bool show_miss) {
     CUDA_GET_THREAD_ID(idx, width * height);
@@ -105,15 +115,21 @@ __global__ static void render_kernel(
     float dir[3], vdir[3], cen[3], out[3];
     screen2worlddir(x_norm, y_norm, focal_norm_x, focal_norm_y, transform, vdir);
     for (int i = 0; i < 3; ++i) {
-        cen[i] = transform[9 + i];
+        cen[i] = tree_offset[i] + tree_scale[i] * transform[9 + i];
         dir[i] = vdir[i];
     }
+    const float delta_scale = _get_delta_scale(tree_scale, dir);
     if (ndc_width > 0.f) {
         world2ndc(ndc_width, ndc_height, ndc_focal, dir, cen);
     }
 
     trace_ray(tree_data, tree_child, tree_N, data_dim, sh_order,
-            dir, vdir, cen, step_size, stop_thresh, background_brightness,
+            dir,
+            vdir,
+            cen, step_size, stop_thresh,
+            sigma_thresh,
+            background_brightness,
+            delta_scale,
             show_miss, out);
 
     // pixel color
@@ -160,6 +176,8 @@ __host__ void launch_renderer(const N3Tree& tree,
             focal_norm_x, focal_norm_y, cam.device.transform,
             tree.device.data,
             tree.device.child,
+            tree.device.offset,
+            tree.device.scale,
             tree.N,
             tree.data_dim,
             tree.sh_order,
@@ -168,6 +186,7 @@ __host__ void launch_renderer(const N3Tree& tree,
             tree.ndc_focal,
             options.step_size,
             options.stop_thresh,
+            options.sigma_thresh,
             options.background_brightness,
             options.show_miss);
 }

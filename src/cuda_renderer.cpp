@@ -46,7 +46,6 @@ struct VolumeRenderer::Impl {
 
         if (tree) {
             camera._update();
-            tree->precompute_step(options.sigma_thresh);
             cuda(GraphicsMapResources(1, &cgr[buf_index], stream));
             launch_renderer(*tree, camera, options, ca[buf_index], stream);
             cuda(GraphicsUnmapResources(1, &cgr[buf_index], stream));

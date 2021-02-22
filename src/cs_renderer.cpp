@@ -99,9 +99,6 @@ struct VolumeRenderer::Impl {
 
         camera._update();
         if (tree == nullptr) return;
-        if (tree->precompute_step(options.sigma_thresh)) {
-            upload_data();
-        }
         // FIXME reduce uniform transfers?
         glUniformMatrix4x3fv(glGetUniformLocation(program, "cam.transform"), 1,
                              GL_FALSE, glm::value_ptr(camera.transform));
@@ -115,6 +112,8 @@ struct VolumeRenderer::Impl {
                     options.background_brightness);
         glUniform1f(glGetUniformLocation(program, "opt.stop_thresh"),
                     options.stop_thresh);
+        glUniform1f(glGetUniformLocation(program, "opt.sigma_thresh"),
+                    options.sigma_thresh);
         glUniform1i(glGetUniformLocation(program, "opt.show_miss"),
                     options.show_miss);
 
@@ -139,8 +138,6 @@ struct VolumeRenderer::Impl {
     }
 
     void set(const N3Tree& tree) {
-        tree.precompute_step(options.sigma_thresh);
-
         this->tree = &tree;
         upload_data();
         upload_child_links();
@@ -185,8 +182,9 @@ struct VolumeRenderer::Impl {
         const size_t data_size = size_t(tree->capacity) * tree->N * tree->N *
                                  tree->N * tree->data_dim * sizeof(float);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssb_tree_data);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, data_size,
-                     tree->data_proc_.data(), GL_STATIC_READ);
+        const float* data_ptr = tree->data_ptr();
+        glBufferData(GL_SHADER_STORAGE_BUFFER, data_size, data_ptr,
+                     GL_STATIC_READ);
         glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
     }
     void upload_child_links() {
@@ -206,6 +204,10 @@ struct VolumeRenderer::Impl {
                     tree->sh_order);
         glUniform1i(glGetUniformLocation(program, "tree.n_coe"),
                     (tree->sh_order + 1) * (tree->sh_order + 1));
+        glUniform3f(glGetUniformLocation(program, "tree.center"),
+                    tree->offset[0], tree->offset[1], tree->offset[2]);
+        glUniform3f(glGetUniformLocation(program, "tree.scale"), tree->scale[0],
+                    tree->scale[1], tree->scale[2]);
         if (tree->use_ndc) {
             glUniform1f(glGetUniformLocation(program, "tree.ndc_width"),
                         tree->ndc_width);

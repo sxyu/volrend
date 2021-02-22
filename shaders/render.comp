@@ -16,6 +16,8 @@ struct N3TreeSpec {
     float ndc_width;
     float ndc_height;
     float ndc_focal;
+    vec3 center;
+    vec3 scale;
 };
 
 struct RenderOptions {
@@ -23,6 +25,8 @@ struct RenderOptions {
     float step_size;
     // If remaining light intensity/alpha < this amount stop marching
     float stop_thresh;
+    // If sigma < this, skips
+    float sigma_thresh;
     // Background brightness
     float background_brightness;
     // Color rays which do not hit anything in the bounding box magenta
@@ -137,6 +141,7 @@ vec3 trace_ray(vec3 dir, vec3 vdir, vec3 cen) {
     vec3 output_color;
     vec3 invdir = 1.f / (dir + 1e-9);
     float tmin, tmax;
+    float delta_scale = length(dir / tree.scale);
     dda_unit(cen, invdir, tmin, tmax);
 
     if (tmax < 0 || tmin > tmax) {
@@ -169,8 +174,9 @@ vec3 trace_ray(vec3 dir, vec3 vdir, vec3 cen) {
             float t_subcube = (subcube_tmax - subcube_tmin) / float(cube_sz);
 
             const float delta_t = t_subcube + opt.step_size;
-            if (tree_data[doffset + tree.data_dim - 1] > 1e-2) {
-                const float att = min(exp(-delta_t * tree_data[doffset + tree.data_dim - 1]), 1.f);
+            if (tree_data[doffset + tree.data_dim - 1] > opt.sigma_thresh) {
+                const float att = min(exp(-delta_t * delta_scale * tree_data[
+                            doffset + tree.data_dim - 1]), 1.f);
                 const float weight = light_intensity * (1.f - att);
 
                 if (tree.sh_order >= 0) {
@@ -234,7 +240,7 @@ void main()
     vec2 xy = pix * 2.0 / img_size - 1.0;
     vec3 dir = normalize(vec3(xy / cam.focal, 1.0));
     dir = normalize(mat3(cam.transform) * dir);
-    vec3 cen = cam.transform[3];
+    vec3 cen = tree.center + cam.transform[3] * tree.scale;
 
     vec3 rgb;
     vec3 vdir = dir;

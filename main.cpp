@@ -52,7 +52,7 @@ void draw_imgui(VolumeRenderer& rend) {
     ImGui::NewFrame();
 
     ImGui::SetNextWindowPos(ImVec2(20.f, 20.f), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(250.f, 150.f), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(250.f, 170.f), ImGuiCond_Once);
     ImGui::Begin("Camera");
 
     // Update vectors indirectly since we need to normalize on change
@@ -67,7 +67,7 @@ void draw_imgui(VolumeRenderer& rend) {
         forward_tmp = forward_prev = cam.v_forward;
 
     ImGui::InputFloat3("center", glm::value_ptr(cam.center));
-    // ImGui::SliderFloat("focal", &cam.focal, 300.f, 3500.f);
+    ImGui::InputFloat3("origin", glm::value_ptr(cam.origin));
     ImGui::SliderFloat("focal", &cam.focal, 300.f, 7000.f);
     ImGui::Spacing();
     ImGui::InputFloat3("world_down", glm::value_ptr(world_down_tmp));
@@ -82,8 +82,8 @@ void draw_imgui(VolumeRenderer& rend) {
     // End camera window
 
     // Render window
-    ImGui::SetNextWindowPos(ImVec2(20.f, 180.f), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(250.f, 150.f), ImGuiCond_Once);
+    ImGui::SetNextWindowPos(ImVec2(20.f, 195.f), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(250.f, 145.f), ImGuiCond_Once);
     ImGui::Begin("Rendering");
 
     static float inv_step_size = 1.0f / rend.options.step_size;
@@ -152,37 +152,37 @@ void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action,
                 break;
 
             case GLFW_KEY_1:
-                cam.center = {0.5f, -0.5f, 0.5f};
+                cam.center = {0.0f, -1.5f, 0.0f};
                 cam.v_forward = {0.0f, 1.0f, 0.0f};
                 cam.v_world_down = {0.0f, 0.0f, -1.0f};
                 break;
 
             case GLFW_KEY_2:
-                cam.center = {0.5f, 1.5f, 0.5f};
+                cam.center = {0.0f, 1.5f, 0.0f};
                 cam.v_forward = {0.0f, -1.0f, 0.0f};
                 cam.v_world_down = {0.0f, 0.0f, 1.0f};
                 break;
 
             case GLFW_KEY_3:
-                cam.center = {-0.5f, 0.5f, 0.5f};
+                cam.center = {-1.5f, 0.0f, 0.0f};
                 cam.v_forward = {1.0f, 0.0f, 0.0f};
                 cam.v_world_down = {0.0f, 1.0f, 0.0f};
                 break;
 
             case GLFW_KEY_4:
-                cam.center = {1.5f, 0.5f, 0.5f};
+                cam.center = {1.5f, 0.0f, 0.0f};
                 cam.v_forward = {-1.0f, 0.0f, 0.0f};
                 cam.v_world_down = {0.0f, -1.0f, 0.0f};
                 break;
 
             case GLFW_KEY_5:
-                cam.center = {0.5f, 0.5f, 1.5f};
+                cam.center = {0.0f, 0.0f, 1.5f};
                 cam.v_forward = {0.0f, 0.0f, -1.0f};
                 cam.v_world_down = {1.0f, 0.0f, 0.0f};
                 break;
 
             case GLFW_KEY_6:
-                cam.center = {0.5f, 0.5f, -0.5f};
+                cam.center = {0.0f, 0.0f, -1.5f};
                 cam.v_forward = {0.0f, 0.0f, 1.0f};
                 cam.v_world_down = {-1.0f, 0.0f, 0.0f};
                 break;

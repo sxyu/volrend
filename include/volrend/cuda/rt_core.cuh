@@ -81,7 +81,9 @@ __device__ __inline__ void trace_ray(
         const float* __restrict__ cen,
         float step_size,
         float stop_thresh,
+        float sigma_thresh,
         float background_brightness,
+        float delta_scale,
         bool show_miss,
         float* __restrict__ out) {
 
@@ -113,12 +115,10 @@ __device__ __inline__ void trace_ray(
 
         float light_intensity = 1.f;
         // int n_steps = (int) ceilf((tmax - tmin) / step_size);
-        // for (int i = 0 ; i < n_steps; ++i) {
         float t = tmin;
         const int n_coe = (sh_order + 1) * (sh_order + 1);
         float cube_sz;
         while (t < tmax) {
-            // const float t = tmin + i * step_size;
             for (int j = 0; j < 3; ++j) {
                 pos[j] = cen[j] + t * dir[j];
             }
@@ -132,8 +132,8 @@ __device__ __inline__ void trace_ray(
 
             const float t_subcube = (subcube_tmax - subcube_tmin) / cube_sz;
             const float delta_t = t_subcube + step_size;
-            if (tree_val[data_dim - 1] > 1e-2) {
-                att = expf(-delta_t * tree_val[data_dim - 1]);
+            if (tree_val[data_dim - 1] > sigma_thresh) {
+                att = expf(-delta_t * delta_scale * tree_val[data_dim - 1]);
                 const float weight = light_intensity * (1.f - att);
 
                 if (sh_order >= 0) {

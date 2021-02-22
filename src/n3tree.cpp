@@ -64,9 +64,18 @@ void N3Tree::open(const std::string& path) {
     }
 
     n_internal = (int)*npz["n_internal"].data<int64_t>();
-    scale = (float)*npz["invradius"].data<double>();
-    float* offset_data = npz["offset"].data<float>();
-    for (int i = 0; i < 3; ++i) offset[i] = offset_data[i];
+    if (npz.count("invradius3")) {
+        const float* scale_data = npz["invradius3"].data<float>();
+        for (int i = 0; i < 3; ++i) scale[i] = scale_data[i];
+        std::cout << "INFO: Non-isotropic scale\n";
+    } else {
+        scale[0] = scale[1] = scale[2] =
+            (float)*npz["invradius"].data<double>();
+    }
+    {
+        const float* offset_data = npz["offset"].data<float>();
+        for (int i = 0; i < 3; ++i) offset[i] = offset_data[i];
+    }
 
     auto child_node = npz["child"];
     std::swap(child_, npz["child"]);
@@ -178,53 +187,10 @@ std::tuple<int, int, int, int> N3Tree::unpack_index(int packed) {
     return {packed, i, j, k};
 }
 
-#ifndef VOLREND_CUDA
-bool N3Tree::precompute_step(float sigma_thresh) const {
-    if (last_sigma_thresh_ == sigma_thresh) {
-        return false;
-    }
-    last_sigma_thresh_ = sigma_thresh;
-    const size_t data_count = capacity * N3_;
-    const float* data_ptr =
-        data_.empty() ? data_cnpy_.data<float>() : data_.data();
-    data_proc_.resize(data_count * data_dim);
-    float* data_out_ptr = data_proc_.data();
-    const int32_t* child_ptr = child_.data<int32_t>();
-    float step_sz = 1.f / scale;
-
-    std::atomic<size_t> counter(0);
-    auto worker = [&]() {
-        while (true) {
-            size_t i = counter++;
-            if (i >= data_count) {
-                break;
-            }
-            const float* rgba = data_ptr + i * data_dim;
-            float* rgba_out = data_out_ptr + i * data_dim;
-            if (child_ptr[i]) continue;
-
-            for (int i = 0; i < data_dim; ++i) {
-                if (isnan(rgba[i]))
-                    rgba_out[i] = 0.f;
-                else {
-                    rgba_out[i] = std::min(std::max(rgba[i], -1e9f), 1e9f);
-                }
-            }
-
-            const int alpha_idx = data_dim - 1;
-            if (rgba[alpha_idx] < sigma_thresh)
-                rgba_out[alpha_idx] = 0.f;
-            else
-                rgba_out[alpha_idx] = rgba[alpha_idx] * step_sz;
-        }
-    };
-    std::vector<std::thread> thds;
-    for (int i = 0; i < std::thread::hardware_concurrency(); ++i) {
-        thds.emplace_back(worker);
-    }
-    for (auto& thd : thds) thd.join();
-    return true;
+float* N3Tree::data_ptr() {
+    return data_.empty() ? data_cnpy_.data<float>() : data_.data();
 }
-#endif
-
+const float* N3Tree::data_ptr() const {
+    return data_.empty() ? data_cnpy_.data<float>() : data_.data();
+}
 }  // namespace volrend
