@@ -104,7 +104,7 @@ __global__ static void render_kernel(
         float stop_thresh,
         float sigma_thresh,
         float background_brightness,
-        bool show_miss) {
+        bool show_cuda) {
     CUDA_GET_THREAD_ID(idx, width * height);
     const int x   = idx % width;
     const int y   = idx / width;
@@ -128,7 +128,7 @@ __global__ static void render_kernel(
             sigma_thresh,
             background_brightness,
             delta_scale,
-            show_miss, out);
+            show_cuda, out);
 
     // pixel color
     uint8_t rgbx[4];
@@ -183,6 +183,6 @@ __host__ void launch_renderer(const N3Tree& tree,
             options.stop_thresh,
             options.sigma_thresh,
             options.background_brightness,
-            options.show_miss);
+            options.show_grid);
 }
 }  // namespace volrend

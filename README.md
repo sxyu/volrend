@@ -19,8 +19,7 @@ make -j12
 
 - Pass `-DVOLREND_USE_CUDA=ON` to use CUDA-OpenGL interop renderer.
 - Pass `-DVOLREND_USE_CUDA=OFF` to use compute shader backend.
-It has has a mysterious performance issue when camera is inside the voxel grid. However,
-it is very fast outside and can work without CUDA.
+It is slower but can work without CUDA (e.g. AMD GPU).
 
 On Ubuntu, to get the dependencies, try
 `sudo apt-get install libgl1-mesa-dev libxi-dev libxinerama-dev libxcursor-dev libxrandr-dev libgl1-mesa-dev libglu1-mesa-dev`
@@ -43,7 +42,7 @@ In the same direcotry.
 
 ### Dependencies
 - C++14
-- OpenGL 4.3 + (4.3 needed for SSBO)
+- OpenGL 4.3 + (4.3 needed for compute shader and SSBO)
     - any dependencies of GLFW
 
 #### Optional

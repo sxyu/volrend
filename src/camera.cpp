@@ -18,7 +18,7 @@ struct Camera::DragState {
     glm::vec2 drag_start;
     // Save state when drag started
     glm::vec3 drag_start_forward, drag_start_right, drag_start_up;
-    glm::vec3 drag_start_center;
+    glm::vec3 drag_start_center, drag_start_origin;
 };
 
 Camera::Camera(int width, int height, float focal)
@@ -67,6 +67,7 @@ void Camera::begin_drag(float x, float y, bool is_pan, bool about_origin) {
     drag_state_->drag_start_right = v_right;
     drag_state_->drag_start_up = v_up;
     drag_state_->drag_start_center = center;
+    drag_state_->drag_start_origin = origin;
     drag_state_->is_panning = is_pan;
     drag_state_->about_origin = about_origin;
 }
@@ -79,6 +80,11 @@ void Camera::drag_update(float x, float y) {
         center = drag_state_->drag_start_center +
                  delta.x * drag_state_->drag_start_right -
                  delta.y * drag_state_->drag_start_up;
+        if (drag_state_->about_origin) {
+            origin = drag_state_->drag_start_origin +
+                     delta.x * drag_state_->drag_start_right -
+                     delta.y * drag_state_->drag_start_up;
+        }
     } else {
         if (drag_state_->about_origin) delta *= -1.f;
         glm::mat4 m(1.0f);
@@ -105,9 +111,9 @@ void Camera::drag_update(float x, float y) {
 }
 void Camera::end_drag() { drag_state_->is_dragging = false; }
 void Camera::move(const glm::vec3& xyz) {
-    center += xyz;
+    center += xyz * movement_speed;
     if (drag_state_->is_dragging) {
-        drag_state_->drag_start_center += xyz;
+        drag_state_->drag_start_center += xyz * movement_speed;
     }
 }
 

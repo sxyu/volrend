@@ -112,7 +112,7 @@ __device__ __inline__ void trace_ray(
         float sigma_thresh,
         float background_brightness,
         float delta_scale,
-        bool show_miss,
+        bool show_grid,
         float* __restrict__ out) {
 
     float tmin, tmax;
@@ -125,9 +125,8 @@ __device__ __inline__ void trace_ray(
 
     if (tmax < 0 || tmin > tmax) {
         // Ray doesn't hit box
-        if (show_miss) {
-            out[1] = 0.f;
-            out[0] = out[2] = 1.f;
+        if (show_grid) {
+            out[0] = out[1] = out[2] = .2f;
         } else {
             out[0] = out[1] = out[2] = background_brightness;
         }
@@ -157,6 +156,20 @@ __device__ __inline__ void trace_ray(
             float att;
             float subcube_tmin, subcube_tmax;
             _dda_unit(pos, invdir, &subcube_tmin, &subcube_tmax);
+            if (show_grid) {
+                float max3 = max(max(pos[0], pos[1]), pos[2]);
+                float min3 = min(min(pos[0], pos[1]), pos[2]);
+                float sum3 = pos[0] + pos[1] + pos[2];
+                float mid3 = sum3 - min3 - max3;
+                const float edge_draw_thresh = 1.5e-2f;
+
+                if (abs(max3 - sum3) < edge_draw_thresh ||
+                    abs(min3 - sum3 + 2.f) < edge_draw_thresh ||
+                    abs(mid3 - sum3 + 1.f) < edge_draw_thresh) {
+                    out[0] = out[1] = out[2] = .2f;
+                    return;
+                }
+            }
 
             const float t_subcube = (subcube_tmax - subcube_tmin) / cube_sz;
             const float delta_t = t_subcube + step_size;

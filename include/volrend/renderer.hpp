@@ -6,7 +6,7 @@
 #include "volrend/render_options.hpp"
 
 namespace volrend {
-// Volume renderer using OpenGL & compute shader
+// Volume renderer using CUDA or compute shader
 struct VolumeRenderer {
     explicit VolumeRenderer(int device_id = -1);
     ~VolumeRenderer();

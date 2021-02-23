@@ -93,7 +93,7 @@ void draw_imgui(VolumeRenderer& rend) {
     ImGui::SliderFloat("stop_thresh", &rend.options.stop_thresh, 0.001f, 0.4f);
     ImGui::SliderFloat("bg_brightness", &rend.options.background_brightness,
                        0.f, 1.0f);
-    ImGui::Checkbox("show_miss", &rend.options.show_miss);
+    ImGui::Checkbox("show_grid", &rend.options.show_grid);
     ImGui::SameLine();
     ImGui::Text("Backend: %s", rend.get_backend());
 
@@ -133,8 +133,9 @@ void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action,
                 const auto& vec = (key == GLFW_KEY_A || key == GLFW_KEY_D)
                                       ? cam.v_right
                                       : (key == GLFW_KEY_W || key == GLFW_KEY_S)
-                                            ? cam.v_back
+                                            ? -cam.v_back
                                             : -cam.v_up;
+                cam.move(vec * speed);
             } break;
 
             case GLFW_KEY_MINUS:
@@ -200,7 +201,8 @@ void glfw_mouse_button_callback(GLFWwindow* window, int button, int action,
     if (action == GLFW_PRESS) {
         cam.begin_drag(
             x, y, (mods & GLFW_MOD_SHIFT) || button == GLFW_MOUSE_BUTTON_MIDDLE,
-            button == GLFW_MOUSE_BUTTON_RIGHT);
+            button == GLFW_MOUSE_BUTTON_RIGHT ||
+                button == GLFW_MOUSE_BUTTON_MIDDLE);
     } else if (action == GLFW_RELEASE) {
         cam.end_drag();
     }
@@ -220,29 +222,34 @@ void glfw_scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
 GLFWwindow* glfw_init(const int width, const int height) {
     glfwSetErrorCallback(glfw_error_callback);
 
-    if (!glfwInit()) exit(EXIT_FAILURE);
+    if (!glfwInit()) std::exit(EXIT_FAILURE);
 
-    glfwWindowHint(GLFW_DEPTH_BITS, 0);
-    glfwWindowHint(GLFW_STENCIL_BITS, 0);
+    // glfwWindowHint(GLFW_DEPTH_BITS, GL_TRUE);
+    glfwWindowHint(GLFW_DEPTH_BITS, GL_FALSE);
+    glfwWindowHint(GLFW_STENCIL_BITS, GL_FALSE);
 
-    glfwWindowHint(GLFW_SRGB_CAPABLE, GL_TRUE);
+    // glfwWindowHint(GLFW_SRGB_CAPABLE, GL_TRUE);
+    // glEnable(GL_FRAMEBUFFER_SRGB);
 
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+
+    // glEnable(GL_DEPTH_TEST);
+    // glEnable(GL_CULL_FACE);
+    // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
 
     GLFWwindow* window =
         glfwCreateWindow(width, height, "volrend viewer", NULL, NULL);
 
     if (window == nullptr) {
         glfwTerminate();
-        exit(EXIT_FAILURE);
+        std::exit(EXIT_FAILURE);
     }
 
     glfwMakeContextCurrent(window);
 
-    // set up GLEW
     glewExperimental = GL_TRUE;
     if (glewInit() != GLEW_OK) {
         fputs("GLEW init failed\n", stderr);
@@ -287,14 +294,15 @@ int main(int argc, char* argv[]) {
     GLFWwindow* window = glfw_init(800, 800);
     {
         VolumeRenderer rend(device_id);
-        // N3Tree tree;
         N3Tree tree(argv[1]);
         if (tree.use_ndc) {
+            // Special inital coordinates for NDC
+            // (pick average camera)
             rend.camera.center = glm::vec3(0);
             rend.camera.origin = glm::vec3(0, 0, -3);
             rend.camera.v_back = glm::vec3(0, 0, 1);
             rend.camera.v_world_up = glm::vec3(0, 1, 0);
-            rend.camera.focal = tree.ndc_focal * 0.3f;
+            rend.camera.focal = tree.ndc_focal * 0.25f;
             rend.camera.movement_speed = 0.1f;
         }
         rend.set(tree);

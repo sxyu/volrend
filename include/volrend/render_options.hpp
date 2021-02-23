@@ -13,7 +13,7 @@ struct RenderOptions {
     // Background brightness
     float background_brightness = 1.f;
     // Color rays which do not hit anything in the bounding box magenta
-    bool show_miss = false;
+    bool show_grid = false;
 };
 
 }  // namespace volrend
