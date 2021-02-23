@@ -8,6 +8,8 @@
 #include <tuple>
 #include "cnpy.h"
 
+#include "glm/vec3.hpp"
+
 namespace volrend {
 
 using Rgba = std::array<float, 4>;
@@ -22,6 +24,7 @@ struct N3Tree {
 
     // Spatial branching factor
     int N;
+    // Spherical harmonic order
     int sh_order;
     // Dimensionality of data on leaf (e.g. 4 for rgba)
     int data_dim;
@@ -41,11 +44,6 @@ struct N3Tree {
     // Get data at node node in given position of subgrid
     Rgba get_data(int nd, int i, int j, int k);
 
-    // FIXME No longer supported
-    // Query. Indices size must be divisible by 3 in order: xyz xyz
-    // Returns rgba rgba...
-    // std::vector<float> operator[](const std::vector<float>& indices) const;
-
     bool is_data_loaded();
 #ifdef VOLREND_CUDA
     bool is_cuda_loaded();
@@ -58,6 +56,7 @@ struct N3Tree {
     // NDC config
     bool use_ndc;
     float ndc_width, ndc_height, ndc_focal;
+    glm::vec3 ndc_avg_up, ndc_avg_back, ndc_avg_cen;
 
 #ifdef VOLREND_CUDA
     // CUDA memory
@@ -79,6 +78,7 @@ struct N3Tree {
 
     // Main data holder
     std::vector<float> data_;
+    // Alt (if load with cnpy)
     cnpy::NpyArray data_cnpy_;
 
     // Paths

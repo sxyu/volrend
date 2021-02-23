@@ -33,26 +33,29 @@ namespace volrend {
 // }
 
 __host__ __device__ __inline__ static void screen2worlddir(
-        float x, float y, float focal_norm_x,
-        float focal_norm_y,
+        int ix, int iy, float focal,
+        int width, int height,
         const float* __restrict__ transform,
-        float* out) {
-    x /= focal_norm_x;
-    y /= focal_norm_y;
+        float* out,
+        float* cen) {
+    float x = (ix - 0.5 * width) / focal;
+    float y = -(iy - 0.5 * height) / focal;
     float z = sqrtf(x * x + y * y + 1.0);
     x /= z;
     y /= z;
-    z = 1.0f / z;
+    z = -1.0f / z;
 
     out[0] = transform[0] * x + transform[3] * y + transform[6] * z;
     out[1] = transform[1] * x + transform[4] * y + transform[7] * z;
     out[2] = transform[2] * x + transform[5] * y + transform[8] * z;
+    cen[0] = transform[9]; cen[1] = transform[10]; cen[2] = transform[11];
 }
-__host__ __device__ __inline__ static void world2ndc(
-        int ndc_width, int ndc_height, float ndc_focal,
-        float* __restrict__ dir,
-        float* __restrict__ cen, float near = 1.f) {
-    float t = -(near + cen[2]) / dir[2];
+template<typename scalar_t>
+__host__ __device__ __inline__ void world2ndc(
+        int ndc_width, int ndc_height, scalar_t ndc_focal,
+        scalar_t* __restrict__ dir,
+        scalar_t* __restrict__ cen, scalar_t near = 1.f) {
+    scalar_t t = -(near + cen[2]) / dir[2];
     for (int i = 0; i < 3; ++i) {
         cen[i] = cen[i] + t * dir[i];
     }
@@ -65,10 +68,8 @@ __host__ __device__ __inline__ static void world2ndc(
     cen[1] = -((2 * ndc_focal) / ndc_height) * (cen[1] / cen[2]);
     cen[2] = 1 + 2 * near / cen[2];
 
-    float norm = sqrtf(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
-    dir[0] /= norm;
-    dir[1] /= norm;
-    dir[2] /= norm;
+    scalar_t norm = sqrtf(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
+    dir[0] /= norm; dir[1] /= norm; dir[2] /= norm;
 }
 
 template <typename scalar_t>
@@ -87,8 +88,7 @@ __global__ static void render_kernel(
         cudaSurfaceObject_t surf_obj,
         const int width,
         const int height,
-        float focal_norm_x,
-        float focal_norm_y,
+        float focal,
         const float* __restrict__ transform,
         const float* __restrict__ tree_data,
         const int32_t* __restrict__ tree_child,
@@ -109,20 +109,18 @@ __global__ static void render_kernel(
     const int x   = idx % width;
     const int y   = idx / width;
 
-    const float x_norm = x / (0.5f * width) - 1.0f;
-    const float y_norm = y / (0.5f * height) - 1.0f;
-
-    float dir[3], vdir[3], cen[3], out[3];
-    screen2worlddir(x_norm, y_norm, focal_norm_x, focal_norm_y, transform, vdir);
-    for (int i = 0; i < 3; ++i) {
-        cen[i] = tree_offset[i] + tree_scale[i] * transform[9 + i];
-        dir[i] = vdir[i];
-    }
-    const float delta_scale = _get_delta_scale(tree_scale, dir);
+    float dir[3], cen[3], out[3];
+    screen2worlddir(x, y, focal, width, height, transform, dir,
+            cen);
+    float vdir[3] = {dir[0], dir[1], dir[2]};
     if (ndc_width > 0.f) {
         world2ndc(ndc_width, ndc_height, ndc_focal, dir, cen);
     }
+    for (int i = 0; i < 3; ++i) {
+        cen[i] = tree_offset[i] + tree_scale[i] * cen[i];
+    }
 
+    const float delta_scale = _get_delta_scale(tree_scale, dir);
     trace_ray(tree_data, tree_child, tree_N, data_dim, sh_order,
             dir,
             vdir,
@@ -167,13 +165,10 @@ __host__ void launch_renderer(const N3Tree& tree,
     const int N_CUDA_THREADS = 128;
 
     const int blocks = N_BLOCKS_NEEDED(cam.width * cam.height, N_CUDA_THREADS);
-    float focal_norm_x = cam.focal / (cam.width * 0.5f);
-    float focal_norm_y = cam.focal / (cam.height * 0.5f);
-
     device::render_kernel<<<blocks, N_CUDA_THREADS, 0, stream>>>(
             surf_obj,
             cam.width, cam.height,
-            focal_norm_x, focal_norm_y, cam.device.transform,
+            cam.focal, cam.device.transform,
             tree.device.data,
             tree.device.child,
             tree.device.offset,

@@ -22,17 +22,15 @@ struct Camera {
     /** Move center by +=xyz, correctly handling drag **/
     void move(const glm::vec3& xyz);
 
-    void set_ndc(float ndc_focal, float ndc_width, float ndc_height);
-
     /** Camera params **/
     // Camera pose model, you can modify these
-    glm::vec3 v_forward, v_world_down, center;
+    glm::vec3 v_back, v_world_up, center;
 
     // Origin for about-origin rotation
     glm::vec3 origin;
 
     // Vectors below are automatically updated
-    glm::vec3 v_down, v_right;
+    glm::vec3 v_up, v_right;
 
     // 4x3 affine transform used for actual rendering, automatically updated
     glm::mat4x3 transform;
@@ -42,6 +40,9 @@ struct Camera {
 
     // Focal length
     float focal;
+
+    // GUI movement speed
+    float movement_speed = 1.f;
 
     // CUDA memory used in kernel
     struct {

@@ -6,6 +6,8 @@
 #include <fstream>
 #include <thread>
 #include <atomic>
+
+#include "glm/geometric.hpp"
 #ifdef VOLREND_OPENEXR
 #include <OpenEXR/ImfRgbaFile.h>
 #else
@@ -13,10 +15,42 @@
 #endif
 
 namespace volrend {
+namespace {
+// Extract mean pose & other info from poses_bounds.npy
+template <typename npy_scalar_t>
+void unpack_llff_poses_bounds(cnpy::NpyArray& poses_bounds, float& width,
+                              float& height, float& focal, glm::vec3& up,
+                              glm::vec3& backward, glm::vec3& cen) {
+    const npy_scalar_t* ptr = poses_bounds.data<npy_scalar_t>();
+    height = ptr[4];
+    width = ptr[9];
+    focal = ptr[14];
+    cen = glm::vec3(0);
+    backward = glm::vec3(0);
+    glm::vec3 right(0);
 
-void precomp_kernel(float* data, const int32_t* __restrict__ child,
-                    float step_sz, float sigma_thresh, const int N,
-                    const int data_dim) {}
+    // Random spaghetti emulating NeRF LLFF data loader
+    const size_t BLOCK_SZ = 17;
+    float bd_min = 1e9;
+    for (size_t offs = 0; offs < poses_bounds.num_vals; offs += BLOCK_SZ) {
+        for (size_t r = 0; r < 3; ++r) {
+            const npy_scalar_t* row_ptr = &ptr[offs + 5 * r];
+            right[r] += row_ptr[1];
+            up[r] -= row_ptr[0];
+            backward[r] += row_ptr[2];
+            cen[r] += row_ptr[3];
+        }
+        bd_min =
+            std::min(bd_min, (float)std::min(ptr[offs + 15], ptr[offs + 16]));
+    }
+
+    size_t total_cams = poses_bounds.num_vals / BLOCK_SZ;
+    cen = cen / (total_cams * bd_min * 0.75f);
+    backward = glm::normalize(backward);
+    right = glm::normalize(glm::cross(up, backward));
+    up = glm::normalize(glm::cross(backward, right));
+}
+}  // namespace
 
 N3Tree::N3Tree() {}
 N3Tree::N3Tree(const std::string& path) : npz_path_(path) { open(path); }
@@ -112,15 +146,14 @@ void N3Tree::open(const std::string& path) {
 
         if (poses_bounds.word_size == 4) {
             const float* ptr = poses_bounds.data<float>();
-            ndc_height = ptr[4];
-            ndc_width = ptr[9];
-            ndc_focal = ptr[14];
+            unpack_llff_poses_bounds<float>(poses_bounds, ndc_width, ndc_height,
+                                            ndc_focal, ndc_avg_up, ndc_avg_back,
+                                            ndc_avg_cen);
         } else {
             assert(poses_bounds.word_size == 8);
-            const double* ptr = poses_bounds.data<double>();
-            ndc_height = ptr[4];
-            ndc_width = ptr[9];
-            ndc_focal = ptr[14];
+            unpack_llff_poses_bounds<double>(poses_bounds, ndc_width,
+                                             ndc_height, ndc_focal, ndc_avg_up,
+                                             ndc_avg_back, ndc_avg_cen);
         }
     }
     last_sigma_thresh_ = -1.f;

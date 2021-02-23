@@ -57,24 +57,23 @@ void draw_imgui(VolumeRenderer& rend) {
 
     // Update vectors indirectly since we need to normalize on change
     // (press update button) and it would be too confusing to keep normalizing
-    static glm::vec3 world_down_tmp = rend.camera.v_world_down;
-    static glm::vec3 world_down_prev = rend.camera.v_world_down;
-    static glm::vec3 forward_tmp = rend.camera.v_forward;
-    static glm::vec3 forward_prev = rend.camera.v_forward;
-    if (cam.v_world_down != world_down_prev)
-        world_down_tmp = world_down_prev = cam.v_world_down;
-    if (cam.v_forward != forward_prev)
-        forward_tmp = forward_prev = cam.v_forward;
+    static glm::vec3 world_up_tmp = rend.camera.v_world_up;
+    static glm::vec3 world_down_prev = rend.camera.v_world_up;
+    static glm::vec3 back_tmp = rend.camera.v_back;
+    static glm::vec3 forward_prev = rend.camera.v_back;
+    if (cam.v_world_up != world_down_prev)
+        world_up_tmp = world_down_prev = cam.v_world_up;
+    if (cam.v_back != forward_prev) back_tmp = forward_prev = cam.v_back;
 
     ImGui::InputFloat3("center", glm::value_ptr(cam.center));
     ImGui::InputFloat3("origin", glm::value_ptr(cam.origin));
     ImGui::SliderFloat("focal", &cam.focal, 300.f, 7000.f);
     ImGui::Spacing();
-    ImGui::InputFloat3("world_down", glm::value_ptr(world_down_tmp));
-    ImGui::InputFloat3("forward", glm::value_ptr(forward_tmp));
+    ImGui::InputFloat3("world_up", glm::value_ptr(world_up_tmp));
+    ImGui::InputFloat3("back", glm::value_ptr(back_tmp));
     if (ImGui::Button("update dirs")) {
-        cam.v_world_down = glm::normalize(world_down_tmp);
-        cam.v_forward = glm::normalize(forward_tmp);
+        cam.v_world_up = glm::normalize(world_up_tmp);
+        cam.v_back = glm::normalize(back_tmp);
     }
     ImGui::SameLine();
     ImGui::TextUnformatted("Key 1-6: preset cams");
@@ -134,9 +133,8 @@ void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action,
                 const auto& vec = (key == GLFW_KEY_A || key == GLFW_KEY_D)
                                       ? cam.v_right
                                       : (key == GLFW_KEY_W || key == GLFW_KEY_S)
-                                            ? cam.v_forward
-                                            : cam.v_down;
-                cam.move(vec * speed);
+                                            ? cam.v_back
+                                            : -cam.v_up;
             } break;
 
             case GLFW_KEY_MINUS:
@@ -153,38 +151,38 @@ void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action,
 
             case GLFW_KEY_1:
                 cam.center = {0.0f, -1.5f, 0.0f};
-                cam.v_forward = {0.0f, 1.0f, 0.0f};
-                cam.v_world_down = {0.0f, 0.0f, -1.0f};
+                cam.v_back = {0.0f, 1.0f, 0.0f};
+                cam.v_world_up = {0.0f, 0.0f, -1.0f};
                 break;
 
             case GLFW_KEY_2:
                 cam.center = {0.0f, 1.5f, 0.0f};
-                cam.v_forward = {0.0f, -1.0f, 0.0f};
-                cam.v_world_down = {0.0f, 0.0f, 1.0f};
+                cam.v_back = {0.0f, -1.0f, 0.0f};
+                cam.v_world_up = {0.0f, 0.0f, 1.0f};
                 break;
 
             case GLFW_KEY_3:
                 cam.center = {-1.5f, 0.0f, 0.0f};
-                cam.v_forward = {1.0f, 0.0f, 0.0f};
-                cam.v_world_down = {0.0f, 1.0f, 0.0f};
+                cam.v_back = {1.0f, 0.0f, 0.0f};
+                cam.v_world_up = {0.0f, 1.0f, 0.0f};
                 break;
 
             case GLFW_KEY_4:
                 cam.center = {1.5f, 0.0f, 0.0f};
-                cam.v_forward = {-1.0f, 0.0f, 0.0f};
-                cam.v_world_down = {0.0f, -1.0f, 0.0f};
+                cam.v_back = {-1.0f, 0.0f, 0.0f};
+                cam.v_world_up = {0.0f, -1.0f, 0.0f};
                 break;
 
             case GLFW_KEY_5:
                 cam.center = {0.0f, 0.0f, 1.5f};
-                cam.v_forward = {0.0f, 0.0f, -1.0f};
-                cam.v_world_down = {1.0f, 0.0f, 0.0f};
+                cam.v_back = {0.0f, 0.0f, -1.0f};
+                cam.v_world_up = {1.0f, 0.0f, 0.0f};
                 break;
 
             case GLFW_KEY_6:
                 cam.center = {0.0f, 0.0f, -1.5f};
-                cam.v_forward = {0.0f, 0.0f, 1.0f};
-                cam.v_world_down = {-1.0f, 0.0f, 0.0f};
+                cam.v_back = {0.0f, 0.0f, 1.0f};
+                cam.v_world_up = {-1.0f, 0.0f, 0.0f};
                 break;
         }
     }
@@ -286,14 +284,18 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     const int device_id = (argc > 2) ? atoi(argv[2]) : -1;
-    GLFWwindow* window = glfw_init(960, 1039);
+    GLFWwindow* window = glfw_init(800, 800);
     {
         VolumeRenderer rend(device_id);
         // N3Tree tree;
         N3Tree tree(argv[1]);
         if (tree.use_ndc) {
-            rend.camera.set_ndc(tree.ndc_focal, tree.ndc_width,
-                                tree.ndc_height);
+            rend.camera.center = glm::vec3(0);
+            rend.camera.origin = glm::vec3(0, 0, -3);
+            rend.camera.v_back = glm::vec3(0, 0, 1);
+            rend.camera.v_world_up = glm::vec3(0, 1, 0);
+            rend.camera.focal = tree.ndc_focal * 0.3f;
+            rend.camera.movement_speed = 0.1f;
         }
         rend.set(tree);
 
