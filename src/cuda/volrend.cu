@@ -32,6 +32,19 @@ namespace volrend {
 //     out[1] *= focal_y / zt;
 // }
 
+template<typename scalar_t>
+__host__ __device__ __inline__ static scalar_t _norm(
+        scalar_t* dir) {
+    return sqrtf(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
+}
+
+template<typename scalar_t>
+__host__ __device__ __inline__ static void _normalize(
+        scalar_t* dir) {
+    scalar_t norm = _norm(dir);
+    dir[0] /= norm; dir[1] /= norm; dir[2] /= norm;
+}
+
 __host__ __device__ __inline__ static void screen2worlddir(
         int ix, int iy, float focal,
         int width, int height,
@@ -68,18 +81,21 @@ __host__ __device__ __inline__ void world2ndc(
     cen[1] = -((2 * ndc_focal) / ndc_height) * (cen[1] / cen[2]);
     cen[2] = 1 + 2 * near / cen[2];
 
-    scalar_t norm = sqrtf(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
-    dir[0] /= norm; dir[1] /= norm; dir[2] /= norm;
+    _normalize(dir);
 }
 
 template <typename scalar_t>
 __device__ __inline__ scalar_t _get_delta_scale(
     const scalar_t* __restrict__ scaling,
-    const scalar_t* __restrict__ dir) {
-    const scalar_t dx = dir[0] / scaling[0],
-                   dy = dir[1] / scaling[1],
-                   dz = dir[2] / scaling[2];
-    return sqrtf(dx * dx + dy * dy + dz * dz);
+    scalar_t* __restrict__ dir) {
+    dir[0] *= scaling[0];
+    dir[1] *= scaling[1];
+    dir[2] *= scaling[2];
+    scalar_t delta_scale = 1.f / _norm(dir);
+    dir[0] *= delta_scale;
+    dir[1] *= delta_scale;
+    dir[2] *= delta_scale;
+    return delta_scale;
 }
 
 namespace device {
@@ -108,6 +124,7 @@ __global__ static void render_kernel(
     CUDA_GET_THREAD_ID(idx, width * height);
     const int x   = idx % width;
     const int y   = idx / width;
+    // if (x > 0 || y > 0) return;
 
     float dir[3], cen[3], out[3];
     screen2worlddir(x, y, focal, width, height, transform, dir,

@@ -101,7 +101,8 @@ void N3Tree::open(const std::string& path) {
     if (npz.count("invradius3")) {
         const float* scale_data = npz["invradius3"].data<float>();
         for (int i = 0; i < 3; ++i) scale[i] = scale_data[i];
-        std::cout << "INFO: Non-isotropic scale\n";
+        std::cout << "INFO: New style scale " << scale[0] << " " << scale[1]
+                  << " " << scale[2] << "\n";
     } else {
         scale[0] = scale[1] = scale[2] =
             (float)*npz["invradius"].data<double>();

@@ -216,7 +216,10 @@ void glfw_scroll_callback(GLFWwindow* window, double xoffset, double yoffset) {
     ImGui_ImplGlfw_ScrollCallback(window, xoffset, yoffset);
     if (ImGui::GetIO().WantCaptureMouse) return;
     auto& cam = GET_RENDERER(window).camera;
-    cam.focal *= (yoffset > 0.f) ? 1.01f : 0.99f;
+    // Focal length adjusting was very annoying so changed it to movement in z
+    // cam.focal *= (yoffset > 0.f) ? 1.01f : 0.99f;
+    const float speed_fact = 1e-1f;
+    cam.move(cam.v_back * ((yoffset < 0.f) ? speed_fact : -speed_fact));
 }
 
 GLFWwindow* glfw_init(const int width, const int height) {
