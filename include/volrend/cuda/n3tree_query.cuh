@@ -1,14 +1,16 @@
 #pragma once
 #include "volrend/camera.hpp"
 #include "volrend/cuda/common.cuh"
+#include <cuda_fp16.h>
 
 namespace volrend {
 namespace device {
 
-__device__ __inline__ static void query_single_from_root(const float* __restrict__ data,
+__device__ __inline__ static void query_single_from_root(
+                                      const __half* __restrict__ data,
                                       const int32_t* __restrict__ child,
                                       float* __restrict__ xyz,
-                                      const float** __restrict__ out,
+                                      const half** __restrict__ out,
                                       float* __restrict__ cube_sz,
                                       const int N,
                                       const int data_dim) {

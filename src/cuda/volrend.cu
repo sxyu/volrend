@@ -3,6 +3,7 @@
 #include <ctime>
 #include <cstring>
 #include <glm/gtc/type_ptr.hpp>
+#include <cuda_fp16.h>
 
 #include "volrend/n3tree.hpp"
 #include "volrend/cuda/rt_core.cuh"
@@ -12,25 +13,6 @@ namespace volrend {
 
 #define MAX3(a, b, c) max(max(a, b), c)
 #define MIN3(a, b, c) min(min(a, b), c)
-
-// __host__ __device__ __inline__ static void world2screen(
-//         const float* __restrict__ xyz,
-//         float focal_x,
-//         float focal_y,
-//         const float* __restrict__ transform,
-//         float* out) {
-//     float x, y, z;
-//     x = xyz[0] - transform[9];
-//     y = xyz[1] - transform[10];
-//     z = xyz[2] - transform[11];
-//     float zt;
-//     out[0] = transform[0] * x + transform[1] * y + transform[2] * z;
-//     out[1] = transform[3] * x + transform[4] * y + transform[5] * z;
-//     zt     = transform[6] * x + transform[7] * y + transform[8] * z;
-//
-//     out[0] *= focal_x / zt;
-//     out[1] *= focal_y / zt;
-// }
 
 template<typename scalar_t>
 __host__ __device__ __inline__ static scalar_t _norm(
@@ -45,15 +27,16 @@ __host__ __device__ __inline__ static void _normalize(
     dir[0] /= norm; dir[1] /= norm; dir[2] /= norm;
 }
 
+template<typename scalar_t>
 __host__ __device__ __inline__ static void screen2worlddir(
-        int ix, int iy, float focal,
+        int ix, int iy, scalar_t focal,
         int width, int height,
-        const float* __restrict__ transform,
-        float* out,
-        float* cen) {
-    float x = (ix - 0.5 * width) / focal;
-    float y = -(iy - 0.5 * height) / focal;
-    float z = sqrtf(x * x + y * y + 1.0);
+        const scalar_t* __restrict__ transform,
+        scalar_t* out,
+        scalar_t* cen) {
+    scalar_t x = (ix - 0.5 * width) / focal;
+    scalar_t y = -(iy - 0.5 * height) / focal;
+    scalar_t z = sqrtf(x * x + y * y + 1.0);
     x /= z;
     y /= z;
     z = -1.0f / z;
@@ -106,7 +89,7 @@ __global__ static void render_kernel(
         const int height,
         float focal,
         const float* __restrict__ transform,
-        const float* __restrict__ tree_data,
+        const __half* __restrict__ tree_data,
         const int32_t* __restrict__ tree_child,
         const float* __restrict__ tree_offset,
         const float* __restrict__ tree_scale,

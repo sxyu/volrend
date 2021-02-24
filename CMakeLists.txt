@@ -21,7 +21,6 @@ set(VOLREND_VERSION ${VOLREND_VERSION_MAJOR}.${VOLREND_VERSION_MINOR}.${VOLREND_
 
 option( VOLREND_USE_SYSTEM_GLFW
     "Use system glfw rather than the included glfw submodule if available" ON )
-option( VOLREND_USE_OPENEXR "Use OpenEXR if we can find it" ON )
 option( VOLREND_USE_CUDA "Use CUDA" ON )
 option( VOLREND_BUILD_INSTALL "Build the install target" ON )
 option( VOLREND_BUILD_PYTHON "Build Python bindings" OFF )
@@ -147,27 +146,6 @@ else()
     include_directories(${ZLIB_DIR})
     set( DEPENDENCIES ${DEPENDENCIES} zlibstatic )
 endif()
-
-# require OpenEXR
-set (_VOLREND_OPENEXR_ "// ")
-if ( VOLREND_USE_OPENEXR )
-    find_package (OpenEXR)
-
-    if (OpenEXR_FOUND)
-        set(
-            DEPENDENCIES
-            ${DEPENDENCIES}
-            OpenEXR::OpenEXR
-        )
-        message ( STATUS "Found OpenEXR" )
-	set (_VOLREND_OPENEXR_ "")
-    else( OpenEXR_FOUND )
-        message ( STATUS "Couldn't find OpenEXR" )
-    endif( OpenEXR_FOUND )
-else ( VOLREND_USE_OPENEXR )
-    message ( STATUS "OpenEXR disabled by user" )
-    set ( OpenEXR_FOUND OFF )
-endif ( VOLREND_USE_OPENEXR )
 
 if (NOT OpenEXR_FOUND)
     set (VOLREND_VENDOR_SOURCES

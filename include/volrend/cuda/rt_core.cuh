@@ -1,6 +1,7 @@
 #pragma once
 #include "volrend/cuda/n3tree_query.cuh"
 #include <cmath>
+#include <cuda_fp16.h>
 
 namespace volrend {
 namespace device {
@@ -38,14 +39,15 @@ __device__ __constant__ const float C4[] = {
     0.6258357354491761,
 };
 
+template<typename scalar_t>
 __device__ __inline__ void _precalc_sh(
     const int order,
-    const float* __restrict__ dir,
-    float* __restrict__ out_mult) {
+    const scalar_t* __restrict__ dir,
+    scalar_t* __restrict__ out_mult) {
     out_mult[0] = C0;
-    const float x = dir[0], y = dir[1], z = dir[2];
-    const float xx = x * x, yy = y * y, zz = z * z;
-    const float xy = x * y, yz = y * z, xz = x * z;
+    const scalar_t x = dir[0], y = dir[1], z = dir[2];
+    const scalar_t xx = x * x, yy = y * y, zz = z * z;
+    const scalar_t xy = x * y, yz = y * z, xz = x * z;
     switch (order) {
         case 4:
             out_mult[16] = C4[0] * xy * (xx - yy);
@@ -81,14 +83,15 @@ __device__ __inline__ void _precalc_sh(
     }
 }
 
+template<typename scalar_t>
 __device__ __inline__ void _dda_unit(
-        const float* __restrict__ cen,
-        const float* __restrict__ _invdir,
-        float* __restrict__ tmin,
-        float* __restrict__ tmax) {
-    float t1, t2;
-    *tmin = 0.0f;
-    *tmax = 1e9f;
+        const scalar_t* __restrict__ cen,
+        const scalar_t* __restrict__ _invdir,
+        scalar_t* __restrict__ tmin,
+        scalar_t* __restrict__ tmax) {
+    scalar_t t1, t2;
+    *tmin = 0.0;
+    *tmax = 1e4;
 #pragma unroll
     for (int i = 0; i < 3; ++i) {
         t1 = - cen[i] * _invdir[i];
@@ -98,25 +101,26 @@ __device__ __inline__ void _dda_unit(
     }
 }
 
+template<typename scalar_t>
 __device__ __inline__ void trace_ray(
-        const float* __restrict__ tree_data,
+        const __half* __restrict__ tree_data,
         const int32_t* __restrict__ tree_child,
         int tree_N,
         int data_dim,
         int sh_order,
-        const float* __restrict__ dir,
-        const float* __restrict__ vdir,
-        const float* __restrict__ cen,
-        float step_size,
-        float stop_thresh,
-        float sigma_thresh,
-        float background_brightness,
-        float delta_scale,
+        const scalar_t* __restrict__ dir,
+        const scalar_t* __restrict__ vdir,
+        const scalar_t* __restrict__ cen,
+        scalar_t step_size,
+        scalar_t stop_thresh,
+        scalar_t sigma_thresh,
+        scalar_t background_brightness,
+        scalar_t delta_scale,
         bool show_grid,
-        float* __restrict__ out) {
+        scalar_t* __restrict__ out) {
 
-    float tmin, tmax;
-    float invdir[3];
+    scalar_t tmin, tmax;
+    scalar_t invdir[3];
 #pragma unroll
     for (int i = 0; i < 3; ++i) {
         invdir[i] = 1.f / (dir[i] + 1e-9);
@@ -133,18 +137,18 @@ __device__ __inline__ void trace_ray(
         return;
     } else {
         out[0] = out[1] = out[2] = 0.0f;
-        float pos[3], tmp;
-        const float* tree_val;
-        float sh_mult[25];
+        scalar_t pos[3], tmp;
+        const half* tree_val;
+        scalar_t sh_mult[25];
         if (sh_order >= 0) {
             _precalc_sh(sh_order, vdir, sh_mult);
         }
 
-        float light_intensity = 1.f;
+        scalar_t light_intensity = 1.f;
         // int n_steps = (int) ceilf((tmax - tmin) / step_size);
-        float t = tmin;
+        scalar_t t = tmin;
         const int n_coe = (sh_order + 1) * (sh_order + 1);
-        float cube_sz;
+        scalar_t cube_sz;
         while (t < tmax) {
             for (int j = 0; j < 3; ++j) {
                 pos[j] = cen[j] + t * dir[j];
@@ -153,15 +157,15 @@ __device__ __inline__ void trace_ray(
             query_single_from_root(tree_data, tree_child,
                     pos, &tree_val, &cube_sz, tree_N, data_dim);
 
-            float att;
-            float subcube_tmin, subcube_tmax;
+            scalar_t att;
+            scalar_t subcube_tmin, subcube_tmax;
             _dda_unit(pos, invdir, &subcube_tmin, &subcube_tmax);
             if (show_grid) {
-                float max3 = max(max(pos[0], pos[1]), pos[2]);
-                float min3 = min(min(pos[0], pos[1]), pos[2]);
-                float sum3 = pos[0] + pos[1] + pos[2];
-                float mid3 = sum3 - min3 - max3;
-                const float edge_draw_thresh = 1.5e-2f;
+                scalar_t max3 = max(max(pos[0], pos[1]), pos[2]);
+                scalar_t min3 = min(min(pos[0], pos[1]), pos[2]);
+                scalar_t sum3 = pos[0] + pos[1] + pos[2];
+                scalar_t mid3 = sum3 - min3 - max3;
+                const scalar_t edge_draw_thresh = 1.5e-2f;
 
                 if (abs(max3 - sum3) < edge_draw_thresh ||
                     abs(min3 - sum3 + 2.f) < edge_draw_thresh ||
@@ -171,28 +175,28 @@ __device__ __inline__ void trace_ray(
                 }
             }
 
-            const float t_subcube = (subcube_tmax - subcube_tmin) / cube_sz;
-            const float delta_t = t_subcube + step_size;
-            if (tree_val[data_dim - 1] > sigma_thresh) {
-                att = expf(-delta_t * delta_scale * tree_val[data_dim - 1]);
-                const float weight = light_intensity * (1.f - att);
+            const scalar_t t_subcube = (subcube_tmax - subcube_tmin) / cube_sz;
+            const scalar_t delta_t = t_subcube + step_size;
+            if (__half2float(tree_val[data_dim - 1]) > sigma_thresh) {
+                att = expf(-delta_t * delta_scale * __half2float(tree_val[data_dim - 1]));
+                const scalar_t weight = light_intensity * (1.f - att);
 
                 if (sh_order >= 0) {
 #pragma unroll 3
                     for (int t = 0; t < 3; ++ t) {
                         int off = t * n_coe;
-                        tmp = sh_mult[0] * tree_val[off] +
-                            sh_mult[1] * tree_val[off + 1] +
-                            sh_mult[2] * tree_val[off + 2];
+                        tmp = sh_mult[0] * __half2float(tree_val[off]) +
+                            sh_mult[1] * __half2float(tree_val[off + 1]) +
+                            sh_mult[2] * __half2float(tree_val[off + 2]);
 #pragma unroll 6
                         for (int i = 3; i < n_coe; ++i) {
-                            tmp += sh_mult[i] * tree_val[off + i];
+                            tmp += sh_mult[i] * __half2float(tree_val[off + i]);
                         }
                         out[t] += weight / (1.f + expf(-tmp));
                     }
                 } else {
                     for (int j = 0; j < 3; ++j) {
-                        out[j] += tree_val[j] * weight;
+                        out[j] += __half2float(tree_val[j]) * weight;
                     }
                 }
 
@@ -200,7 +204,7 @@ __device__ __inline__ void trace_ray(
 
                 if (light_intensity < stop_thresh) {
                     // Almost full opacity, stop
-                    float scale = 1.f / (1.f - light_intensity);
+                    scalar_t scale = 1.f / (1.f - light_intensity);
                     out[0] *= scale;
                     out[1] *= scale;
                     out[2] *= scale;

@@ -8,9 +8,8 @@
 #include <atomic>
 
 #include "glm/geometric.hpp"
-#ifdef VOLREND_OPENEXR
-#include <OpenEXR/ImfRgbaFile.h>
-#else
+
+#ifndef VOLREND_CUDA
 #include "ilm/half.h"
 #endif
 
@@ -68,7 +67,6 @@ void N3Tree::open(const std::string& path) {
     npz_path_ = path;
     assert(path.size() > 3 && path.substr(path.size() - 4) == ".npz");
 
-    data_path_ = path.substr(0, path.size() - 4) + "_data.exr";
     poses_bounds_path_ = path.substr(0, path.size() - 4) + "_poses_bounds.npy";
 
     auto npz = cnpy::npz_load(path);
@@ -118,25 +116,21 @@ void N3Tree::open(const std::string& path) {
     N2_ = N * N;
     N3_ = N * N * N;
 
-    if (npz.count("data")) {
-        auto data_node = npz["data"];
-        data_.clear();
-        capacity = data_node.shape[0];
-        if (capacity != n_internal) {
-            std::cerr << "WARNING: N3Tree capacity != n_internal, "
-                      << "call shrink_to_fit() before saving to save space\n";
-        }
-        if (data_node.word_size == 2) {
-            std::cout << "INFO: Found data stored in half precision\n";
-            const half* ptr = data_node.data<half>();
-            data_ = std::vector<float>(ptr, ptr + data_node.num_vals);
-        } else {
-            std::cout << "INFO: Found data stored in single precision\n";
-            // Avoid copy
-            std::swap(data_cnpy_, npz["data"]);
-        }
+    auto data_node = npz["data"];
+    data_.clear();
+    capacity = data_node.shape[0];
+    if (capacity != n_internal) {
+        std::cerr << "WARNING: N3Tree capacity != n_internal, "
+                  << "call shrink_to_fit() before saving to save space\n";
+    }
+    if (data_node.word_size == 2) {
+        std::cout << "INFO: Found data stored in half precision\n";
+        std::swap(data_cnpy_, npz["data"]);
     } else {
-        load_data();
+        std::cout << "INFO: Found data stored in single precision\n";
+        // Avoid copy
+        const float* ptr = data_node.data<float>();
+        data_ = std::vector<half>(ptr, ptr + data_node.num_vals);
     }
 
     use_ndc = bool(std::ifstream(poses_bounds_path_));
@@ -160,30 +154,6 @@ void N3Tree::open(const std::string& path) {
     last_sigma_thresh_ = -1.f;
 #ifdef VOLREND_CUDA
     load_cuda();
-#endif
-}
-
-void N3Tree::load_data() {
-#ifdef VOLREND_OPENEXR
-    std::cout << "INFO: Loading with OpenEXR (legacy)\n";
-    Imf::RgbaInputFile file(data_path_.c_str());
-    Imath::Box2i dw = file.dataWindow();
-    int width = dw.max.x - dw.min.x + 1;
-    int height = dw.max.y - dw.min.y + 1;
-    capacity = height / N;
-    assert(capacity >= n_internal);
-
-    std::vector<Imf::Rgba> tmp(height * width);
-    file.setFrameBuffer(&tmp[0] - dw.min.x - dw.min.y * width, 1, width);
-    file.readPixels(dw.min.y, dw.max.y);
-    half* loaded = reinterpret_cast<half*>(tmp.data());
-    // FIXME get rid of this copy (low priority)
-    data_ = std::vector<float>(loaded, loaded + height * width * data_dim);
-    data_loaded_ = true;
-#else
-    throw std::runtime_error(
-        "Volrend was not built with OpenEXR, "
-        "legacy format is not available");
 #endif
 }
 
@@ -221,10 +191,10 @@ std::tuple<int, int, int, int> N3Tree::unpack_index(int packed) {
     return {packed, i, j, k};
 }
 
-float* N3Tree::data_ptr() {
-    return data_.empty() ? data_cnpy_.data<float>() : data_.data();
+half* N3Tree::data_ptr() {
+    return data_.empty() ? data_cnpy_.data<half>() : data_.data();
 }
-const float* N3Tree::data_ptr() const {
-    return data_.empty() ? data_cnpy_.data<float>() : data_.data();
+const half* N3Tree::data_ptr() const {
+    return data_.empty() ? data_cnpy_.data<half>() : data_.data();
 }
 }  // namespace volrend

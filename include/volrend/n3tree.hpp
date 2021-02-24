@@ -10,6 +10,10 @@
 
 #include "glm/vec3.hpp"
 
+#ifdef VOLREND_CUDA
+#include <cuda_fp16.h>
+#endif
+
 namespace volrend {
 
 using Rgba = std::array<float, 4>;
@@ -61,14 +65,14 @@ struct N3Tree {
 #ifdef VOLREND_CUDA
     // CUDA memory
     mutable struct {
-        float* data = nullptr;
+        __half* data = nullptr;
         int32_t* child = nullptr;
         float* offset = nullptr;
         float* scale = nullptr;
     } device;
 #endif
-    float* data_ptr();
-    const float* data_ptr() const;
+    half* data_ptr();
+    const half* data_ptr() const;
 
     // Child link data holder
     cnpy::NpyArray child_;
@@ -77,7 +81,7 @@ struct N3Tree {
     int N2_, N3_;
 
     // Main data holder
-    std::vector<float> data_;
+    std::vector<half> data_;
     // Alt (if load with cnpy)
     cnpy::NpyArray data_cnpy_;
 
@@ -86,8 +90,6 @@ struct N3Tree {
     bool data_loaded_;
 
     mutable float last_sigma_thresh_;
-
-    void load_data();
 
 #ifdef VOLREND_CUDA
     bool cuda_loaded_;

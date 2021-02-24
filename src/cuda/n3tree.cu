@@ -9,7 +9,7 @@ namespace volrend {
 void N3Tree::load_cuda() {
     if (device.data != nullptr) cuda(Free(device.data));
     if (device.child != nullptr) cuda(Free(device.child));
-    const size_t data_sz = capacity * N3_ * data_dim * sizeof(float);
+    const size_t data_sz = capacity * N3_ * data_dim * sizeof(half);
     const size_t child_sz = capacity * N3_ * sizeof(int32_t);
     cuda(Malloc((void**)&device.data, data_sz));
     cuda(Malloc((void**)&device.child, child_sz));
@@ -21,7 +21,7 @@ void N3Tree::load_cuda() {
     }
     cuda(MemcpyAsync(device.child, child_.data<int32_t>(),  child_sz,
                 cudaMemcpyHostToDevice));
-    const float* data_ptr = this->data_ptr();
+    const half* data_ptr = this->data_ptr();
     cuda(MemcpyAsync(device.data, data_ptr, data_sz,
                 cudaMemcpyHostToDevice));
     cuda(MemcpyAsync(device.offset, offset.data(), 3 * sizeof(float),
