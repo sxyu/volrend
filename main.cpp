@@ -75,8 +75,6 @@ void draw_imgui(VolumeRenderer& rend) {
         cam.v_world_up = glm::normalize(world_up_tmp);
         cam.v_back = glm::normalize(back_tmp);
     }
-    ImGui::SameLine();
-    ImGui::TextUnformatted("Key 1-6: preset cams");
     ImGui::End();
     // End camera window
 
@@ -148,42 +146,6 @@ void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action,
 
             case GLFW_KEY_0:
                 cam.focal = CAMERA_DEFAULT_FOCAL_LENGTH;
-                break;
-
-            case GLFW_KEY_1:
-                cam.center = {0.0f, -1.5f, 0.0f};
-                cam.v_back = {0.0f, 1.0f, 0.0f};
-                cam.v_world_up = {0.0f, 0.0f, -1.0f};
-                break;
-
-            case GLFW_KEY_2:
-                cam.center = {0.0f, 1.5f, 0.0f};
-                cam.v_back = {0.0f, -1.0f, 0.0f};
-                cam.v_world_up = {0.0f, 0.0f, 1.0f};
-                break;
-
-            case GLFW_KEY_3:
-                cam.center = {-1.5f, 0.0f, 0.0f};
-                cam.v_back = {1.0f, 0.0f, 0.0f};
-                cam.v_world_up = {0.0f, 1.0f, 0.0f};
-                break;
-
-            case GLFW_KEY_4:
-                cam.center = {1.5f, 0.0f, 0.0f};
-                cam.v_back = {-1.0f, 0.0f, 0.0f};
-                cam.v_world_up = {0.0f, -1.0f, 0.0f};
-                break;
-
-            case GLFW_KEY_5:
-                cam.center = {0.0f, 0.0f, 1.5f};
-                cam.v_back = {0.0f, 0.0f, -1.0f};
-                cam.v_world_up = {1.0f, 0.0f, 0.0f};
-                break;
-
-            case GLFW_KEY_6:
-                cam.center = {0.0f, 0.0f, -1.5f};
-                cam.v_back = {0.0f, 0.0f, 1.0f};
-                cam.v_world_up = {-1.0f, 0.0f, 0.0f};
                 break;
         }
     }
