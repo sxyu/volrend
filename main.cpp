@@ -84,7 +84,7 @@ void draw_imgui(VolumeRenderer& rend) {
     ImGui::Begin("Rendering");
 
     static float inv_step_size = 1.0f / rend.options.step_size;
-    if (ImGui::SliderFloat("1/step_size", &inv_step_size, 128.f, 5000.f)) {
+    if (ImGui::SliderFloat("1/step_size", &inv_step_size, 128.f, 10000.f)) {
         rend.options.step_size = 1.f / inv_step_size;
     }
     ImGui::SliderFloat("sigma_thresh", &rend.options.sigma_thresh, 0.f, 100.0f);
@@ -256,10 +256,16 @@ int main(int argc, char* argv[]) {
         return 1;
     }
     const int device_id = (argc > 2) ? atoi(argv[2]) : -1;
-    GLFWwindow* window = glfw_init(800, 800);
+
+    N3Tree tree(argv[1]);
+    int width = 800, height = 800;
+    if (tree.use_ndc) {
+        width = 1008;
+        height = 756;
+    }
+    GLFWwindow* window = glfw_init(width, height);
     {
         VolumeRenderer rend(device_id);
-        N3Tree tree(argv[1]);
         if (tree.use_ndc) {
             // Special inital coordinates for NDC
             // (pick average camera)
@@ -269,12 +275,12 @@ int main(int argc, char* argv[]) {
             rend.camera.v_world_up = glm::vec3(0, 1, 0);
             rend.camera.focal = tree.ndc_focal * 0.25f;
             rend.camera.movement_speed = 0.1f;
+            rend.options.step_size = 1.f / 4000.f;
         }
         rend.set(tree);
 
         // get initial width/height
         {
-            int width, height;
             glfwGetFramebufferSize(window, &width, &height);
             rend.resize(width, height);
         }
