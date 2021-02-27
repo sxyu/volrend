@@ -27,6 +27,8 @@ struct N3Tree {
     ~N3Tree();
 
     void open(const std::string& path);
+    void open_mem(const char* data, uint64_t size);
+    void load_npz(cnpy::npz_t& npz);
 
     // Spatial branching factor
     int N;

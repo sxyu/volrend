@@ -52,7 +52,7 @@ void unpack_llff_poses_bounds(cnpy::NpyArray& poses_bounds, float& width,
 }  // namespace
 
 N3Tree::N3Tree() {}
-N3Tree::N3Tree(const std::string& path) : npz_path_(path) { open(path); }
+N3Tree::N3Tree(const std::string& path) { open(path); }
 N3Tree::~N3Tree() {
 #ifdef VOLREND_CUDA
     free_cuda();
@@ -69,7 +69,49 @@ void N3Tree::open(const std::string& path) {
 
     poses_bounds_path_ = path.substr(0, path.size() - 4) + "_poses_bounds.npy";
 
-    auto npz = cnpy::npz_load(path);
+    cnpy::npz_t npz = cnpy::npz_load(path);
+    load_npz(npz);
+
+    use_ndc = bool(std::ifstream(poses_bounds_path_));
+    if (use_ndc) {
+        std::cout << "INFO: Found poses_bounds.npy for NDC: "
+                  << poses_bounds_path_ << "\n";
+        cnpy::NpyArray poses_bounds = cnpy::npy_load(poses_bounds_path_);
+
+        if (poses_bounds.word_size == 4) {
+            const float* ptr = poses_bounds.data<float>();
+            unpack_llff_poses_bounds<float>(poses_bounds, ndc_width, ndc_height,
+                                            ndc_focal, ndc_avg_up, ndc_avg_back,
+                                            ndc_avg_cen);
+        } else {
+            assert(poses_bounds.word_size == 8);
+            unpack_llff_poses_bounds<double>(poses_bounds, ndc_width,
+                                             ndc_height, ndc_focal, ndc_avg_up,
+                                             ndc_avg_back, ndc_avg_cen);
+        }
+    }
+    last_sigma_thresh_ = -1.f;
+#ifdef VOLREND_CUDA
+    load_cuda();
+#endif
+}
+
+void N3Tree::open_mem(const char* data, uint64_t size) {
+    data_loaded_ = false;
+#ifdef VOLREND_CUDA
+    cuda_loaded_ = false;
+#endif
+    npz_path_ = "";
+    cnpy::npz_t npz = cnpy::npz_load_mem(data, size);
+    load_npz(npz);
+
+    last_sigma_thresh_ = -1.f;
+#ifdef VOLREND_CUDA
+    load_cuda();
+#endif
+}
+
+void N3Tree::load_npz(cnpy::npz_t& npz) {
     data_dim = (int)*npz["data_dim"].data<int64_t>();
     switch (data_dim) {
         case 4 * 3 + 1:
@@ -132,29 +174,6 @@ void N3Tree::open(const std::string& path) {
         const float* ptr = data_node.data<float>();
         data_ = std::vector<half>(ptr, ptr + data_node.num_vals);
     }
-
-    use_ndc = bool(std::ifstream(poses_bounds_path_));
-    if (use_ndc) {
-        std::cout << "INFO: Found poses_bounds.npy for NDC: "
-                  << poses_bounds_path_ << "\n";
-        cnpy::NpyArray poses_bounds = cnpy::npy_load(poses_bounds_path_);
-
-        if (poses_bounds.word_size == 4) {
-            const float* ptr = poses_bounds.data<float>();
-            unpack_llff_poses_bounds<float>(poses_bounds, ndc_width, ndc_height,
-                                            ndc_focal, ndc_avg_up, ndc_avg_back,
-                                            ndc_avg_cen);
-        } else {
-            assert(poses_bounds.word_size == 8);
-            unpack_llff_poses_bounds<double>(poses_bounds, ndc_width,
-                                             ndc_height, ndc_focal, ndc_avg_up,
-                                             ndc_avg_back, ndc_avg_cen);
-        }
-    }
-    last_sigma_thresh_ = -1.f;
-#ifdef VOLREND_CUDA
-    load_cuda();
-#endif
 }
 
 int32_t N3Tree::get_child(int nd, int i, int j, int k) {

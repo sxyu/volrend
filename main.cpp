@@ -4,6 +4,7 @@
 
 #include <cstdlib>
 #include <cstdio>
+#include <string>
 
 #include "volrend/renderer.hpp"
 #include "volrend/n3tree.hpp"

@@ -17,20 +17,34 @@
 #include <zlib.h>
 #include <map>
 #include <memory>
+#include <cstring>
 #include <stdint.h>
 #include <numeric>
 
 namespace cnpy {
 struct NpyArray {
     NpyArray(const std::vector<size_t>& _shape, size_t _word_size,
-             bool _fortran_order)
-        : shape(_shape), word_size(_word_size), fortran_order(_fortran_order) {
-        num_vals = 1;
-        for (size_t i = 0; i < shape.size(); i++) num_vals *= shape[i];
-        data_holder.resize(num_vals * word_size);
+             bool _fortran_order) {
+        reinit(_shape, _word_size, _fortran_order);
     }
 
     NpyArray() : shape(0), word_size(0), fortran_order(0), num_vals(0) {}
+
+    void reinit(const std::vector<size_t>& _shape, size_t _word_size,
+                bool _fortran_order) {
+        shape = _shape;
+        word_size = _word_size;
+        fortran_order = _fortran_order;
+        num_vals = 1;
+        for (size_t i = 0; i < shape.size(); i++) num_vals *= shape[i];
+        size_t sz = num_vals * word_size;
+        if (data_holder.size() > sz) {
+            // Delete from beginning of array
+            memmove(&data_holder[0], &data_holder[0] + data_holder.size() - sz,
+                    sz);
+        }
+        data_holder.resize(sz);
+    }
 
     template <typename T>
     T* data() {
@@ -65,11 +79,12 @@ template <typename T>
 std::vector<char> create_npy_header(const std::vector<size_t>& shape);
 void parse_npy_header(FILE* fp, size_t& word_size, std::vector<size_t>& shape,
                       bool& fortran_order);
-void parse_npy_header(unsigned char* buffer, size_t& word_size,
+void parse_npy_header(const char* buffer, size_t& word_size,
                       std::vector<size_t>& shape, bool& fortran_order);
 void parse_zip_footer(FILE* fp, uint16_t& nrecs, size_t& global_header_size,
                       size_t& global_header_offset);
 npz_t npz_load(const std::string& fname);
+npz_t npz_load_mem(const char* data, uint64_t size);
 NpyArray npz_load(const std::string& fname, const std::string& varname);
 NpyArray npy_load(const std::string& fname);
 
