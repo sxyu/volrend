@@ -1,6 +1,6 @@
 #version 430 core
 
-layout(local_size_x = 8, local_size_y = 8) in;
+out vec4 FragColor;
 
 // Computer vision style camera
 struct Camera {
@@ -245,10 +245,9 @@ void world2ndc(inout vec3 dir, inout vec3 cen, float near = 1.f) {
 
 void main()
 {
-    ivec2 img_size = imageSize(img_output);
-    ivec2 pix = ivec2(gl_GlobalInvocationID.xy);
-
-    vec2 xy = (pix - 0.5 * cam.reso) / cam.focal * vec2(1, -1);
+    vec2 xy = vec2(gl_FragCoord);
+    xy.y = cam.reso.y - xy.y;
+    xy = (xy - 0.5 * (cam.reso + 1)) / cam.focal * vec2(1, -1);
     vec3 dir = normalize(vec3(xy, -1.0));
     dir = normalize(mat3(cam.transform) * dir);
     vec3 cen = cam.transform[3];
@@ -260,5 +259,5 @@ void main()
     }
     cen = tree.center + cen * tree.scale;
     rgb = trace_ray(dir, vdir, cen);
-    imageStore(img_output, pix, vec4(rgb, 1.0));
+    FragColor = vec4(rgb, 1.0);
 }

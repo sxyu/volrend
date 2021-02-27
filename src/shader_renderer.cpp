@@ -1,6 +1,6 @@
 #include "volrend/common.hpp"
 
-// Compute-shader backend only enabled when build with VOLREND_USE_CUDA=OFF
+// Shader backend only enabled when build with VOLREND_USE_CUDA=OFF
 #ifndef VOLREND_CUDA
 #include "volrend/renderer.hpp"
 #include <glm/gtc/type_ptr.hpp>
@@ -13,11 +13,22 @@
 
 namespace volrend {
 
-const float axes_verts[] = {
-    0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f, 0.0f,
+namespace {
+
+const char* passthru_vert_shader_src = R"glsl(
+#version 330 core
+layout (location = 0) in vec3 aPos;
+
+void main()
+{
+    gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+}
+)glsl";
+
+const float quad_verts[] = {
+    -1.f, -1.f, 0.f, 1.f, -1.f, 0.f, -1.f, 1.f, 0.f, 1.f, 1.f, 0.f,
 };
 
-namespace {
 void check_compile_errors(GLuint shader, const std::string& type) {
     GLint success;
     GLchar infoLog[1024];
@@ -48,8 +59,7 @@ void check_compile_errors(GLuint shader, const std::string& type) {
 
 struct VolumeRenderer::Impl {
     Impl(Camera& camera, RenderOptions& options, int max_tries = 4)
-        : camera(camera), options(options), buf_index(0) {
-        std::string shader_fname = "shaders/render.comp";
+        : camera(camera), options(options) {
         int i;
         for (i = 0; i < max_tries; ++i) {
             if (std::ifstream(shader_fname)) break;
@@ -60,42 +70,18 @@ struct VolumeRenderer::Impl {
                 "Could not find the compute shader! "
                 "Please launch pogram in project directory or a subdirectory.");
         }
-        glCreateFramebuffers(2, fb.data());
-        glGenTextures(2, fb_tex.data());
         glGenBuffers(1, &ssb_tree_data);
         glGenBuffers(1, &ssb_tree_child);
         resize(0, 0);
 
-        std::ifstream shader_ifs(shader_fname);
-        shader_ifs.seekg(0, std::ios::end);
-        size_t size = shader_ifs.tellg();
-        std::string shader_source(size, ' ');
-        shader_ifs.seekg(0);
-        shader_ifs.read(&shader_source[0], size);
-        const char* ptr = shader_source.c_str();
-
-        GLuint shader = glCreateShader(GL_COMPUTE_SHADER);
-        glShaderSource(shader, 1, &ptr, NULL);
-        glCompileShader(shader);
-        check_compile_errors(shader, "COMPUTE");
-
-        program = glCreateProgram();
-        glAttachShader(program, shader);
-        glLinkProgram(program);
-        check_compile_errors(program, "PROGRAM");
-        glDeleteShader(shader);
-        glUseProgram(program);
+        shader_init();
+        quad_init();
     }
 
-    ~Impl() {
-        glDeleteTextures(2, fb_tex.data());
-        glDeleteFramebuffers(2, fb.data());
-        glDeleteProgram(program);
-    }
+    ~Impl() { glDeleteProgram(program); }
 
     void render() {
-        GLfloat clear_color[] = {1.f, 1.f, 1.f, 1.f};
-        glClearNamedFramebufferfv(fb[buf_index], GL_COLOR, 0, clear_color);
+        glClear(GL_COLOR_BUFFER_BIT);
 
         camera._update();
         if (tree == nullptr) return;
@@ -114,24 +100,15 @@ struct VolumeRenderer::Impl {
         glUniform1f(glGetUniformLocation(program, "opt.sigma_thresh"),
                     options.sigma_thresh);
 
-        // Run compute shader on image texture
-        glBindImageTexture(0, fb_tex[buf_index], 0, GL_FALSE, 0, GL_WRITE_ONLY,
-                           GL_RGBA32F);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssb_tree_data);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssb_tree_child);
 
-        glDispatchCompute((GLuint)camera.width, (GLuint)camera.height, 1);
+        glBindVertexArray(quad_vao);
+        glDrawArrays(GL_TRIANGLE_STRIP, 0, (GLsizei)4);
+        glBindVertexArray(0);
 
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, 0);
         glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, 0);
-
-        glMemoryBarrier(GL_SHADER_IMAGE_ACCESS_BARRIER_BIT);
-        glBindImageTexture(0, 0, 0, GL_FALSE, 0, GL_WRITE_ONLY, GL_RGBA32F);
-
-        glBlitNamedFramebuffer(fb[buf_index], 0, 0, 0, camera.width,
-                               camera.height, 0, camera.height, camera.width, 0,
-                               GL_COLOR_BUFFER_BIT, GL_NEAREST);
-        buf_index ^= 1;
     }
 
     void set(const N3Tree& tree) {
@@ -156,22 +133,7 @@ struct VolumeRenderer::Impl {
             camera.width = width;
             camera.height = height;
         }
-
-        glActiveTexture(GL_TEXTURE0);
-        for (int i = 0; i < 2; ++i) {
-            glBindFramebuffer(GL_FRAMEBUFFER, fb[i]);
-            glBindTexture(GL_TEXTURE_2D, fb_tex[i]);
-
-            glTexImage2D(GL_TEXTURE_2D, 0, GL_RGBA32F, camera.width,
-                         camera.height, 0, GL_RGBA, GL_FLOAT, 0);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
-            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
-
-            glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                                   GL_TEXTURE_2D, fb[i], 0);
-        }
-        glBindTexture(GL_TEXTURE_2D, 0);
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
+        glViewport(0, 0, width, height);
     }
 
    private:
@@ -222,15 +184,63 @@ struct VolumeRenderer::Impl {
         }
     }
 
+    void shader_init() {
+        // Dummy vertex shader
+        GLuint vert_shader = glCreateShader(GL_VERTEX_SHADER);
+        glShaderSource(vert_shader, 1, &passthru_vert_shader_src, NULL);
+        glCompileShader(vert_shader);
+        check_compile_errors(vert_shader, "VERTEX");
+
+        // Fragment shader
+        GLuint frag_shader = glCreateShader(GL_FRAGMENT_SHADER);
+
+        std::ifstream shader_ifs(shader_fname);
+        shader_ifs.seekg(0, std::ios::end);
+        size_t size = shader_ifs.tellg();
+        std::string shader_source(size, ' ');
+        shader_ifs.seekg(0);
+        shader_ifs.read(&shader_source[0], size);
+
+        const GLchar* frag_shader_src = shader_source.c_str();
+        glShaderSource(frag_shader, 1, &frag_shader_src, NULL);
+        glCompileShader(frag_shader);
+        check_compile_errors(frag_shader, "FRAGMENT");
+        program = glCreateProgram();
+        glAttachShader(program, vert_shader);
+        glAttachShader(program, frag_shader);
+        glLinkProgram(program);
+        check_compile_errors(program, "PROGRAM");
+
+        glDeleteShader(vert_shader);
+        glDeleteShader(frag_shader);
+
+        glUseProgram(program);
+    }
+
+    void quad_init() {
+        GLuint vbo;
+        glGenBuffers(1, &vbo);
+        glGenVertexArrays(1, &quad_vao);
+        glBindVertexArray(quad_vao);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, sizeof quad_verts, (GLvoid*)quad_verts,
+                     GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
+                              (GLvoid*)0);
+        glEnableVertexAttribArray(0);
+        glBindVertexArray(0);
+    }
+
     Camera& camera;
     RenderOptions& options;
-    int buf_index;
 
     const N3Tree* tree;
 
     GLuint program = -1;
-    std::array<GLuint, 2> fb, fb_tex;
     GLuint ssb_tree_data, ssb_tree_child;
+    GLuint quad_vao;
+
+    std::string shader_fname = "shaders/rt.frag";
 };
 
 VolumeRenderer::VolumeRenderer(int device_id)
@@ -251,7 +261,7 @@ void VolumeRenderer::clear() { impl_->clear(); }
 void VolumeRenderer::resize(int width, int height) {
     impl_->resize(width, height);
 }
-const char* VolumeRenderer::get_backend() { return "CS"; }
+const char* VolumeRenderer::get_backend() { return "Shader"; }
 
 }  // namespace volrend
 
