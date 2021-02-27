@@ -18,7 +18,7 @@ make -j12
 ```
 
 - Pass `-DVOLREND_USE_CUDA=ON` to use CUDA-OpenGL interop renderer.
-- Pass `-DVOLREND_USE_CUDA=OFF` to use compute shader backend.
+- Pass `-DVOLREND_USE_CUDA=OFF` to use GLSL shader backend.
 It is slower but can work without CUDA (e.g. AMD GPU).
 
 On Ubuntu, to get the dependencies, try
@@ -42,7 +42,7 @@ In the same direcotry.
 
 ### Dependencies
 - C++14
-- OpenGL 4.3 + (4.3 needed for compute shader and SSBO)
+- OpenGL 4.3 + (4.3 needed for SSBO)
     - any dependencies of GLFW
 
 #### Optional

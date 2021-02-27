@@ -1,5 +1,8 @@
-#version 430 core
+#version 330 core
 
+precision lowp float;
+
+// The output color
 out vec4 FragColor;
 
 // Computer vision style camera
@@ -9,6 +12,7 @@ struct Camera {
     float focal;
 };
 
+// Store tree data
 struct N3TreeSpec {
     int N;
     int data_dim;
@@ -21,6 +25,7 @@ struct N3TreeSpec {
     vec3 scale;
 };
 
+// Store render options
 struct RenderOptions {
     // Epsilon added to each step
     float step_size;
@@ -36,24 +41,18 @@ uniform Camera cam;
 uniform RenderOptions opt;
 uniform N3TreeSpec tree;
 
-// The output image texture
-layout(rgba32f, binding = 0) uniform image2D img_output;
+uniform int tbo_size_limit;
+uniform isamplerBuffer tree_child_tex;
+uniform samplerBuffer tree_data_tex[8];
 
-// SSBO tree data
-layout(std430, binding = 0) readonly restrict buffer TreeDataBuffer {
-    float tree_data[];
-};
-layout(std430, binding = 1) readonly restrict buffer TreeChildBuffer {
-    int tree_child[];
-};
 
 // **** N^3 TREE IMPLEMENTATION ****
 
 // Tree query, returns
 // (start index of leaf node in tree_data, leaf node scale 2^depth)
 int query_single_from_root(inout vec3 xyz, out float cube_sz) {
-    const float fN = tree.N;
-    const int N3 = tree.N * tree.N * tree.N;
+    float fN = tree.N;
+    int N3 = tree.N * tree.N * tree.N;
     xyz =  clamp(xyz, 0.f, 1.f - 1e-6f);
     int ptr = 0;
     int sub_ptr = 0;
@@ -63,7 +62,7 @@ int query_single_from_root(inout vec3 xyz, out float cube_sz) {
 
         // Find child offset
         sub_ptr = ptr + int(idx.x * (fN * fN) + idx.y * fN + idx.z);
-        const int skip = tree_child[sub_ptr];
+        int skip = texelFetch(tree_child_tex, sub_ptr).r;
         xyz = xyz * fN - idx;
 
         // Add to output
@@ -78,58 +77,40 @@ int query_single_from_root(inout vec3 xyz, out float cube_sz) {
 
 
 // **** CORE RAY TRACER IMPLEMENTATION ****
-
-const float C0 = 0.28209479177387814;
-const float C1 = 0.4886025119029199;
-const float C2[] = {1.0925484305920792, -1.0925484305920792,
-                    0.31539156525252005, -1.0925484305920792,
-                    0.5462742152960396};
-
-const float C3[] = {-0.5900435899266435, 2.890611442640554,
-                    -0.4570457994644658, 0.3731763325901154,
-                    -0.4570457994644658, 1.445305721320277,
-                    -0.5900435899266435};
-
-const float C4[] = {
-    2.5033429417967046,  -1.7701307697799304, 0.9461746957575601,
-    -0.6690465435572892, 0.10578554691520431, -0.6690465435572892,
-    0.47308734787878004, -1.7701307697799304, 0.6258357354491761,
-};
-
 void precalc_sh(const int order, const vec3 dir, inout float out_mult[25]) {
-    out_mult[0] = C0;
+    out_mult[0] = 0.28209479177387814;
     const float x = dir[0], y = dir[1], z = dir[2];
     const float xx = x * x, yy = y * y, zz = z * z;
     const float xy = x * y, yz = y * z, xz = x * z;
     switch (order) {
         case 4:
-            out_mult[16] = C4[0] * xy * (xx - yy);
-            out_mult[17] = C4[1] * yz * (3 * xx - yy);
-            out_mult[18] = C4[2] * xy * (7 * zz - 1.f);
-            out_mult[19] = C4[3] * yz * (7 * zz - 3.f);
-            out_mult[20] = C4[4] * (zz * (35 * zz - 30) + 3);
-            out_mult[21] = C4[5] * xz * (7 * zz - 3);
-            out_mult[22] = C4[6] * (xx - yy) * (7 * zz - 1.f);
-            out_mult[23] = C4[7] * xz * (xx - 3 * yy);
-            out_mult[24] = C4[8] * (xx * (xx - 3 * yy) - yy * (3 * xx - yy));
+            out_mult[16] = 2.5033429417967046 * xy * (xx - yy);
+            out_mult[17] = -1.7701307697799304 * yz * (3 * xx - yy);
+            out_mult[18] = 0.9461746957575601 * xy * (7 * zz - 1.f);
+            out_mult[19] = -0.6690465435572892 * yz * (7 * zz - 3.f);
+            out_mult[20] = 0.10578554691520431 * (zz * (35 * zz - 30) + 3);
+            out_mult[21] = -0.6690465435572892 * xz * (7 * zz - 3);
+            out_mult[22] = 0.47308734787878004 * (xx - yy) * (7 * zz - 1.f);
+            out_mult[23] = -1.7701307697799304 * xz * (xx - 3 * yy);
+            out_mult[24] = 0.6258357354491761 * (xx * (xx - 3 * yy) - yy * (3 * xx - yy));
         case 3:
-            out_mult[9] = C3[0] * y * (3 * xx - yy);
-            out_mult[10] = C3[1] * xy * z;
-            out_mult[11] = C3[2] * y * (4 * zz - xx - yy);
-            out_mult[12] = C3[3] * z * (2 * zz - 3 * xx - 3 * yy);
-            out_mult[13] = C3[4] * x * (4 * zz - xx - yy);
-            out_mult[14] = C3[5] * z * (xx - yy);
-            out_mult[15] = C3[6] * x * (xx - 3 * yy);
+            out_mult[9] = -0.5900435899266435 * y * (3 * xx - yy);
+            out_mult[10] = 2.890611442640554 * xy * z;
+            out_mult[11] = -0.4570457994644658 * y * (4 * zz - xx - yy);
+            out_mult[12] = 0.3731763325901154 * z * (2 * zz - 3 * xx - 3 * yy);
+            out_mult[13] = -0.4570457994644658 * x * (4 * zz - xx - yy);
+            out_mult[14] = 1.445305721320277 * z * (xx - yy);
+            out_mult[15] = -0.5900435899266435 * x * (xx - 3 * yy);
         case 2:
-            out_mult[4] = C2[0] * xy;
-            out_mult[5] = C2[1] * yz;
-            out_mult[6] = C2[2] * (2.0 * zz - xx - yy);
-            out_mult[7] = C2[3] * xz;
-            out_mult[8] = C2[4] * (xx - yy);
+            out_mult[4] = 1.0925484305920792 * xy;
+            out_mult[5] = -1.0925484305920792 * yz;
+            out_mult[6] = 0.31539156525252005 * (2.0 * zz - xx - yy);
+            out_mult[7] = -1.0925484305920792 * xz;
+            out_mult[8] = 0.5462742152960396 * (xx - yy);
         case 1:
-            out_mult[1] = -C1 * y;
-            out_mult[2] = C1 * z;
-            out_mult[3] = -C1 * x;
+            out_mult[1] = -0.4886025119029199 * y;
+            out_mult[2] = 0.4886025119029199 * z;
+            out_mult[3] = -0.4886025119029199 * x;
     }
 }
 
@@ -151,6 +132,10 @@ float _get_delta_scale(vec3 scaling, inout vec3 dir) {
     float delta_scale = 1.0 / length(dir);
     dir *= delta_scale;
     return delta_scale;
+}
+
+float index_tree_data(int i) {
+    return texelFetch(tree_data_tex[i / tbo_size_limit], i % tbo_size_limit).r;
 }
 
 vec3 trace_ray(vec3 dir, vec3 vdir, vec3 cen) {
@@ -185,27 +170,27 @@ vec3 trace_ray(vec3 dir, vec3 vdir, vec3 cen) {
 
             float t_subcube = (subcube_tmax - subcube_tmin) / float(cube_sz);
 
-            const float delta_t = t_subcube + opt.step_size;
-            if (tree_data[doffset + tree.data_dim - 1] > opt.sigma_thresh) {
-                const float att = min(exp(-delta_t * delta_scale * tree_data[
-                            doffset + tree.data_dim - 1]), 1.f);
-                const float weight = light_intensity * (1.f - att);
+            float delta_t = t_subcube + opt.step_size;
+            if (index_tree_data(doffset + tree.data_dim - 1) > opt.sigma_thresh) {
+                float att = min(exp(-delta_t * delta_scale * index_tree_data(
+                            doffset + tree.data_dim - 1)), 1.f);
+                float weight = light_intensity * (1.f - att);
 
                 if (tree.sh_order >= 0) {
                     int off = 0;
                     for (int t = 0; t < 3; ++ t) {
-                        float tmp = sh_mult[0] * tree_data[doffset + off] +
-                            sh_mult[1] * tree_data[doffset + off + 1] +
-                            sh_mult[2] * tree_data[doffset + off + 2];
+                        float tmp = sh_mult[0] * index_tree_data(doffset + off) +
+                            sh_mult[1] * index_tree_data(doffset + off + 1) +
+                            sh_mult[2] * index_tree_data(doffset + off + 2);
                         for (int i = 3; i < tree.n_coe; ++i) {
-                            tmp += sh_mult[i] * tree_data[doffset + off + i];
+                            tmp += sh_mult[i] * index_tree_data(doffset + off + i);
                         }
                         output_color[t] += weight / (1.f + exp(-tmp));
                         off += tree.n_coe;
                     }
                 } else {
                     for (int j = 0; j < 3; ++j) {
-                        output_color[j] += tree_data[doffset + j] * weight;
+                        output_color[j] += index_tree_data(doffset + j) * weight;
                     }
                 }
 
@@ -220,8 +205,6 @@ vec3 trace_ray(vec3 dir, vec3 vdir, vec3 cen) {
             t += delta_t;
         }
         output_color += light_intensity * opt.background_brightness;
-        // output_color = vec3(min(float(n_steps) / 255, 1.0));
-        // output_color = vec3(min(0.5 * (tbounds.y - tbounds.x), 1.0f));
         return output_color;
     }
     return output_color;
@@ -245,9 +228,7 @@ void world2ndc(inout vec3 dir, inout vec3 cen, float near = 1.f) {
 
 void main()
 {
-    vec2 xy = vec2(gl_FragCoord);
-    xy.y = cam.reso.y - xy.y;
-    xy = (xy - 0.5 * (cam.reso + 1)) / cam.focal * vec2(1, -1);
+    vec2 xy = (vec2(gl_FragCoord) - 0.5 * cam.reso + vec2(-0.5, 0.5)) / cam.focal;
     vec3 dir = normalize(vec3(xy, -1.0));
     dir = normalize(mat3(cam.transform) * dir);
     vec3 cen = cam.transform[3];

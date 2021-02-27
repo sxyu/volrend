@@ -91,8 +91,10 @@ void draw_imgui(VolumeRenderer& rend) {
     ImGui::SliderFloat("stop_thresh", &rend.options.stop_thresh, 0.001f, 0.4f);
     ImGui::SliderFloat("bg_brightness", &rend.options.background_brightness,
                        0.f, 1.0f);
+#ifdef VOLREND_CUDA
     ImGui::Checkbox("show_grid", &rend.options.show_grid);
     ImGui::SameLine();
+#endif
     ImGui::Text("Backend: %s", rend.get_backend());
 
     ImGui::End();

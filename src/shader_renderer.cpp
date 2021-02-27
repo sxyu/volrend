@@ -15,8 +15,10 @@ namespace volrend {
 
 namespace {
 
+const int MAX_BUFFER_TEXTURE_BLOCKS = 8;
+
 const char* passthru_vert_shader_src = R"glsl(
-#version 330 core
+#version 330
 layout (location = 0) in vec3 aPos;
 
 void main()
@@ -55,6 +57,14 @@ void check_compile_errors(GLuint shader, const std::string& type) {
         }
     }
 }
+
+struct _RenderUniforms {
+    GLint cam_transform, cam_focal, cam_reso;
+    GLint opt_step_size, opt_backgrond_brightness, opt_stop_thresh,
+        opt_sigma_thresh;
+    GLint tree_data_tex, tree_child_tex;
+};
+
 }  // namespace
 
 struct VolumeRenderer::Impl {
@@ -70,15 +80,31 @@ struct VolumeRenderer::Impl {
                 "Could not find the compute shader! "
                 "Please launch pogram in project directory or a subdirectory.");
         }
-        glGenBuffers(1, &ssb_tree_data);
-        glGenBuffers(1, &ssb_tree_child);
+        glGenBuffers(MAX_BUFFER_TEXTURE_BLOCKS, tbo_tree_data);
+        glGenBuffers(1, &tbo_tree_child);
+        glGenTextures(MAX_BUFFER_TEXTURE_BLOCKS, tbo_tex_tree_data);
+        glGenTextures(1, &tbo_tex_tree_child);
         resize(0, 0);
+
+        glGetIntegerv(GL_MAX_TEXTURE_BUFFER_SIZE, &tbo_size_limit);
+        std::cout << "Your HW buffer texture texel count limit is "
+                  << tbo_size_limit
+                  << " items.\n"
+                     "We will create up to "
+                  << MAX_BUFFER_TEXTURE_BLOCKS
+                  << " textures to fit the volume data\n";
 
         shader_init();
         quad_init();
     }
 
-    ~Impl() { glDeleteProgram(program); }
+    ~Impl() {
+        glDeleteProgram(program);
+        glDeleteTextures(MAX_BUFFER_TEXTURE_BLOCKS, tbo_tex_tree_data);
+        glDeleteTextures(1, &tbo_tex_tree_child);
+        glDeleteBuffers(4, tbo_tree_data);
+        glDeleteBuffers(1, &tbo_tree_child);
+    }
 
     void render() {
         glClear(GL_COLOR_BUFFER_BIT);
@@ -86,32 +112,50 @@ struct VolumeRenderer::Impl {
         camera._update();
         if (tree == nullptr) return;
         // FIXME reduce uniform transfers?
-        glUniformMatrix4x3fv(glGetUniformLocation(program, "cam.transform"), 1,
-                             GL_FALSE, glm::value_ptr(camera.transform));
-        glUniform1f(glGetUniformLocation(program, "cam.focal"), camera.focal);
-        glUniform2f(glGetUniformLocation(program, "cam.reso"),
-                    (float)camera.width, (float)camera.height);
-        glUniform1f(glGetUniformLocation(program, "opt.step_size"),
-                    options.step_size);
-        glUniform1f(glGetUniformLocation(program, "opt.background_brightness"),
-                    options.background_brightness);
-        glUniform1f(glGetUniformLocation(program, "opt.stop_thresh"),
-                    options.stop_thresh);
-        glUniform1f(glGetUniformLocation(program, "opt.sigma_thresh"),
-                    options.sigma_thresh);
+        glUniformMatrix4x3fv(u.cam_transform, 1, GL_FALSE,
+                             glm::value_ptr(camera.transform));
+        glUniform1f(u.cam_focal, camera.focal);
+        glUniform2f(u.cam_reso, (float)camera.width, (float)camera.height);
+        glUniform1f(u.opt_step_size, options.step_size);
+        glUniform1f(u.opt_backgrond_brightness, options.background_brightness);
+        glUniform1f(u.opt_stop_thresh, options.stop_thresh);
+        glUniform1f(u.opt_sigma_thresh, options.sigma_thresh);
 
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, ssb_tree_data);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, ssb_tree_child);
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_BUFFER, tbo_tex_tree_child);
+        glTexBuffer(GL_TEXTURE_BUFFER, GL_R32I, tbo_tree_child);
+        glUniform1i(u.tree_child_tex, 0);
 
-        glBindVertexArray(quad_vao);
+        {
+            std::vector<int> tmp(MAX_BUFFER_TEXTURE_BLOCKS);
+            for (int i = 0; i < tbo_blocks_needed; ++i) {
+                glActiveTexture(GL_TEXTURE1 + i);
+                glBindTexture(GL_TEXTURE_BUFFER, tbo_tex_tree_data[i]);
+                glTexBuffer(GL_TEXTURE_BUFFER, GL_R16F, tbo_tree_data[i]);
+                tmp[i] = i + 1;
+            }
+            glUniform1iv(u.tree_data_tex, MAX_BUFFER_TEXTURE_BLOCKS,
+                         tmp.data());
+        }
+
+        glBindVertexArray(vao_quad);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, (GLsizei)4);
         glBindVertexArray(0);
-
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 0, 0);
-        glBindBufferBase(GL_SHADER_STORAGE_BUFFER, 1, 0);
     }
 
     void set(const N3Tree& tree) {
+        tbo_blocks_needed =
+            (tree.capacity * tree.N * tree.N * tree.N * tree.data_dim - 1) /
+                tbo_size_limit +
+            1;
+        if (tbo_blocks_needed > MAX_BUFFER_TEXTURE_BLOCKS) {
+            std::cerr << "Renderer set tree FAILED: required memory exceeds "
+                         "implementation limit "
+                      << size_t(MAX_BUFFER_TEXTURE_BLOCKS) * tbo_size_limit *
+                             sizeof(half)
+                      << " bytes, please use CUDA or SSBO-based renderer\n";
+            return;
+        }
         this->tree = &tree;
         upload_data();
         upload_child_links();
@@ -119,11 +163,13 @@ struct VolumeRenderer::Impl {
     }
 
     void clear() {
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssb_tree_data);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, 0, nullptr, GL_STATIC_READ);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssb_tree_child);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, 0, nullptr, GL_STATIC_READ);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+        for (int i = 0; i < tbo_blocks_needed; ++i) {
+            glBindBuffer(GL_TEXTURE_BUFFER, tbo_tree_data[i]);
+            glBufferData(GL_TEXTURE_BUFFER, 0, nullptr, GL_STATIC_READ);
+        }
+        glBindBuffer(GL_TEXTURE_BUFFER, tbo_tree_child);
+        glBufferData(GL_TEXTURE_BUFFER, 0, nullptr, GL_STATIC_READ);
+        glBindBuffer(GL_TEXTURE_BUFFER, 0);
         this->tree = nullptr;
     }
 
@@ -138,28 +184,32 @@ struct VolumeRenderer::Impl {
 
    private:
     void upload_data() {
-        const size_t data_size = size_t(tree->capacity) * tree->N * tree->N *
-                                 tree->N * tree->data_dim * sizeof(float);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssb_tree_data);
+        const GLint data_size =
+            tree->capacity * tree->N * tree->N * tree->N * tree->data_dim;
+        // Clearly would be better to use SSBO,
+        // but using TBO for WebGL compatibility
         const half* data_ptr = tree->data_ptr();
-        std::vector<float> tmp(data_ptr, data_ptr + data_size / 4);
-        glEnableVertexAttribArray(0);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, data_size,
-                     tmp.data(),  // data_ptr,//
-                     GL_STATIC_READ);
-        // glVertexAttribPointer(0, 1, GL_HALF_FLOAT, GL_FALSE, 0, (GLvoid*)0);
-        glVertexAttribPointer(0, 1, GL_FLOAT, GL_FALSE, 0, (GLvoid*)0);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+        GLint prev_size = 0;
+        for (int i = 0; i < tbo_blocks_needed; ++i) {
+            GLint blksz = std::min(data_size - prev_size, tbo_size_limit);
+            glBindBuffer(GL_TEXTURE_BUFFER, tbo_tree_data[i]);
+            glBufferData(GL_TEXTURE_BUFFER, blksz * sizeof(half),
+                         data_ptr + prev_size, GL_STATIC_READ);
+            prev_size += blksz;
+        }
+        glBindBuffer(GL_TEXTURE_BUFFER, 0);
     }
+
     void upload_child_links() {
         const size_t child_size = size_t(tree->capacity) * tree->N * tree->N *
                                   tree->N * sizeof(int32_t);
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, ssb_tree_child);
-        glBufferData(GL_SHADER_STORAGE_BUFFER, child_size,
+        glBindBuffer(GL_TEXTURE_BUFFER, tbo_tree_child);
+        glBufferData(GL_TEXTURE_BUFFER, child_size,
                      tree->child_.data<int32_t>(), GL_STATIC_READ);
 
-        glBindBuffer(GL_SHADER_STORAGE_BUFFER, 0);
+        glBindBuffer(GL_TEXTURE_BUFFER, 0);
     }
+
     void upload_tree_spec() {
         glUniform1i(glGetUniformLocation(program, "tree.N"), tree->N);
         glUniform1i(glGetUniformLocation(program, "tree.data_dim"),
@@ -215,13 +265,27 @@ struct VolumeRenderer::Impl {
         glDeleteShader(frag_shader);
 
         glUseProgram(program);
+
+        glUniform1i(glGetUniformLocation(program, "tbo_size_limit"),
+                    tbo_size_limit);
+
+        u.cam_transform = glGetUniformLocation(program, "cam.transform");
+        u.cam_focal = glGetUniformLocation(program, "cam.focal");
+        u.cam_reso = glGetUniformLocation(program, "cam.reso");
+        u.opt_step_size = glGetUniformLocation(program, "opt.step_size");
+        u.opt_backgrond_brightness =
+            glGetUniformLocation(program, "opt.background_brightness");
+        u.opt_stop_thresh = glGetUniformLocation(program, "opt.stop_thresh");
+        u.opt_sigma_thresh = glGetUniformLocation(program, "opt.sigma_thresh");
+        u.tree_data_tex = glGetUniformLocation(program, "tree_data_tex");
+        u.tree_child_tex = glGetUniformLocation(program, "tree_child_tex");
     }
 
     void quad_init() {
         GLuint vbo;
         glGenBuffers(1, &vbo);
-        glGenVertexArrays(1, &quad_vao);
-        glBindVertexArray(quad_vao);
+        glGenVertexArrays(1, &vao_quad);
+        glBindVertexArray(vao_quad);
         glBindBuffer(GL_ARRAY_BUFFER, vbo);
         glBufferData(GL_ARRAY_BUFFER, sizeof quad_verts, (GLvoid*)quad_verts,
                      GL_STATIC_DRAW);
@@ -237,10 +301,15 @@ struct VolumeRenderer::Impl {
     const N3Tree* tree;
 
     GLuint program = -1;
-    GLuint ssb_tree_data, ssb_tree_child;
-    GLuint quad_vao;
+    GLuint tbo_tree_data[MAX_BUFFER_TEXTURE_BLOCKS], tbo_tree_child;
+    GLuint tbo_tex_tree_data[MAX_BUFFER_TEXTURE_BLOCKS], tbo_tex_tree_child;
+    GLuint vao_quad;
+    GLint tbo_size_limit;
+    GLint tbo_blocks_needed;
 
     std::string shader_fname = "shaders/rt.frag";
+
+    _RenderUniforms u;
 };
 
 VolumeRenderer::VolumeRenderer(int device_id)
@@ -248,7 +317,7 @@ VolumeRenderer::VolumeRenderer(int device_id)
     const GLubyte* vendor = glGetString(GL_VENDOR);  // Returns the vendor
     const GLubyte* renderer =
         glGetString(GL_RENDERER);  // Returns a hint to the model
-    printf("OpenGL : %s %s\n", vendor, renderer);
+    printf("GPU: %s %s\n", vendor, renderer);
 }
 
 VolumeRenderer::~VolumeRenderer() {}
