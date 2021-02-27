@@ -48,5 +48,3 @@ In the same direcotry.
 #### Optional
 - CUDA Toolkit, I use 11.0
     - Pass `-DVOLREND_USE_CUDA=OFF` to disable it.
-- OpenEXR
-(I installed from source <https://github.com/AcademySoftwareFoundation/openexr>)

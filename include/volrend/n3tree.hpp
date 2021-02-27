@@ -12,6 +12,8 @@
 
 #ifdef VOLREND_CUDA
 #include <cuda_fp16.h>
+#else
+#include <ilm/half.h>
 #endif
 
 namespace volrend {
