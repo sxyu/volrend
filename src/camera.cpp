@@ -17,7 +17,7 @@ struct Camera::DragState {
     bool about_origin = false;
     glm::vec2 drag_start;
     // Save state when drag started
-    glm::vec3 drag_start_forward, drag_start_right, drag_start_up;
+    glm::vec3 drag_start_back, drag_start_right, drag_start_up;
     glm::vec3 drag_start_center, drag_start_origin;
 };
 
@@ -63,7 +63,7 @@ void Camera::_update(bool copy_cuda) {
 void Camera::begin_drag(float x, float y, bool is_pan, bool about_origin) {
     drag_state_->is_dragging = true;
     drag_state_->drag_start = glm::vec2(x, y);
-    drag_state_->drag_start_forward = v_back;
+    drag_state_->drag_start_back = v_back;
     drag_state_->drag_start_right = v_right;
     drag_state_->drag_start_up = v_up;
     drag_state_->drag_start_center = center;
@@ -88,17 +88,18 @@ void Camera::drag_update(float x, float y) {
     } else {
         if (drag_state_->about_origin) delta *= -1.f;
         glm::mat4 m(1.0f);
-        m = glm::rotate(m, -delta.x, v_world_up);
         m = glm::rotate(m, -delta.y, drag_state_->drag_start_right);
+        glm::vec3 v_back_tmp = m * glm::vec4(drag_state_->drag_start_back, 1.f);
 
-        glm::vec3 v_forward_new =
-            m * glm::vec4(drag_state_->drag_start_forward, 1.f);
+        m = glm::rotate(m, fmodf(-delta.x, 2.f * M_PI), v_world_up);
 
-        float dot = glm::dot(glm::cross(v_world_up, v_forward_new),
+        glm::vec3 v_back_new = m * glm::vec4(drag_state_->drag_start_back, 1.f);
+
+        float dot = glm::dot(glm::cross(v_world_up, v_back_tmp),
                              drag_state_->drag_start_right);
         // Prevent flip over pole
         if (dot < 0.f) return;
-        v_back = glm::normalize(v_forward_new);
+        v_back = glm::normalize(v_back_new);
 
         if (drag_state_->about_origin) {
             center =

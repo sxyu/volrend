@@ -2,15 +2,16 @@ var cppReportProgress = function(x) {
     let prog_ele = $("#load-progress");
     prog_ele.css("width", x + "%");
     prog_ele.attr("aria-valuenow", x);
-    prog_ele.text(Math.round(x * 100) / 100);
     if (x > 100.0) {
         let loading_ele = $('#loading');
         setTimeout(function() {
             loading_ele.css('opacity', '0');
             setTimeout(function() {
                 loading_ele.css('display', 'none');
-            }, 1000);
-        }, 100);
+            }, 600);
+        }, 50);
+    } else {
+        prog_ele.text(Math.round(x * 100) / 100);
     }
 };
 

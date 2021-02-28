@@ -96,14 +96,13 @@ let setupHandlers = function() {
     });
 };
 let onInit = function() {
-    Volrend.delayedRedraw = Util.debounce(Volrend.redraw, 10, {maxWait: 55});
+    Volrend.delayedRedraw = Util.debounce(Volrend.redraw, 5, {maxWait: 40});
     setupHandlers()
     glfwPatch();
     onResizeCanvas();
 
     $('.load-remote-scene').click(function() {
         let remote_path = this.getAttribute("data");
-        console.log(this);
         console.log('Downloading', remote_path);
         Volrend.load_remote(remote_path);
         let loading_ele = $('#loading');
