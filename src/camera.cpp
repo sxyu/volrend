@@ -87,18 +87,21 @@ void Camera::drag_update(float x, float y) {
         }
     } else {
         if (drag_state_->about_origin) delta *= -1.f;
-        glm::mat4 m(1.0f);
-        m = glm::rotate(m, -delta.y, drag_state_->drag_start_right);
-        glm::vec3 v_back_tmp = m * glm::vec4(drag_state_->drag_start_back, 1.f);
+        glm::mat4 m(1.0f), m_tmp(1.0f);
 
-        m = glm::rotate(m, fmodf(-delta.x, 2.f * M_PI), v_world_up);
-
-        glm::vec3 v_back_new = m * glm::vec4(drag_state_->drag_start_back, 1.f);
-
+        m_tmp = glm::rotate(m_tmp, -delta.y, drag_state_->drag_start_right);
+        glm::vec3 v_back_tmp =
+            m_tmp * glm::vec4(drag_state_->drag_start_back, 1.f);
         float dot = glm::dot(glm::cross(v_world_up, v_back_tmp),
                              drag_state_->drag_start_right);
         // Prevent flip over pole
         if (dot < 0.f) return;
+
+        m = glm::rotate(m, fmodf(-delta.x, 2.f * M_PI), v_world_up);
+        m = glm::rotate(m, -delta.y, drag_state_->drag_start_right);
+
+        glm::vec3 v_back_new = m * glm::vec4(drag_state_->drag_start_back, 1.f);
+
         v_back = glm::normalize(v_back_new);
 
         if (drag_state_->about_origin) {
