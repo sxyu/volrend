@@ -1,15 +1,5 @@
 #include <cstdlib>
 #include <iostream>
-#include <chrono>
-#define BEGIN_PROFILE auto start = std::chrono::system_clock::now()
-#define PROFILE(x)                                           \
-    do {                                                     \
-        printf("%s: %f ms\n", #x,                            \
-               std::chrono::duration<double, std::milli>(    \
-                   std::chrono::system_clock::now() - start) \
-                   .count());                                \
-        start = std::chrono::system_clock::now();            \
-    } while (false)
 
 #include <GLES3/gl3.h>
 #include <GLFW/glfw3.h>
@@ -23,22 +13,21 @@
 #include <emscripten/fetch.h>
 
 namespace {
+// cppReportProgress is a JS function (emModule.js) which will be called if you
+// call report_progress in C++
 EM_JS(void, report_progress, (double x), { cppReportProgress(x); });
 
-GLFWwindow* window;  // GLFW window
+GLFWwindow* window;
 volrend::N3Tree tree;
 volrend::VolumeRenderer renderer;
-// std::chrono::high_resolution_clock::time_point last_render_time;
 
 bool init_gl() {
-    /* Initialize the library */
+    /* Initialize GLFW */
     if (!glfwInit()) return false;
 
-    /* Create a windowed mode window and its OpenGL context */
     int width = 800, height = 800;
     window = glfwCreateWindow(width, height, "volrend viewer", NULL, NULL);
 
-    // Init glfw
     if (!window) {
         glfwTerminate();
         return false;
@@ -51,34 +40,21 @@ bool init_gl() {
 
     glfwGetFramebufferSize(window, &width, &height);
     // renderer.options.step_size = 1.0f / 4000.0;
-    // renderer.options.sigma_thresh = 0.f;
-    // renderer.options.stop_thresh = 0.f;
 
     renderer.set(tree);
     renderer.resize(width, height);
-    // last_render_time = std::chrono::high_resolution_clock::time_point::min();
     return true;
 }
 
 // ---------
-
+// Events
 void redraw() {
-    // if (!force) {
-    //     // Debounce
-    //     double time_since_prev_render =
-    //         std::chrono::duration<double, std::milli>(
-    //             std::chrono::high_resolution_clock::now() - last_render_time)
-    //             .count();
-    //     if (time_since_prev_render < 60.0) return;
-    // }
     glClear(GL_COLOR_BUFFER_BIT);
-    int width, height;
 
     renderer.render();
 
     glfwSwapBuffers(window);
     glfwPollEvents();
-    // last_render_time = std::chrono::high_resolution_clock::now();
 }
 
 void on_key(int key, bool ctrl, bool shift, bool alt) {}
@@ -100,7 +76,7 @@ void on_mousewheel(bool upwards, int distance, int x, int y) {
 
 void on_resize(int width, int height) { renderer.resize(width, height); }
 
-// Remote file load handling
+// Remote octree file loading
 void load_remote(const std::string& url) {
     auto _load_remote_download_success = [](emscripten_fetch_t* fetch) {
         // Decompress the tree in memory
@@ -123,6 +99,7 @@ void load_remote(const std::string& url) {
 
     emscripten_fetch_attr_t attr;
 
+    // Download with emscripten fetch API
     emscripten_fetch_attr_init(&attr);
     strcpy(attr.requestMethod, "GET");
     attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
@@ -132,6 +109,7 @@ void load_remote(const std::string& url) {
     emscripten_fetch(&attr, url.c_str());
 }
 
+// JS function bindings
 EMSCRIPTEN_BINDINGS(Volrend) {
     using namespace emscripten;
     function("on_key", &on_key);
@@ -147,6 +125,7 @@ EMSCRIPTEN_BINDINGS(Volrend) {
 }  // namespace
 
 int main(int argc, char** argv) {
-    if (!init_gl()) return EXIT_FAILURE;  // GL initialization failed
+    if (!init_gl()) return EXIT_FAILURE;
+    // Make camera move a bit faster (feels slow for some reason)
     renderer.camera.movement_speed = 2.0f;
 }

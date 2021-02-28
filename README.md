@@ -42,9 +42,28 @@ In the same direcotry.
 
 ### Dependencies
 - C++14
-- OpenGL 4.3 + (4.3 needed for SSBO)
+- OpenGL
     - any dependencies of GLFW
 
 #### Optional
 - CUDA Toolkit, I use 11.0
     - Pass `-DVOLREND_USE_CUDA=OFF` to disable it.
+
+
+## Web
+
+Install emscripten per instructions here:
+https://emscripten.org/docs/getting_started/downloads.html
+
+Then use
+```sh
+mkdir embuild && cd embuild
+emcmake cmake ..
+make -j12
+```
+
+The full website (including html/css) should be written to `embuild/build`. To launch it locally for previewing, you can use the make target:
+```sh
+make serve
+```
+Which should launch a server at http://0.0.0.0:8000/
