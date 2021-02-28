@@ -13,12 +13,11 @@
 #ifdef VOLREND_CUDA
 #include <cuda_fp16.h>
 #else
-#include <ilm/half.h>
+#include <half.hpp>
+using half_float::half;
 #endif
 
 namespace volrend {
-
-using Rgba = std::array<float, 4>;
 
 // Read-only N3Tree loader
 struct N3Tree {
@@ -39,7 +38,7 @@ struct N3Tree {
     // Number of internal nodes
     int n_internal;
     // Capacity
-    int capacity;
+    int capacity = 0;
 
     // Scaling for coordinates
     std::array<float, 3> scale;
@@ -48,9 +47,6 @@ struct N3Tree {
 
     // Get child of node in given position of subgrid
     int32_t get_child(int nd, int i, int j, int k);
-
-    // Get data at node node in given position of subgrid
-    Rgba get_data(int nd, int i, int j, int k);
 
     bool is_data_loaded();
 #ifdef VOLREND_CUDA
@@ -75,19 +71,14 @@ struct N3Tree {
         float* scale = nullptr;
     } device;
 #endif
-    half* data_ptr();
-    const half* data_ptr() const;
+    // Main data holder
+    cnpy::NpyArray data_;
 
     // Child link data holder
     cnpy::NpyArray child_;
 
    private:
     int N2_, N3_;
-
-    // Main data holder
-    std::vector<half> data_;
-    // Alt (if load with cnpy)
-    cnpy::NpyArray data_cnpy_;
 
     // Paths
     std::string npz_path_, data_path_, poses_bounds_path_;

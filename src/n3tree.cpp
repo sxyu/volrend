@@ -10,7 +10,7 @@
 #include "glm/geometric.hpp"
 
 #ifndef VOLREND_CUDA
-#include "ilm/half.h"
+#include "half.hpp"
 #endif
 
 namespace volrend {
@@ -101,6 +101,11 @@ void N3Tree::open_mem(const char* data, uint64_t size) {
 #ifdef VOLREND_CUDA
     cuda_loaded_ = false;
 #endif
+    child_.data_holder.clear();
+    child_.data_holder.shrink_to_fit();
+    data_.data_holder.clear();
+    data_.data_holder.shrink_to_fit();
+
     npz_path_ = "";
     cnpy::npz_t npz = cnpy::npz_load_mem(data, size);
     load_npz(npz);
@@ -141,12 +146,12 @@ void N3Tree::load_npz(cnpy::npz_t& npz) {
     if (npz.count("invradius3")) {
         const float* scale_data = npz["invradius3"].data<float>();
         for (int i = 0; i < 3; ++i) scale[i] = scale_data[i];
-        std::cout << "INFO: New style scale " << scale[0] << " " << scale[1]
-                  << " " << scale[2] << "\n";
     } else {
         scale[0] = scale[1] = scale[2] =
             (float)*npz["invradius"].data<double>();
     }
+    std::cout << "INFO: Scale " << scale[0] << " " << scale[1] << " "
+              << scale[2] << "\n";
     {
         const float* offset_data = npz["offset"].data<float>();
         for (int i = 0; i < 3; ++i) offset[i] = offset_data[i];
@@ -158,36 +163,20 @@ void N3Tree::load_npz(cnpy::npz_t& npz) {
     N2_ = N * N;
     N3_ = N * N * N;
 
-    auto data_node = npz["data"];
-    data_.clear();
+    auto& data_node = npz["data"];
     capacity = data_node.shape[0];
     if (capacity != n_internal) {
         std::cerr << "WARNING: N3Tree capacity != n_internal, "
                   << "call shrink_to_fit() before saving to save space\n";
     }
-    if (data_node.word_size == 2) {
-        std::cout << "INFO: Found data stored in half precision\n";
-        std::swap(data_cnpy_, npz["data"]);
-    } else {
-        std::cout << "INFO: Found data stored in single precision\n";
-        // Avoid copy
-        const float* ptr = data_node.data<float>();
-        data_ = std::vector<half>(ptr, ptr + data_node.num_vals);
+    if (npz["data"].word_size != 2) {
+        throw std::runtime_error("data must be stored in half precision");
     }
+    std::swap(data_, data_node);
 }
 
 int32_t N3Tree::get_child(int nd, int i, int j, int k) {
     return child_.data<int32_t>()[pack_index(nd, i, j, k)];
-}
-
-::volrend::Rgba N3Tree::get_data(int nd, int i, int j, int k) {
-    assert(data_loaded_);  // Call load_data()
-    auto base_idx = pack_index(nd, i, j, k) * data_dim;
-    float r = data_[base_idx];
-    float g = data_[base_idx + 1];
-    float b = data_[base_idx + 2];
-    float a = data_[base_idx + 3];
-    return {r, g, b, a};
 }
 
 bool N3Tree::is_data_loaded() { return data_loaded_; }
@@ -210,10 +199,4 @@ std::tuple<int, int, int, int> N3Tree::unpack_index(int packed) {
     return {packed, i, j, k};
 }
 
-half* N3Tree::data_ptr() {
-    return data_.empty() ? data_cnpy_.data<half>() : data_.data();
-}
-const half* N3Tree::data_ptr() const {
-    return data_.empty() ? data_cnpy_.data<half>() : data_.data();
-}
 }  // namespace volrend

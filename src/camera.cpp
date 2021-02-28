@@ -109,6 +109,7 @@ void Camera::drag_update(float x, float y) {
         _update(false);
     }
 }
+bool Camera::is_dragging() const { return drag_state_->is_dragging; }
 void Camera::end_drag() { drag_state_->is_dragging = false; }
 void Camera::move(const glm::vec3& xyz) {
     center += xyz * movement_speed;

@@ -1,0 +1,5 @@
+FILE(WRITE ${OUTPUT} "")
+FILE(READ ${SHADER_FILE} CONTENTS)
+FILE(APPEND ${OUTPUT} "#pragma once\nnamespace {\nconst char* ${SHADER_NAME}_SRC =\nR\"glsl(")
+FILE(APPEND ${OUTPUT} "${CONTENTS}")
+FILE(APPEND ${OUTPUT} ")glsl\";\n}  // namespace")

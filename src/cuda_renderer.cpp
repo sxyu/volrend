@@ -17,18 +17,7 @@ namespace volrend {
 
 struct VolumeRenderer::Impl {
     Impl(Camera& camera, RenderOptions& options)
-        : camera(camera), options(options), buf_index(0) {
-        cuda(StreamCreateWithFlags(&stream, cudaStreamDefault));
-
-        glCreateRenderbuffers(2, rb.data());
-        glCreateFramebuffers(2, fb.data());
-
-        // Attach rbo to fbo
-        for (int index = 0; index < 2; index++) {
-            glNamedFramebufferRenderbuffer(fb[index], GL_COLOR_ATTACHMENT0,
-                                           GL_RENDERBUFFER, rb[index]);
-        }
-    }
+        : camera(camera), options(options), buf_index(0) {}
 
     ~Impl() {
         // Unregister CUDA resources
@@ -40,21 +29,34 @@ struct VolumeRenderer::Impl {
         glDeleteFramebuffers(2, fb.data());
     }
 
+    void start() {
+        if (started_) return;
+        cuda(StreamCreateWithFlags(&stream, cudaStreamDefault));
+
+        glCreateRenderbuffers(2, rb.data());
+        glCreateFramebuffers(2, fb.data());
+
+        // Attach rbo to fbo
+        for (int index = 0; index < 2; index++) {
+            glNamedFramebufferRenderbuffer(fb[index], GL_COLOR_ATTACHMENT0,
+                                           GL_RENDERBUFFER, rb[index]);
+        }
+        started_ = true;
+    }
+
     void render() {
         GLfloat clear_color[] = {1.f, 1.f, 1.f, 1.f};
         glClearNamedFramebufferfv(fb[buf_index], GL_COLOR, 0, clear_color);
+        if (tree == nullptr || !started_) return;
 
-        if (tree) {
-            camera._update();
-            cuda(GraphicsMapResources(1, &cgr[buf_index], stream));
-            launch_renderer(*tree, camera, options, ca[buf_index], stream);
-            cuda(GraphicsUnmapResources(1, &cgr[buf_index], stream));
+        camera._update();
+        cuda(GraphicsMapResources(1, &cgr[buf_index], stream));
+        launch_renderer(*tree, camera, options, ca[buf_index], stream);
+        cuda(GraphicsUnmapResources(1, &cgr[buf_index], stream));
 
-            glBlitNamedFramebuffer(fb[buf_index], 0, 0, 0, camera.width,
-                                   camera.height, 0, camera.height,
-                                   camera.width, 0, GL_COLOR_BUFFER_BIT,
-                                   GL_NEAREST);
-        }
+        glBlitNamedFramebuffer(fb[buf_index], 0, 0, 0, camera.width,
+                               camera.height, 0, camera.height, camera.width, 0,
+                               GL_COLOR_BUFFER_BIT, GL_NEAREST);
         buf_index ^= 1;
     }
 
@@ -107,31 +109,19 @@ struct VolumeRenderer::Impl {
     std::array<cudaGraphicsResource_t, 2> cgr = {0};
     std::array<cudaArray_t, 2> ca;
     cudaStream_t stream;
+    bool started_ = false;
 };
 
 VolumeRenderer::VolumeRenderer(int device_id)
-    : impl_(std::make_unique<Impl>(camera, options)) {
-    GLint gl_device_id;
-    GLuint gl_device_count;
-
-    cuda(GLGetDevices(&gl_device_count, &gl_device_id, 1, cudaGLDeviceListAll));
-
-    if (device_id == -1) device_id = gl_device_id;
-    cuda(SetDevice(device_id));
-
-    // Show info
-    struct cudaDeviceProp props;
-    cuda(GetDeviceProperties(&props, gl_device_id));
-    printf("OpenGL : %-24s (%d)\n", props.name, props.multiProcessorCount);
-
-    cuda(GetDeviceProperties(&props, device_id));
-    printf("CUDA   : %-24s (%d)\n", props.name, props.multiProcessorCount);
-}
+    : impl_(std::make_unique<Impl>(camera, options)) {}
 
 VolumeRenderer::~VolumeRenderer() {}
 
 void VolumeRenderer::render() { impl_->render(); }
-void VolumeRenderer::set(const N3Tree& tree) { impl_->tree = &tree; }
+void VolumeRenderer::set(N3Tree& tree) {
+    impl_->start();
+    impl_->tree = &tree;
+}
 void VolumeRenderer::clear() { impl_->tree = nullptr; }
 
 void VolumeRenderer::resize(int width, int height) {

@@ -130,9 +130,6 @@ set(VOLREND_HEADERS ${VOLREND_PUBLIC_HEADERS} ${VOLREND_PRIVATE_HEADERS}
 
 set( VOLREND_VENDOR_SOURCES
     ${CNPY_DIR}/cnpy.cpp
-    ${VENDOR_DIR}/misc/ilm/eLut.cpp
-    ${VENDOR_DIR}/misc/ilm/half.cpp
-    ${VENDOR_DIR}/misc/ilm/toFloat.cpp
 )
 if (NOT EMSCRIPTEN)
     set( VOLREND_VENDOR_SOURCES
@@ -214,13 +211,30 @@ set ( COMMON_HPP_PATH "${PROJECT_BINARY_DIR}/include/volrend/common.hpp" )
 configure_file( common.hpp.in "${COMMON_HPP_PATH}" )
 set ( VOLREND_PUBLIC_HEADERS ${VOLREND_PUBLIC_HEADERS} "${COMMON_HPP_PATH}")
 
+# Add main library
 add_library( ${PROJ_LIB_NAME} STATIC ${VOLREND_SOURCES}
     ${IMGUI_SOURCES} ${VOLREND_VENDOR_SOURCES} )
 
 if (_VOLREND_USE_CUDA)
     set_target_properties( ${PROJ_LIB_NAME}
                                PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
-endif()
+else(_VOLREND_USE_CUDA)
+    # Inline shader
+    set( SHADER_FILE "${PROJECT_SOURCE_DIR}/shaders/rt.frag" )
+    set( SHADER_INLINED_FILE "${PROJECT_BINARY_DIR}/include/volrend/internal/rt_frag.inl" )
+    add_custom_command(
+        OUTPUT ${SHADER_INLINED_FILE}
+        COMMAND ${CMAKE_COMMAND}
+                -DSHADER_FILE=${SHADER_FILE}
+                -DSHADER_NAME=RT_FRAG
+                -DOUTPUT=${SHADER_INLINED_FILE}
+                -P ${CMAKE_MODULE_PATH}/shader_inl.cmake
+        DEPENDS ${SHADER_FILE}
+        COMMENT "Inlining fragment shader"
+        VERBATIM )
+    add_custom_target(shader_inline ALL DEPENDS ${SHADER_INLINED_FILE})
+    add_dependencies( ${PROJ_LIB_NAME} shader_inline )
+endif(_VOLREND_USE_CUDA)
 
 target_include_directories(
     ${PROJ_LIB_NAME} PUBLIC
@@ -240,7 +254,7 @@ target_link_libraries( ${PROJ_LIB_NAME} PUBLIC
 
 if (EMSCRIPTEN)
     include_directories ( )
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 --bind -s EXPORT_NAME=\"'Volrend'\" -s USE_WEBGL2=1 -s USE_GLFW=3 -s MIN_WEBGL_VERSION=2 -s FULL_ES3=1 -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s USE_BOOST_HEADERS=1 -s FETCH=1 -std=c++14")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 --bind -s EXPORT_NAME=\"'Volrend'\" -s USE_WEBGL2=1 -s USE_GLFW=3 -s FULL_ES3=1 -s WASM=1 -s TOTAL_MEMORY=2000MB -s FETCH=1 -std=c++14")
     add_executable( volrend_web "web/main_web.cpp" )
     target_link_libraries( volrend_web
         ${PROJ_LIB_NAME} ${DEPENDENCIES} )
@@ -271,8 +285,10 @@ if (EMSCRIPTEN)
     STRING(SUBSTRING ${JSFILES} 1 -1 JSFILES)
     add_custom_command(
         OUTPUT "${PROJECT_BINARY_DIR}/build/js/main.js"
-        COMMAND ${CMAKE_COMMAND} -DFILELIST=${JSFILES},$<TARGET_FILE:volrend_web> -DOUTPUT=${PROJECT_BINARY_DIR}/build/js/main.js -P ${CMAKE_MODULE_PATH}/concat.cmake
-        DEPENDS ${JS_SOURCES} volrend_web 
+        COMMAND ${CMAKE_COMMAND} -DFILELIST=${JSFILES},$<TARGET_FILE:volrend_web>
+                -DOUTPUT=${PROJECT_BINARY_DIR}/build/js/main.js
+                -P ${CMAKE_MODULE_PATH}/concat.cmake
+        DEPENDS ${JS_SOURCES} volrend_web
         COMMENT "Concatenating JS sources to build/js/main.js"
         VERBATIM )
     add_custom_target(js_config ALL DEPENDS "${PROJECT_BINARY_DIR}/build/js/main.js")

@@ -17,11 +17,10 @@ let setupHandlers = function() {
         Volrend.on_key(e.which, e.ctrlKey, e.shiftKey, e.altKey);
     });
     canvas.addEventListener("mousedown", function(e){
-        if (e.button == 0) {
-            let oleft = $(canvas).offset().left;
-            let otop = $(canvas).offset().top;
-            Volrend.on_mousedown(e.clientX - oleft, e.clientY - otop);
-        }
+        let oleft = $(canvas).offset().left;
+        let otop = $(canvas).offset().top;
+        Volrend.on_mousedown(e.clientX - oleft, e.clientY - otop, e.button == 1);
+        Volrend.delayedRedraw();
     });
     var pinch_zoom_dist = -1.;
     var touch_cen_x = -1.;
@@ -53,10 +52,11 @@ let setupHandlers = function() {
         }
     });
     canvas.addEventListener("mousemove", function(e){
-        if (e.button == 0) {
+        if (Volrend.is_camera_moving()) {
             let oleft = $(canvas).offset().left;
             let otop = $(canvas).offset().top;
             Volrend.on_mousemove(e.clientX - oleft, e.clientY - otop);
+            Volrend.delayedRedraw();
         }
     });
     canvas.addEventListener("touchmove", function(e){
@@ -79,28 +79,37 @@ let setupHandlers = function() {
             let otop = $(canvas).offset().top;
             Volrend.on_mousemove(e.touches[0].pageX - oleft,
                 e.touches[0].pageY - otop);
+            Volrend.delayedRedraw();
             e.preventDefault();
         }
     });
-    canvas.addEventListener("mouseup", function(e){
-        if (e.button == 0) {
-            let oleft = $(canvas).offset().left;
-            let otop = $(canvas).offset().top;
-            Volrend.on_mouseup(e.clientX - oleft, e.clientY - otop);
-        }
-    });
+    canvas.addEventListener("mouseup", function(){ Volrend.on_mouseup(); });
     canvas.addEventListener("touchend", function(){
-        Volrend.on_mouseup(0, 0);
+        Volrend.on_mouseup();
         pinch_zoom_dist = -1.;
     });
     canvas.addEventListener("wheel", function(e){
-        if(e.ctrlKey)
-            event.preventDefault();//prevent zoom
         Volrend.on_mousewheel(e.deltaY < 0,
             15., e.offsetX, e.offsetY);
+        Volrend.delayedRedraw();
+        event.preventDefault();
     });
 };
 let onInit = function() {
+    Volrend.delayedRedraw = Util.debounce(Volrend.redraw, 10, {maxWait: 55});
     setupHandlers()
     glfwPatch();
+    onResizeCanvas();
+
+    $('.load-remote-scene').click(function() {
+        let remote_path = this.getAttribute("data");
+        console.log(this);
+        console.log('Downloading', remote_path);
+        Volrend.load_remote(remote_path);
+        let loading_ele = $('#loading');
+        loading_ele.css('display', 'block');
+        setTimeout(function() {
+            loading_ele.css('opacity', '1');
+        }, 100);
+    });
 };

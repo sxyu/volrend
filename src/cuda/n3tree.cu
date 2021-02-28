@@ -21,7 +21,7 @@ void N3Tree::load_cuda() {
     }
     cuda(MemcpyAsync(device.child, child_.data<int32_t>(),  child_sz,
                 cudaMemcpyHostToDevice));
-    const half* data_ptr = this->data_ptr();
+    const half* data_ptr = this->data_.data<half>();
     cuda(MemcpyAsync(device.data, data_ptr, data_sz,
                 cudaMemcpyHostToDevice));
     cuda(MemcpyAsync(device.offset, offset.data(), 3 * sizeof(float),

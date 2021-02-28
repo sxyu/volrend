@@ -1,6 +1,7 @@
-#version 330 core
+#version 300 es
 
-precision lowp float;
+precision highp float;
+precision highp int;
 
 // The output color
 out vec4 FragColor;
@@ -41,9 +42,23 @@ uniform Camera cam;
 uniform RenderOptions opt;
 uniform N3TreeSpec tree;
 
-uniform int tbo_size_limit;
-uniform isamplerBuffer tree_child_tex;
-uniform samplerBuffer tree_data_tex[8];
+uniform int tree_child_dim;
+uniform highp isampler2D tree_child_tex;
+uniform int tree_data_dim;
+uniform highp sampler2D tree_data_tex;
+
+// Hacky ways to store octree in 2 textures
+float index_tree_data(int i) {
+    int y = i / tree_data_dim;
+    int x = i % tree_data_dim;
+    return texelFetch(tree_data_tex, ivec2(x, y), 0).r;
+}
+
+int index_tree_child(int i) {
+    int y = i / tree_child_dim;
+    int x = i % tree_child_dim;
+    return texelFetch(tree_child_tex, ivec2(x, y), 0).r;
+}
 
 
 // **** N^3 TREE IMPLEMENTATION ****
@@ -51,18 +66,18 @@ uniform samplerBuffer tree_data_tex[8];
 // Tree query, returns
 // (start index of leaf node in tree_data, leaf node scale 2^depth)
 int query_single_from_root(inout vec3 xyz, out float cube_sz) {
-    float fN = tree.N;
+    float fN = float(tree.N);
     int N3 = tree.N * tree.N * tree.N;
     xyz =  clamp(xyz, 0.f, 1.f - 1e-6f);
     int ptr = 0;
     int sub_ptr = 0;
     vec3 idx;
-    for (cube_sz = 1; /*cube_sz < 11*/; ++cube_sz) {
+    for (cube_sz = 1.f; /*cube_sz < 11*/; ++cube_sz) {
         idx = floor(xyz * fN);
 
         // Find child offset
         sub_ptr = ptr + int(idx.x * (fN * fN) + idx.y * fN + idx.z);
-        int skip = texelFetch(tree_child_tex, sub_ptr).r;
+        int skip = index_tree_child(sub_ptr);
         xyz = xyz * fN - idx;
 
         // Add to output
@@ -79,32 +94,32 @@ int query_single_from_root(inout vec3 xyz, out float cube_sz) {
 // **** CORE RAY TRACER IMPLEMENTATION ****
 void precalc_sh(const int order, const vec3 dir, inout float out_mult[25]) {
     out_mult[0] = 0.28209479177387814;
-    const float x = dir[0], y = dir[1], z = dir[2];
-    const float xx = x * x, yy = y * y, zz = z * z;
-    const float xy = x * y, yz = y * z, xz = x * z;
+    float x = dir[0], y = dir[1], z = dir[2];
+    float xx = x * x, yy = y * y, zz = z * z;
+    float xy = x * y, yz = y * z, xz = x * z;
     switch (order) {
         case 4:
             out_mult[16] = 2.5033429417967046 * xy * (xx - yy);
-            out_mult[17] = -1.7701307697799304 * yz * (3 * xx - yy);
-            out_mult[18] = 0.9461746957575601 * xy * (7 * zz - 1.f);
-            out_mult[19] = -0.6690465435572892 * yz * (7 * zz - 3.f);
-            out_mult[20] = 0.10578554691520431 * (zz * (35 * zz - 30) + 3);
-            out_mult[21] = -0.6690465435572892 * xz * (7 * zz - 3);
-            out_mult[22] = 0.47308734787878004 * (xx - yy) * (7 * zz - 1.f);
-            out_mult[23] = -1.7701307697799304 * xz * (xx - 3 * yy);
-            out_mult[24] = 0.6258357354491761 * (xx * (xx - 3 * yy) - yy * (3 * xx - yy));
+            out_mult[17] = -1.7701307697799304 * yz * (3.f * xx - yy);
+            out_mult[18] = 0.9461746957575601 * xy * (7.f * zz - 1.f);
+            out_mult[19] = -0.6690465435572892 * yz * (7.f * zz - 3.f);
+            out_mult[20] = 0.10578554691520431 * (zz * (35.f * zz - 30.f) + 3.f);
+            out_mult[21] = -0.6690465435572892 * xz * (7.f * zz - 3.f);
+            out_mult[22] = 0.47308734787878004 * (xx - yy) * (7.f * zz - 1.f);
+            out_mult[23] = -1.7701307697799304 * xz * (xx - 3.f * yy);
+            out_mult[24] = 0.6258357354491761 * (xx * (xx - 3.f * yy) - yy * (3.f * xx - yy));
         case 3:
-            out_mult[9] = -0.5900435899266435 * y * (3 * xx - yy);
+            out_mult[9] = -0.5900435899266435 * y * (3.f * xx - yy);
             out_mult[10] = 2.890611442640554 * xy * z;
-            out_mult[11] = -0.4570457994644658 * y * (4 * zz - xx - yy);
-            out_mult[12] = 0.3731763325901154 * z * (2 * zz - 3 * xx - 3 * yy);
-            out_mult[13] = -0.4570457994644658 * x * (4 * zz - xx - yy);
+            out_mult[11] = -0.4570457994644658 * y * (4.f * zz - xx - yy);
+            out_mult[12] = 0.3731763325901154 * z * (2.f * zz - 3.f * xx - 3.f * yy);
+            out_mult[13] = -0.4570457994644658 * x * (4.f * zz - xx - yy);
             out_mult[14] = 1.445305721320277 * z * (xx - yy);
-            out_mult[15] = -0.5900435899266435 * x * (xx - 3 * yy);
+            out_mult[15] = -0.5900435899266435 * x * (xx - 3.f * yy);
         case 2:
             out_mult[4] = 1.0925484305920792 * xy;
             out_mult[5] = -1.0925484305920792 * yz;
-            out_mult[6] = 0.31539156525252005 * (2.0 * zz - xx - yy);
+            out_mult[6] = 0.31539156525252005 * (2.f * zz - xx - yy);
             out_mult[7] = -1.0925484305920792 * xz;
             out_mult[8] = 0.5462742152960396 * (xx - yy);
         case 1:
@@ -118,7 +133,6 @@ void dda_unit(vec3 cen, vec3 _invdir, out float tmin, out float tmax) {
     float t1, t2;
     tmin = 0.0f;
     tmax = 1e9f;
-#pragma unroll
     for (int i = 0; i < 3; ++i) {
         t1 = - cen[i] * _invdir[i];
         t2 = t1 +  _invdir[i];
@@ -134,10 +148,6 @@ float _get_delta_scale(vec3 scaling, inout vec3 dir) {
     return delta_scale;
 }
 
-float index_tree_data(int i) {
-    return texelFetch(tree_data_tex[i / tbo_size_limit], i % tbo_size_limit).r;
-}
-
 vec3 trace_ray(vec3 dir, vec3 vdir, vec3 cen) {
     float delta_scale = _get_delta_scale(tree.scale, dir);
     vec3 output_color;
@@ -145,7 +155,7 @@ vec3 trace_ray(vec3 dir, vec3 vdir, vec3 cen) {
     float tmin, tmax;
     dda_unit(cen, invdir, tmin, tmax);
 
-    if (tmax < 0 || tmin > tmax) {
+    if (tmax < 0.f || tmin > tmax) {
         // Ray doesn't hit box
         output_color = vec3(opt.background_brightness);
     } else {
@@ -211,17 +221,17 @@ vec3 trace_ray(vec3 dir, vec3 vdir, vec3 cen) {
 }
 
 // **** NDC ****
-void world2ndc(inout vec3 dir, inout vec3 cen, float near = 1.f) {
+void world2ndc(inout vec3 dir, inout vec3 cen, float near) {
     float t = -(near + cen[2]) / dir[2];
     cen += t * dir;
 
-    dir[0] = -((2 * tree.ndc_focal) / tree.ndc_width) * (dir[0] / dir[2] - cen[0] / cen[2]);
-    dir[1] = -((2 * tree.ndc_focal) / tree.ndc_height) * (dir[1] / dir[2] - cen[1] / cen[2]);
-    dir[2] = -2 * near / cen[2];
+    dir[0] = -((2.f * tree.ndc_focal) / tree.ndc_width) * (dir[0] / dir[2] - cen[0] / cen[2]);
+    dir[1] = -((2.f * tree.ndc_focal) / tree.ndc_height) * (dir[1] / dir[2] - cen[1] / cen[2]);
+    dir[2] = -2.f * near / cen[2];
 
-    cen[0] = -((2 * tree.ndc_focal) / tree.ndc_width) * (cen[0] / cen[2]);
-    cen[1] = -((2 * tree.ndc_focal) / tree.ndc_height) * (cen[1] / cen[2]);
-    cen[2] = 1 + 2 * near / cen[2];
+    cen[0] = -((2.f * tree.ndc_focal) / tree.ndc_width) * (cen[0] / cen[2]);
+    cen[1] = -((2.f * tree.ndc_focal) / tree.ndc_height) * (cen[1] / cen[2]);
+    cen[2] = 1.f + 2.f * near / cen[2];
 
     dir = normalize(dir);
 }
@@ -236,9 +246,10 @@ void main()
     vec3 rgb;
     vec3 vdir = dir;
     if (tree.ndc_width > 0.f) {
-        world2ndc(dir, cen);
+        world2ndc(dir, cen, 1.f);
     }
     cen = tree.center + cen * tree.scale;
     rgb = trace_ray(dir, vdir, cen);
+    rgb = clamp(rgb, 0.0, 1.0);
     FragColor = vec4(rgb, 1.0);
 }

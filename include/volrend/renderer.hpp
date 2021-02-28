@@ -11,11 +11,11 @@ struct VolumeRenderer {
     explicit VolumeRenderer(int device_id = -1);
     ~VolumeRenderer();
 
-    // Render all added trees thru OpennGL
+    // Render the currently set tree
     void render();
 
     // Set volumetric data to render
-    void set(const N3Tree& tree);
+    void set(N3Tree& tree);
 
     // Clear the volumetric data
     void clear();

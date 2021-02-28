@@ -64,8 +64,9 @@ std::vector<char>& cnpy::operator+=(std::vector<char>& lhs, const char* rhs) {
     return lhs;
 }
 
-void cnpy::parse_npy_header(const char* buffer, size_t& word_size,
-                            std::vector<size_t>& shape, bool& fortran_order) {
+uint16_t cnpy::parse_npy_header(const char* buffer, size_t& word_size,
+                                std::vector<size_t>& shape,
+                                bool& fortran_order) {
     // std::string magic_string(buffer,6);
     uint8_t major_version = *reinterpret_cast<const uint8_t*>(buffer + 6);
     uint8_t minor_version = *reinterpret_cast<const uint8_t*>(buffer + 7);
@@ -106,6 +107,7 @@ void cnpy::parse_npy_header(const char* buffer, size_t& word_size,
     std::string str_ws = header.substr(loc1 + 2);
     loc2 = str_ws.find("'");
     word_size = atoi(str_ws.substr(0, loc2).c_str());
+    return header_len + 10;
 }
 
 void cnpy::parse_npy_header(FILE* fp, size_t& word_size,
@@ -207,10 +209,7 @@ cnpy::NpyArray load_mem_npy_file(const char** ptr, const char* ptr_end) {
     std::vector<size_t> shape;
     size_t word_size;
     bool fortran_order;
-    if (*ptr + 11 >= ptr_end)
-        throw std::runtime_error("load_mem_npy_file: unexpected EOF");
-    cnpy::parse_npy_header(*ptr, word_size, shape, fortran_order);
-    *ptr += 11;
+    *ptr += cnpy::parse_npy_header(*ptr, word_size, shape, fortran_order);
 
     cnpy::NpyArray arr(shape, word_size, fortran_order);
     if (*ptr + arr.num_bytes() >= ptr_end)

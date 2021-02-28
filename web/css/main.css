@@ -1,0 +1,37 @@
+#header {
+    user-select: none;
+}
+
+#loading {
+    display: none;
+    opacity: 0;
+    transition: all 0.3s ease;
+    position: fixed;
+    top: 50%;
+    left: 50%;
+    transform: translate(-50%, -50%);
+    background: #fafafa;
+    width: 500px;
+    height: 150px;
+    z-index: 10000;
+}
+
+#loading>div {
+    text-align: center;
+    width: 400px;
+    position: absolute;
+    left: 50%;
+    top: 50%;
+    transform: translate(-50%, -70%);
+    user-select: none;
+}
+
+#loading h3 {
+    font-size: 2em;
+    margin-bottom: 0.5em;
+    margin-top: 1em;
+}
+
+#load-progress {
+    transition: none;
+}
