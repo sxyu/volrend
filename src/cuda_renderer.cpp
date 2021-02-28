@@ -106,7 +106,7 @@ struct VolumeRenderer::Impl {
     std::array<GLuint, 2> fb, rb;
 
     // CUDA resources
-    std::array<cudaGraphicsResource_t, 2> cgr = {0};
+    std::array<cudaGraphicsResource_t, 2> cgr = {{0}};
     std::array<cudaArray_t, 2> ca;
     cudaStream_t stream;
     bool started_ = false;
