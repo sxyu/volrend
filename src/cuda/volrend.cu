@@ -5,138 +5,76 @@
 #include <glm/gtc/type_ptr.hpp>
 #include <cuda_fp16.h>
 
-#include "volrend/n3tree.hpp"
+#include "volrend/cuda/common.cuh"
 #include "volrend/cuda/rt_core.cuh"
 #include "volrend/render_options.hpp"
+#include "volrend/cuda/data_spec.cuh"
 
 namespace volrend {
 
 #define MAX3(a, b, c) max(max(a, b), c)
 #define MIN3(a, b, c) min(min(a, b), c)
 
-template<typename scalar_t>
-__host__ __device__ __inline__ static scalar_t _norm(
-        scalar_t* dir) {
-    return sqrtf(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
-}
-
-template<typename scalar_t>
-__host__ __device__ __inline__ static void _normalize(
-        scalar_t* dir) {
-    scalar_t norm = _norm(dir);
-    dir[0] /= norm; dir[1] /= norm; dir[2] /= norm;
-}
-
+namespace {
 template<typename scalar_t>
 __host__ __device__ __inline__ static void screen2worlddir(
-        int ix, int iy, scalar_t focal,
-        int width, int height,
-        const scalar_t* __restrict__ transform,
+        int ix, int iy,
+        const CameraSpec& cam,
         scalar_t* out,
         scalar_t* cen) {
-    scalar_t x = (ix - 0.5 * width) / focal;
-    scalar_t y = -(iy - 0.5 * height) / focal;
-    scalar_t z = sqrtf(x * x + y * y + 1.0);
-    x /= z;
-    y /= z;
-    z = -1.0f / z;
-
-    out[0] = transform[0] * x + transform[3] * y + transform[6] * z;
-    out[1] = transform[1] * x + transform[4] * y + transform[7] * z;
-    out[2] = transform[2] * x + transform[5] * y + transform[8] * z;
-    cen[0] = transform[9]; cen[1] = transform[10]; cen[2] = transform[11];
+    scalar_t xyz[3] ={ (ix - 0.5f * cam.width) / cam.focal,
+                    -(iy - 0.5f * cam.height) / cam.focal, -1.0f};
+    _mv3(cam.transform, xyz, out);
+    _normalize(out);
+    _copy3(cam.transform + 9, cen);
 }
 template<typename scalar_t>
-__host__ __device__ __inline__ void world2ndc(
-        int ndc_width, int ndc_height, scalar_t ndc_focal,
+__host__ __device__ __inline__ void maybe_world2ndc(
+        const TreeSpec& tree,
         scalar_t* __restrict__ dir,
-        scalar_t* __restrict__ cen, scalar_t near = 1.f) {
-    scalar_t t = -(near + cen[2]) / dir[2];
+        scalar_t* __restrict__ cen) {
+    if (tree.ndc_width <= 0)
+        return;
+    scalar_t t = -(1.f + cen[2]) / dir[2];
     for (int i = 0; i < 3; ++i) {
         cen[i] = cen[i] + t * dir[i];
     }
 
-    dir[0] = -((2 * ndc_focal) / ndc_width) * (dir[0] / dir[2] - cen[0] / cen[2]);
-    dir[1] = -((2 * ndc_focal) / ndc_height) * (dir[1] / dir[2] - cen[1] / cen[2]);
-    dir[2] = -2 * near / cen[2];
+    dir[0] = -((2 * tree.ndc_focal) / tree.ndc_width) * (dir[0] / dir[2] - cen[0] / cen[2]);
+    dir[1] = -((2 * tree.ndc_focal) / tree.ndc_height) * (dir[1] / dir[2] - cen[1] / cen[2]);
+    dir[2] = -2 / cen[2];
 
-    cen[0] = -((2 * ndc_focal) / ndc_width) * (cen[0] / cen[2]);
-    cen[1] = -((2 * ndc_focal) / ndc_height) * (cen[1] / cen[2]);
-    cen[2] = 1 + 2 * near / cen[2];
+    cen[0] = -((2 * tree.ndc_focal) / tree.ndc_width) * (cen[0] / cen[2]);
+    cen[1] = -((2 * tree.ndc_focal) / tree.ndc_height) * (cen[1] / cen[2]);
+    cen[2] = 1 + 2 / cen[2];
 
     _normalize(dir);
 }
-
-template <typename scalar_t>
-__device__ __inline__ scalar_t _get_delta_scale(
-    const scalar_t* __restrict__ scaling,
-    scalar_t* __restrict__ dir) {
-    dir[0] *= scaling[0];
-    dir[1] *= scaling[1];
-    dir[2] *= scaling[2];
-    scalar_t delta_scale = 1.f / _norm(dir);
-    dir[0] *= delta_scale;
-    dir[1] *= delta_scale;
-    dir[2] *= delta_scale;
-    return delta_scale;
-}
+}  // namespace
 
 namespace device {
+
 // Primary rendering kernel
 __global__ static void render_kernel(
         cudaSurfaceObject_t surf_obj,
-        const int width,
-        const int height,
-        float focal,
-        const float* __restrict__ transform,
-        const __half* __restrict__ tree_data,
-        const int32_t* __restrict__ tree_child,
-        const float* __restrict__ tree_offset,
-        const float* __restrict__ tree_scale,
-        int tree_N,
-        int data_dim,
-        int sh_order,
-        float ndc_width,
-        float ndc_height,
-        float ndc_focal,
-        float step_size,
-        float stop_thresh,
-        float sigma_thresh,
-        float background_brightness,
-        bool show_cuda) {
-    CUDA_GET_THREAD_ID(idx, width * height);
-    const int x   = idx % width;
-    const int y   = idx / width;
-    // if (x > 0 || y > 0) return;
+        CameraSpec cam,
+        TreeSpec tree,
+        RenderOptions opt) {
+    CUDA_GET_THREAD_ID(idx, cam.width * cam.height);
+    const int x = idx % cam.width, y = idx / cam.width;
 
     float dir[3], cen[3], out[3];
-    screen2worlddir(x, y, focal, width, height, transform, dir,
-            cen);
+    screen2worlddir(x, y, cam, dir, cen);
     float vdir[3] = {dir[0], dir[1], dir[2]};
-    if (ndc_width > 0.f) {
-        world2ndc(ndc_width, ndc_height, ndc_focal, dir, cen);
-    }
+    maybe_world2ndc(tree, dir, cen);
     for (int i = 0; i < 3; ++i) {
-        cen[i] = tree_offset[i] + tree_scale[i] * cen[i];
+        cen[i] = tree.offset[i] + tree.scale[i] * cen[i];
     }
 
-    const float delta_scale = _get_delta_scale(tree_scale, dir);
-    trace_ray(tree_data, tree_child, tree_N, data_dim, sh_order,
-            dir,
-            vdir,
-            cen, step_size, stop_thresh,
-            sigma_thresh,
-            background_brightness,
-            delta_scale,
-            show_cuda, out);
+    trace_ray(tree, dir, vdir, cen, opt, out);
 
     // pixel color
-    uint8_t rgbx[4];
-    rgbx[0]  = uint8_t(out[0] * 255);
-    rgbx[1] = uint8_t(out[1] * 255);
-    rgbx[2]  = uint8_t(out[2] * 255);
-    rgbx[3] = 255;
-
+    uint8_t rgbx[4] = { uint8_t(out[0] * 255), uint8_t(out[1] * 255), uint8_t(out[2] * 255) };
     surf2Dwrite(
             *reinterpret_cast<uint32_t*>(rgbx),
             surf_obj,
@@ -167,22 +105,8 @@ __host__ void launch_renderer(const N3Tree& tree,
     const int blocks = N_BLOCKS_NEEDED(cam.width * cam.height, N_CUDA_THREADS);
     device::render_kernel<<<blocks, N_CUDA_THREADS, 0, stream>>>(
             surf_obj,
-            cam.width, cam.height,
-            cam.focal, cam.device.transform,
-            tree.device.data,
-            tree.device.child,
-            tree.device.offset,
-            tree.device.scale,
-            tree.N,
-            tree.data_dim,
-            tree.sh_order,
-            tree.use_ndc ? tree.ndc_width : -1,
-            tree.ndc_height,
-            tree.ndc_focal,
-            options.step_size,
-            options.stop_thresh,
-            options.sigma_thresh,
-            options.background_brightness,
-            options.show_grid);
+            CameraSpec::load(cam),
+            TreeSpec::load(tree),
+            options);
 }
 }  // namespace volrend

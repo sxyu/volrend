@@ -1,12 +1,50 @@
 #pragma once
+#include "volrend/common.hpp"
+
 #ifdef VOLREND_CUDA
 
-#include "volrend/common.hpp"
 #include <cuda_runtime.h>
 
 #define CUDA_GET_THREAD_ID(tid, Q) const int tid = blockIdx.x * blockDim.x + threadIdx.x; \
                       if (tid >= Q) return
 #define N_BLOCKS_NEEDED(Q, N_CUDA_THREADS) ((Q - 1) / N_CUDA_THREADS + 1)
+
+template<typename scalar_t>
+__host__ __device__ __inline__ static scalar_t _norm(
+        scalar_t* __restrict__ dir) {
+    return sqrtf(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
+}
+
+template<typename scalar_t>
+__host__ __device__ __inline__ static void _normalize(
+        scalar_t* __restrict__ dir) {
+    scalar_t norm = _norm(dir);
+    dir[0] /= norm; dir[1] /= norm; dir[2] /= norm;
+}
+
+template<typename scalar_t>
+__host__ __device__ __inline__ static void _mv3(
+        const scalar_t* __restrict__ m,
+        const scalar_t* __restrict__ v,
+        scalar_t* __restrict__ out) {
+    out[0] = m[0] * v[0] + m[3] * v[1] + m[6] * v[2];
+    out[1] = m[1] * v[0] + m[4] * v[1] + m[7] * v[2];
+    out[2] = m[2] * v[0] + m[5] * v[1] + m[8] * v[2];
+}
+
+template<typename scalar_t>
+__host__ __device__ __inline__ static void _copy3(
+        const scalar_t* __restrict__ v,
+        scalar_t* __restrict__ out) {
+    out[0] = v[0]; out[1] = v[1]; out[2] = v[2];
+}
+
+template<typename scalar_t>
+__host__ __device__ __inline__ static scalar_t _dot3(
+        const scalar_t* __restrict__ u,
+        const scalar_t* __restrict__ v) {
+    return u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
+}
 
 template <typename scalar_t>
 __device__ __inline__ bool outside_grid(const scalar_t* __restrict__ q) {

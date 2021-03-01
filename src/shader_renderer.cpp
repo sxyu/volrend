@@ -69,7 +69,7 @@ struct _RenderUniforms {
     GLint cam_transform, cam_focal, cam_reso;
     GLint opt_step_size, opt_backgrond_brightness, opt_stop_thresh,
         opt_sigma_thresh;
-    GLint tree_data_tex, tree_child_tex;
+    GLint tree_data_tex, tree_child_tex, tree_extra_tex;
 };
 
 }  // namespace
@@ -82,6 +82,7 @@ struct VolumeRenderer::Impl {
         glDeleteProgram(program);
         glDeleteTextures(1, &tex_tree_data);
         glDeleteTextures(1, &tex_tree_child);
+        glDeleteTextures(1, &tex_tree_extra);
     }
 
     void start() {
@@ -93,6 +94,10 @@ struct VolumeRenderer::Impl {
         glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &tex_3d_max_size);
         std::cout << " texture dim limit: " << tex_max_size << "\n";
         std::cout << " texture 3D dim limit: " << tex_3d_max_size << "\n";
+
+        glGenTextures(1, &tex_tree_data);
+        glGenTextures(1, &tex_tree_child);
+        glGenTextures(1, &tex_tree_extra);
 
         quad_init();
         shader_init();
@@ -119,6 +124,9 @@ struct VolumeRenderer::Impl {
 
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, tex_tree_data);
+
+        glActiveTexture(GL_TEXTURE2);
+        glBindTexture(GL_TEXTURE_2D, tex_tree_extra);
 
         glBindVertexArray(vao_quad);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, (GLsizei)4);
@@ -181,6 +189,19 @@ struct VolumeRenderer::Impl {
                      GL_FLOAT, tree->data_.data<half>());
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+
+        // Maybe upload extra data
+        const size_t extra_sz = tree->extra_.data_holder.size() / sizeof(float);
+        if (extra_sz) {
+            glBindTexture(GL_TEXTURE_2D, tex_tree_extra);
+            glTexImage2D(GL_TEXTURE_2D, 0, GL_R32F,
+                         extra_sz / tree->data_format.basis_dim,
+                         tree->data_format.basis_dim, 0, GL_RED, GL_FLOAT,
+                         tree->extra_.data<float>());
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+            glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        }
+
         glBindTexture(GL_TEXTURE_2D, 0);
     }
 
@@ -207,10 +228,10 @@ struct VolumeRenderer::Impl {
         glUniform1i(glGetUniformLocation(program, "tree.N"), tree->N);
         glUniform1i(glGetUniformLocation(program, "tree.data_dim"),
                     tree->data_dim);
-        glUniform1i(glGetUniformLocation(program, "tree.sh_order"),
-                    tree->sh_order);
-        glUniform1i(glGetUniformLocation(program, "tree.n_coe"),
-                    (tree->sh_order + 1) * (tree->sh_order + 1));
+        glUniform1i(glGetUniformLocation(program, "tree.format"),
+                    (int)tree->data_format.format);
+        glUniform1i(glGetUniformLocation(program, "tree.basis_dim"),
+                    tree->data_format.basis_dim);
         glUniform3f(glGetUniformLocation(program, "tree.center"),
                     tree->offset[0], tree->offset[1], tree->offset[2]);
         glUniform3f(glGetUniformLocation(program, "tree.scale"), tree->scale[0],
@@ -228,9 +249,6 @@ struct VolumeRenderer::Impl {
     }
 
     void shader_init() {
-        glGenTextures(1, &tex_tree_data);
-        glGenTextures(1, &tex_tree_child);
-
         // Dummy vertex shader
         GLuint vert_shader = glCreateShader(GL_VERTEX_SHADER);
         glShaderSource(vert_shader, 1, &PASSTHRU_VERT_SHADER_SRC, NULL);
@@ -265,8 +283,10 @@ struct VolumeRenderer::Impl {
         u.opt_sigma_thresh = glGetUniformLocation(program, "opt.sigma_thresh");
         u.tree_data_tex = glGetUniformLocation(program, "tree_data_tex");
         u.tree_child_tex = glGetUniformLocation(program, "tree_child_tex");
+        u.tree_extra_tex = glGetUniformLocation(program, "tree_extra_tex");
         glUniform1i(u.tree_child_tex, 0);
         glUniform1i(u.tree_data_tex, 1);
+        glUniform1i(u.tree_extra_tex, 2);
     }
 
     void quad_init() {
@@ -289,7 +309,7 @@ struct VolumeRenderer::Impl {
     N3Tree* tree;
 
     GLuint program = -1;
-    GLuint tex_tree_data = -1, tex_tree_child;
+    GLuint tex_tree_data = -1, tex_tree_child, tex_tree_extra;
     GLuint vao_quad;
     GLint tex_max_size;
 

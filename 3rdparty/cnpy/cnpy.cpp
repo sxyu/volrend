@@ -107,6 +107,11 @@ uint16_t cnpy::parse_npy_header(const char* buffer, size_t& word_size,
     std::string str_ws = header.substr(loc1 + 2);
     loc2 = str_ws.find("'");
     word_size = atoi(str_ws.substr(0, loc2).c_str());
+
+    char fmt = header[loc1 + 1];
+    // MODIFIED: fix unicode string
+    if (fmt == 'U') word_size *= 4;
+
     return header_len + 10;
 }
 

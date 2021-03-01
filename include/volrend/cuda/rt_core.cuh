@@ -2,10 +2,16 @@
 #include "volrend/cuda/n3tree_query.cuh"
 #include <cmath>
 #include <cuda_fp16.h>
+#include "volrend/common.hpp"
+#include "volrend/data_format.hpp"
+#include "volrend/render_options.hpp"
+#include "volrend/cuda/common.cuh"
+#include "volrend/cuda/data_spec.cuh"
 
 namespace volrend {
 namespace device {
 namespace {
+
 // SH Coefficients from https://github.com/google/spherical-harmonics
 __device__ __constant__ const float C0 = 0.28209479177387814;
 __device__ __constant__ const float C1 = 0.4886025119029199;
@@ -40,47 +46,83 @@ __device__ __constant__ const float C4[] = {
 };
 
 template<typename scalar_t>
-__device__ __inline__ void _precalc_sh(
-    const int order,
+__device__ __inline__ void maybe_precalc_basis(
+    const TreeSpec& tree,
     const scalar_t* __restrict__ dir,
-    scalar_t* __restrict__ out_mult) {
-    out_mult[0] = C0;
-    const scalar_t x = dir[0], y = dir[1], z = dir[2];
-    const scalar_t xx = x * x, yy = y * y, zz = z * z;
-    const scalar_t xy = x * y, yz = y * z, xz = x * z;
-    switch (order) {
-        case 4:
-            out_mult[16] = C4[0] * xy * (xx - yy);
-            out_mult[17] = C4[1] * yz * (3 * xx - yy);
-            out_mult[18] = C4[2] * xy * (7 * zz - 1.f);
-            out_mult[19] = C4[3] * yz * (7 * zz - 3.f);
-            out_mult[20] = C4[4] * (zz * (35 * zz - 30) + 3);
-            out_mult[21] = C4[5] * xz * (7 * zz - 3);
-            out_mult[22] = C4[6] * (xx - yy) * (7 * zz - 1.f);
-            out_mult[23] = C4[7] * xz * (xx - 3 * yy);
-            out_mult[24] = C4[8] * (xx * (xx - 3 * yy) - yy * (3 * xx - yy));
-            [[fallthrough]];
-        case 3:
-            out_mult[9] = C3[0] * y * (3 * xx - yy);
-            out_mult[10] = C3[1] * xy * z;
-            out_mult[11] = C3[2] * y * (4 * zz - xx - yy);
-            out_mult[12] = C3[3] * z * (2 * zz - 3 * xx - 3 * yy);
-            out_mult[13] = C3[4] * x * (4 * zz - xx - yy);
-            out_mult[14] = C3[5] * z * (xx - yy);
-            out_mult[15] = C3[6] * x * (xx - 3 * yy);
-            [[fallthrough]];
-        case 2:
-            out_mult[4] = C2[0] * xy;
-            out_mult[5] = C2[1] * yz;
-            out_mult[6] = C2[2] * (2.0 * zz - xx - yy);
-            out_mult[7] = C2[3] * xz;
-            out_mult[8] = C2[4] * (xx - yy);
-            [[fallthrough]];
-        case 1:
-            out_mult[1] = -C1 * y;
-            out_mult[2] = C1 * z;
-            out_mult[3] = -C1 * x;
-    }
+    scalar_t* __restrict__ out) {
+    const int basis_dim = tree.data_format.basis_dim;
+    switch(tree.data_format.format) {
+        case DataFormat::ASG:
+            {
+                // UNTESTED ASG
+                const scalar_t* ptr = tree.extra;
+                for (int i = 0; i < basis_dim; ++i) {
+                    const scalar_t* ptr_mu_x = ptr + 2, * ptr_mu_y = ptr + 5,
+                                  * ptr_mu_z = ptr + 8;
+                    scalar_t S = _dot3(dir, ptr_mu_z);
+                    scalar_t dot_x = _dot3(dir, ptr_mu_x);
+                    scalar_t dot_y = _dot3(dir, ptr_mu_y);
+                    out[i] = S * expf(-ptr[0] * dot_x * dot_x
+                                      -ptr[1] * dot_y * dot_y) / basis_dim;
+                    ptr += 11;
+                }
+            }  // ASG
+            break;
+        case DataFormat::SG:
+            {
+                const scalar_t* ptr = tree.extra;
+                for (int i = 0; i < basis_dim; ++i) {
+                    out[i] = expf(ptr[0] * (_dot3(dir, ptr + 1) - 1.f)) / basis_dim;
+                    ptr += 4;
+                }
+            }  // SG
+            break;
+        case DataFormat::SH:
+            {
+                out[0] = C0;
+                const scalar_t x = dir[0], y = dir[1], z = dir[2];
+                const scalar_t xx = x * x, yy = y * y, zz = z * z;
+                const scalar_t xy = x * y, yz = y * z, xz = x * z;
+                switch (basis_dim) {
+                    case 25:
+                        out[16] = C4[0] * xy * (xx - yy);
+                        out[17] = C4[1] * yz * (3 * xx - yy);
+                        out[18] = C4[2] * xy * (7 * zz - 1.f);
+                        out[19] = C4[3] * yz * (7 * zz - 3.f);
+                        out[20] = C4[4] * (zz * (35 * zz - 30) + 3);
+                        out[21] = C4[5] * xz * (7 * zz - 3);
+                        out[22] = C4[6] * (xx - yy) * (7 * zz - 1.f);
+                        out[23] = C4[7] * xz * (xx - 3 * yy);
+                        out[24] = C4[8] * (xx * (xx - 3 * yy) - yy * (3 * xx - yy));
+                        [[fallthrough]];
+                    case 16:
+                        out[9] = C3[0] * y * (3 * xx - yy);
+                        out[10] = C3[1] * xy * z;
+                        out[11] = C3[2] * y * (4 * zz - xx - yy);
+                        out[12] = C3[3] * z * (2 * zz - 3 * xx - 3 * yy);
+                        out[13] = C3[4] * x * (4 * zz - xx - yy);
+                        out[14] = C3[5] * z * (xx - yy);
+                        out[15] = C3[6] * x * (xx - 3 * yy);
+                        [[fallthrough]];
+                    case 9:
+                        out[4] = C2[0] * xy;
+                        out[5] = C2[1] * yz;
+                        out[6] = C2[2] * (2.0 * zz - xx - yy);
+                        out[7] = C2[3] * xz;
+                        out[8] = C2[4] * (xx - yy);
+                        [[fallthrough]];
+                    case 4:
+                        out[1] = -C1 * y;
+                        out[2] = C1 * z;
+                        out[3] = -C1 * x;
+                }
+            }  // SH
+            break;
+
+        default:
+            // Do nothing
+            break;
+    }  // switch
 }
 
 template<typename scalar_t>
@@ -101,23 +143,30 @@ __device__ __inline__ void _dda_unit(
     }
 }
 
+template <typename scalar_t>
+__device__ __inline__ scalar_t _get_delta_scale(
+    const scalar_t* __restrict__ scaling,
+    scalar_t* __restrict__ dir) {
+    dir[0] *= scaling[0];
+    dir[1] *= scaling[1];
+    dir[2] *= scaling[2];
+    scalar_t delta_scale = 1.f / _norm(dir);
+    dir[0] *= delta_scale;
+    dir[1] *= delta_scale;
+    dir[2] *= delta_scale;
+    return delta_scale;
+}
+
 template<typename scalar_t>
 __device__ __inline__ void trace_ray(
-        const __half* __restrict__ tree_data,
-        const int32_t* __restrict__ tree_child,
-        int tree_N,
-        int data_dim,
-        int sh_order,
-        const scalar_t* __restrict__ dir,
+        const TreeSpec& tree,
+        scalar_t* __restrict__ dir,
         const scalar_t* __restrict__ vdir,
         const scalar_t* __restrict__ cen,
-        scalar_t step_size,
-        scalar_t stop_thresh,
-        scalar_t sigma_thresh,
-        scalar_t background_brightness,
-        scalar_t delta_scale,
-        bool show_grid,
+        RenderOptions opt,
         scalar_t* __restrict__ out) {
+
+    const float delta_scale = _get_delta_scale(tree.scale, dir);
 
     scalar_t tmin, tmax;
     scalar_t invdir[3];
@@ -129,38 +178,34 @@ __device__ __inline__ void trace_ray(
 
     if (tmax < 0 || tmin > tmax) {
         // Ray doesn't hit box
-        if (show_grid) {
+        if (opt.show_grid) {
             out[0] = out[1] = out[2] = .2f;
         } else {
-            out[0] = out[1] = out[2] = background_brightness;
+            out[0] = out[1] = out[2] = opt.background_brightness;
         }
         return;
     } else {
         out[0] = out[1] = out[2] = 0.0f;
         scalar_t pos[3], tmp;
         const half* tree_val;
-        scalar_t sh_mult[25];
-        if (sh_order >= 0) {
-            _precalc_sh(sh_order, vdir, sh_mult);
-        }
+        scalar_t basis_fn[VOLREND_GLOBAL_BASIS_MAX];
+        maybe_precalc_basis(tree, vdir, basis_fn);
 
         scalar_t light_intensity = 1.f;
         // int n_steps = (int) ceilf((tmax - tmin) / step_size);
         scalar_t t = tmin;
-        const int n_coe = (sh_order + 1) * (sh_order + 1);
         scalar_t cube_sz;
         while (t < tmax) {
             for (int j = 0; j < 3; ++j) {
                 pos[j] = cen[j] + t * dir[j];
             }
 
-            query_single_from_root(tree_data, tree_child,
-                    pos, &tree_val, &cube_sz, tree_N, data_dim);
+            query_single_from_root(tree, pos, &tree_val, &cube_sz);
 
             scalar_t att;
             scalar_t subcube_tmin, subcube_tmax;
             _dda_unit(pos, invdir, &subcube_tmin, &subcube_tmax);
-            if (show_grid) {
+            if (opt.show_grid) {
                 scalar_t max3 = max(max(pos[0], pos[1]), pos[2]);
                 scalar_t min3 = min(min(pos[0], pos[1]), pos[2]);
                 scalar_t sum3 = pos[0] + pos[1] + pos[2];
@@ -176,21 +221,21 @@ __device__ __inline__ void trace_ray(
             }
 
             const scalar_t t_subcube = (subcube_tmax - subcube_tmin) / cube_sz;
-            const scalar_t delta_t = t_subcube + step_size;
-            if (__half2float(tree_val[data_dim - 1]) > sigma_thresh) {
-                att = expf(-delta_t * delta_scale * __half2float(tree_val[data_dim - 1]));
+            const scalar_t delta_t = t_subcube + opt.step_size;
+            if (__half2float(tree_val[tree.data_dim - 1]) > opt.sigma_thresh) {
+                att = expf(-delta_t * delta_scale * __half2float(tree_val[tree.data_dim - 1]));
                 const scalar_t weight = light_intensity * (1.f - att);
 
-                if (sh_order >= 0) {
+                if (tree.data_format.basis_dim >= 0) {
 #pragma unroll 3
                     for (int t = 0; t < 3; ++ t) {
-                        int off = t * n_coe;
-                        tmp = sh_mult[0] * __half2float(tree_val[off]) +
-                            sh_mult[1] * __half2float(tree_val[off + 1]) +
-                            sh_mult[2] * __half2float(tree_val[off + 2]);
+                        int off = t * tree.data_format.basis_dim;
+                        tmp = basis_fn[0] * __half2float(tree_val[off]) +
+                            basis_fn[1] * __half2float(tree_val[off + 1]) +
+                            basis_fn[2] * __half2float(tree_val[off + 2]);
 #pragma unroll 6
-                        for (int i = 3; i < n_coe; ++i) {
-                            tmp += sh_mult[i] * __half2float(tree_val[off + i]);
+                        for (int i = 3; i < tree.data_format.basis_dim; ++i) {
+                            tmp += basis_fn[i] * __half2float(tree_val[off + i]);
                         }
                         out[t] += weight / (1.f + expf(-tmp));
                     }
@@ -202,20 +247,17 @@ __device__ __inline__ void trace_ray(
 
                 light_intensity *= att;
 
-                if (light_intensity < stop_thresh) {
+                if (light_intensity < opt.stop_thresh) {
                     // Almost full opacity, stop
                     scalar_t scale = 1.f / (1.f - light_intensity);
-                    out[0] *= scale;
-                    out[1] *= scale;
-                    out[2] *= scale;
+                    out[0] *= scale; out[1] *= scale; out[2] *= scale;
                     return;
                 }
             }
             t += delta_t;
         }
-        out[0] += light_intensity * background_brightness;
-        out[1] += light_intensity * background_brightness;
-        out[2] += light_intensity * background_brightness;
+        const float remain = light_intensity * opt.background_brightness;
+        out[0] += remain; out[1] += remain; out[2] += remain;
     }
 }
 }  // namespace

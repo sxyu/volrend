@@ -1,4 +1,5 @@
 #include "volrend/n3tree.hpp"
+#include "volrend/data_format.hpp"
 
 #include <cassert>
 #include <cstring>
@@ -50,6 +51,54 @@ void unpack_llff_poses_bounds(cnpy::NpyArray& poses_bounds, float& width,
     up = glm::normalize(glm::cross(backward, right));
 }
 }  // namespace
+
+void DataFormat::parse(const std::string& str) {
+    size_t nonalph_idx = -1;
+    for (size_t i = 0; i < str.size(); ++i) {
+        if (!std::isalpha(str[i])) {
+            nonalph_idx = i;
+            break;
+        }
+    }
+    if (~nonalph_idx) {
+        basis_dim = std::atoi(str.c_str() + nonalph_idx);
+        const std::string tmp = str.substr(0, nonalph_idx);
+        if (tmp == "ASG")
+            format = ASG;
+        else if (tmp == "SG")
+            format = SG;
+        else if (tmp == "SH")
+            format = SH;
+        else
+            format = RGBA;
+    } else {
+        basis_dim = -1;
+        format = RGBA;
+    }
+}
+
+std::string DataFormat::to_string() const {
+    std::string out;
+    switch (format) {
+        case ASG:
+            out = "ASG";
+            break;
+        case SG:
+            out = "SG";
+            break;
+        case SH:
+            out = "SH";
+            break;
+        case RGBA:
+            out = "RGBA";
+            break;
+        default:
+            out = "UNKNOWN";
+            break;
+    }
+    if (~basis_dim) out.append(std::to_string(basis_dim));
+    return out;
+}
 
 N3Tree::N3Tree() {}
 N3Tree::N3Tree(const std::string& path) { open(path); }
@@ -118,29 +167,30 @@ void N3Tree::open_mem(const char* data, uint64_t size) {
 
 void N3Tree::load_npz(cnpy::npz_t& npz) {
     data_dim = (int)*npz["data_dim"].data<int64_t>();
-    switch (data_dim) {
-        case 4 * 3 + 1:
-            sh_order = 1;
-            break;
-        case 9 * 3 + 1:
-            sh_order = 2;
-            break;
-        case 16 * 3 + 1:
-            sh_order = 3;
-            break;
-        case 25 * 3 + 1:
-            sh_order = 4;
-            break;
-        default:
-            assert(data_dim == 4);
-            sh_order = -1;
-            break;
-    }
-    if (~sh_order) {
-        std::cout << "INFO: Spherical harmonics order " << sh_order << "\n";
+    if (npz.count("data_format")) {
+        auto& df_node = npz["data_format"];
+        std::string data_format_str =
+            std::string(df_node.data_holder.begin(), df_node.data_holder.end());
+        // Unicode to ASCII
+        for (size_t i = 4; i < data_format_str.size(); i += 4) {
+            data_format_str[i / 4] = data_format_str[i];
+        }
+        data_format_str.resize(data_format_str.size() / 4);
+        data_format.parse(data_format_str);
     } else {
-        std::cout << "INFO: Spherical harmonics disabled\n";
+        // Old style auto-infer SH dims
+        if (data_dim == 4) {
+            data_format.format = DataFormat::RGBA;
+            std::cout << "INFO: Legacy file with no format specifier; "
+                         "spherical basis disabled\n";
+        } else {
+            data_format.format = DataFormat::SH;
+            data_format.basis_dim = (data_dim - 1) / 3;
+            std::cout << "INFO: Legacy file with no format specifier; "
+                         "autodetect spherical harmonics order\n";
+        }
     }
+    std::cout << "INFO: Data format " << data_format.to_string() << "\n";
 
     n_internal = (int)*npz["n_internal"].data<int64_t>();
     if (npz.count("invradius3")) {
@@ -172,11 +222,13 @@ void N3Tree::load_npz(cnpy::npz_t& npz) {
     if (npz["data"].word_size != 2) {
         throw std::runtime_error("data must be stored in half precision");
     }
-    std::swap(data_, data_node);
-}
 
-int32_t N3Tree::get_child(int nd, int i, int j, int k) {
-    return child_.data<int32_t>()[pack_index(nd, i, j, k)];
+    if (npz.count("extra_data")) {
+        std::swap(extra_, npz["extra_data"]);
+    } else {
+        extra_.data_holder.clear();
+    }
+    std::swap(data_, data_node);
 }
 
 bool N3Tree::is_data_loaded() { return data_loaded_; }

@@ -1,6 +1,7 @@
 #pragma once
 
 #include "volrend/common.hpp"
+#include "volrend/data_format.hpp"
 
 #include <string>
 #include <vector>
@@ -31,10 +32,10 @@ struct N3Tree {
 
     // Spatial branching factor
     int N;
-    // Spherical harmonic order
-    int sh_order;
-    // Dimensionality of data on leaf (e.g. 4 for rgba)
+    // Size of data stored on each leaf
     int data_dim;
+    // Data format (SH, SG etc)
+    DataFormat data_format;
     // Number of internal nodes
     int n_internal;
     // Capacity
@@ -44,9 +45,6 @@ struct N3Tree {
     std::array<float, 3> scale;
     // Translation
     std::array<float, 3> offset;
-
-    // Get child of node in given position of subgrid
-    int32_t get_child(int nd, int i, int j, int k);
 
     bool is_data_loaded();
 #ifdef VOLREND_CUDA
@@ -69,6 +67,7 @@ struct N3Tree {
         int32_t* child = nullptr;
         float* offset = nullptr;
         float* scale = nullptr;
+        float* extra = nullptr;
     } device;
 #endif
     // Main data holder
@@ -76,6 +75,9 @@ struct N3Tree {
 
     // Child link data holder
     cnpy::NpyArray child_;
+
+    // Optional extra data
+    cnpy::NpyArray extra_;
 
    private:
     int N2_, N3_;

@@ -19,7 +19,7 @@ void N3Tree::load_cuda() {
     if (device.scale == nullptr) {
         cuda(Malloc((void**)&device.scale, 3 * sizeof(float)));
     }
-    cuda(MemcpyAsync(device.child, child_.data<int32_t>(),  child_sz,
+    cuda(MemcpyAsync(device.child, child_.data<int32_t>(), child_sz,
                 cudaMemcpyHostToDevice));
     const half* data_ptr = this->data_.data<half>();
     cuda(MemcpyAsync(device.data, data_ptr, data_sz,
@@ -28,6 +28,16 @@ void N3Tree::load_cuda() {
                 cudaMemcpyHostToDevice));
     cuda(MemcpyAsync(device.scale, scale.data(), 3 * sizeof(float),
                 cudaMemcpyHostToDevice));
+    if (extra_.data_holder.size()) {
+        if (device.extra == nullptr) {
+            cuda(Malloc((void**)&device.extra, extra_.data_holder.size()));
+        }
+        cuda(MemcpyAsync(device.extra, extra_.data<float>(),
+                    extra_.data_holder.size(),
+                    cudaMemcpyHostToDevice));
+    } else {
+        device.extra = nullptr;
+    }
     cuda_loaded_ = true;
 }
 
@@ -36,5 +46,6 @@ void N3Tree::free_cuda() {
     if (device.child != nullptr) cuda(Free(device.child));
     if (device.offset != nullptr) cuda(Free(device.offset));
     if (device.scale != nullptr) cuda(Free(device.scale));
+    if (device.extra != nullptr) cuda(Free(device.extra));
 }
 }  // namespace volrend

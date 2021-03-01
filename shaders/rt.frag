@@ -3,6 +3,13 @@
 precision highp float;
 precision highp int;
 
+#define VOLREND_GLOBAL_BASIS_MAX 25
+
+#define FORMAT_RGBA 0
+#define FORMAT_SH 1
+#define FORMAT_SG 2
+#define FORMAT_ASG 3
+
 // The output color
 out vec4 FragColor;
 
@@ -17,8 +24,8 @@ struct Camera {
 struct N3TreeSpec {
     int N;
     int data_dim;
-    int sh_order;
-    int n_coe;
+    int format;
+    int basis_dim;
     float ndc_width;
     float ndc_height;
     float ndc_focal;
@@ -46,6 +53,7 @@ uniform int tree_child_dim;
 uniform highp isampler2D tree_child_tex;
 uniform int tree_data_dim;
 uniform highp sampler2D tree_data_tex;
+uniform highp sampler2D tree_extra_tex;
 
 // Hacky ways to store octree in 2 textures
 float index_tree_data(int i) {
@@ -58,6 +66,10 @@ int index_tree_child(int i) {
     int y = i / tree_child_dim;
     int x = i % tree_child_dim;
     return texelFetch(tree_child_tex, ivec2(x, y), 0).r;
+}
+
+float index_extra(int i, int j) {
+    return texelFetch(tree_extra_tex, ivec2(j, i), 0).r;
 }
 
 
@@ -92,40 +104,54 @@ int query_single_from_root(inout vec3 xyz, out float cube_sz) {
 
 
 // **** CORE RAY TRACER IMPLEMENTATION ****
-void precalc_sh(const int order, const vec3 dir, inout float out_mult[25]) {
-    out_mult[0] = 0.28209479177387814;
-    float x = dir[0], y = dir[1], z = dir[2];
-    float xx = x * x, yy = y * y, zz = z * z;
-    float xy = x * y, yz = y * z, xz = x * z;
-    switch (order) {
-        case 4:
-            out_mult[16] = 2.5033429417967046 * xy * (xx - yy);
-            out_mult[17] = -1.7701307697799304 * yz * (3.f * xx - yy);
-            out_mult[18] = 0.9461746957575601 * xy * (7.f * zz - 1.f);
-            out_mult[19] = -0.6690465435572892 * yz * (7.f * zz - 3.f);
-            out_mult[20] = 0.10578554691520431 * (zz * (35.f * zz - 30.f) + 3.f);
-            out_mult[21] = -0.6690465435572892 * xz * (7.f * zz - 3.f);
-            out_mult[22] = 0.47308734787878004 * (xx - yy) * (7.f * zz - 1.f);
-            out_mult[23] = -1.7701307697799304 * xz * (xx - 3.f * yy);
-            out_mult[24] = 0.6258357354491761 * (xx * (xx - 3.f * yy) - yy * (3.f * xx - yy));
-        case 3:
-            out_mult[9] = -0.5900435899266435 * y * (3.f * xx - yy);
-            out_mult[10] = 2.890611442640554 * xy * z;
-            out_mult[11] = -0.4570457994644658 * y * (4.f * zz - xx - yy);
-            out_mult[12] = 0.3731763325901154 * z * (2.f * zz - 3.f * xx - 3.f * yy);
-            out_mult[13] = -0.4570457994644658 * x * (4.f * zz - xx - yy);
-            out_mult[14] = 1.445305721320277 * z * (xx - yy);
-            out_mult[15] = -0.5900435899266435 * x * (xx - 3.f * yy);
-        case 2:
-            out_mult[4] = 1.0925484305920792 * xy;
-            out_mult[5] = -1.0925484305920792 * yz;
-            out_mult[6] = 0.31539156525252005 * (2.f * zz - xx - yy);
-            out_mult[7] = -1.0925484305920792 * xz;
-            out_mult[8] = 0.5462742152960396 * (xx - yy);
-        case 1:
-            out_mult[1] = -0.4886025119029199 * y;
-            out_mult[2] = 0.4886025119029199 * z;
-            out_mult[3] = -0.4886025119029199 * x;
+void maybe_precalc_sh(const vec3 dir, inout float outb[VOLREND_GLOBAL_BASIS_MAX]) {
+    switch(tree.format) {
+        case FORMAT_SG:
+            {
+                for (int i = 0; i < tree.basis_dim; ++i) {
+                    vec3 mu = vec3(index_extra(i, 1), index_extra(i, 2), index_extra(i, 3));
+                    outb[i] = exp(index_extra(i, 0) * (dot(dir, mu) - 1.f)) /
+                                  float(tree.basis_dim);
+                }
+            }
+            break;
+        case FORMAT_SH:
+            {
+                outb[0] = 0.28209479177387814;
+                float x = dir[0], y = dir[1], z = dir[2];
+                float xx = x * x, yy = y * y, zz = z * z;
+                float xy = x * y, yz = y * z, xz = x * z;
+                switch (tree.basis_dim) {
+                    case 25:
+                        outb[16] = 2.5033429417967046 * xy * (xx - yy);
+                        outb[17] = -1.7701307697799304 * yz * (3.f * xx - yy);
+                        outb[18] = 0.9461746957575601 * xy * (7.f * zz - 1.f);
+                        outb[19] = -0.6690465435572892 * yz * (7.f * zz - 3.f);
+                        outb[20] = 0.10578554691520431 * (zz * (35.f * zz - 30.f) + 3.f);
+                        outb[21] = -0.6690465435572892 * xz * (7.f * zz - 3.f);
+                        outb[22] = 0.47308734787878004 * (xx - yy) * (7.f * zz - 1.f);
+                        outb[23] = -1.7701307697799304 * xz * (xx - 3.f * yy);
+                        outb[24] = 0.6258357354491761 * (xx * (xx - 3.f * yy) - yy * (3.f * xx - yy));
+                    case 16:
+                        outb[9] = -0.5900435899266435 * y * (3.f * xx - yy);
+                        outb[10] = 2.890611442640554 * xy * z;
+                        outb[11] = -0.4570457994644658 * y * (4.f * zz - xx - yy);
+                        outb[12] = 0.3731763325901154 * z * (2.f * zz - 3.f * xx - 3.f * yy);
+                        outb[13] = -0.4570457994644658 * x * (4.f * zz - xx - yy);
+                        outb[14] = 1.445305721320277 * z * (xx - yy);
+                        outb[15] = -0.5900435899266435 * x * (xx - 3.f * yy);
+                    case 9:
+                        outb[4] = 1.0925484305920792 * xy;
+                        outb[5] = -1.0925484305920792 * yz;
+                        outb[6] = 0.31539156525252005 * (2.f * zz - xx - yy);
+                        outb[7] = -1.0925484305920792 * xz;
+                        outb[8] = 0.5462742152960396 * (xx - yy);
+                    case 4:
+                        outb[1] = -0.4886025119029199 * y;
+                        outb[2] = 0.4886025119029199 * z;
+                        outb[3] = -0.4886025119029199 * x;
+                }
+        }
     }
 }
 
@@ -160,10 +186,8 @@ vec3 trace_ray(vec3 dir, vec3 vdir, vec3 cen) {
         output_color = vec3(opt.background_brightness);
     } else {
         output_color = vec3(.0f);
-        float sh_mult[25];
-        if (tree.sh_order >= 0) {
-            precalc_sh(tree.sh_order, vdir, sh_mult);
-        }
+        float basis_fn[VOLREND_GLOBAL_BASIS_MAX];
+        maybe_precalc_sh(vdir, basis_fn);
 
         float light_intensity = 1.f;
         float t = tmin;
@@ -186,17 +210,17 @@ vec3 trace_ray(vec3 dir, vec3 vdir, vec3 cen) {
                             doffset + tree.data_dim - 1)), 1.f);
                 float weight = light_intensity * (1.f - att);
 
-                if (tree.sh_order >= 0) {
+                if (tree.format != FORMAT_RGBA) {
                     int off = 0;
                     for (int t = 0; t < 3; ++ t) {
-                        float tmp = sh_mult[0] * index_tree_data(doffset + off) +
-                            sh_mult[1] * index_tree_data(doffset + off + 1) +
-                            sh_mult[2] * index_tree_data(doffset + off + 2);
-                        for (int i = 3; i < tree.n_coe; ++i) {
-                            tmp += sh_mult[i] * index_tree_data(doffset + off + i);
+                        float tmp = basis_fn[0] * index_tree_data(doffset + off) +
+                            basis_fn[1] * index_tree_data(doffset + off + 1) +
+                            basis_fn[2] * index_tree_data(doffset + off + 2);
+                        for (int i = 3; i < tree.basis_dim; ++i) {
+                            tmp += basis_fn[i] * index_tree_data(doffset + off + i);
                         }
                         output_color[t] += weight / (1.f + exp(-tmp));
-                        off += tree.n_coe;
+                        off += tree.basis_dim;
                     }
                 } else {
                     for (int j = 0; j < 3; ++j) {
