@@ -106,6 +106,22 @@ int query_single_from_root(inout vec3 xyz, out float cube_sz) {
 // **** CORE RAY TRACER IMPLEMENTATION ****
 void maybe_precalc_sh(const vec3 dir, inout float outb[VOLREND_GLOBAL_BASIS_MAX]) {
     switch(tree.format) {
+        case FORMAT_ASG:
+            {
+                for (int i = 0; i < tree.basis_dim; ++i) {
+                    float lambda_x = index_extra(i, 0);
+                    float lambda_y = index_extra(i, 1);
+                    vec3 mu_x = vec3(index_extra(i, 2), index_extra(i, 3), index_extra(i, 4));
+                    vec3 mu_y = vec3(index_extra(i, 5), index_extra(i, 6), index_extra(i, 7));
+                    vec3 mu_z = vec3(index_extra(i, 8), index_extra(i, 9), index_extra(i, 10));
+                    float S = dot(dir, mu_z);
+                    float dot_x = dot(dir, mu_x);
+                    float dot_y = dot(dir, mu_y);
+                    outb[i] = S * exp(-lambda_x * dot_x * dot_x
+                                      -lambda_y * dot_y * dot_y) / float(tree.basis_dim);
+                }
+            }
+            break;
         case FORMAT_SG:
             {
                 for (int i = 0; i < tree.basis_dim; ++i) {
