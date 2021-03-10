@@ -100,7 +100,7 @@ __host__ void launch_renderer(const N3Tree& tree,
 
     // 128 is weirdly faster for me than 1024
     // Not sure if this scales to a good GPU
-    const int N_CUDA_THREADS = 128;
+    const int N_CUDA_THREADS = 256;
 
     const int blocks = N_BLOCKS_NEEDED(cam.width * cam.height, N_CUDA_THREADS);
     device::render_kernel<<<blocks, N_CUDA_THREADS, 0, stream>>>(
