@@ -22,8 +22,6 @@ namespace {
 void write_png_file(const std::string &filename, uint8_t *ptr, int width,
                     int height) {
 #ifdef VOLREND_PNG
-    int y;
-
     FILE *fp = fopen(filename.c_str(), "wb");
     if (!fp) abort();
 
@@ -34,7 +32,7 @@ void write_png_file(const std::string &filename, uint8_t *ptr, int width,
     png_infop info = png_create_info_struct(png);
     if (!info) abort();
 
-    // if (setjmp(png_jmpbuf(png))) abort();
+    if (setjmp(png_jmpbuf(png))) abort();
 
     png_init_io(png, fp);
 
@@ -101,6 +99,17 @@ glm::mat4x3 read_transform_matrix(const std::string &path) {
     ifs >> tmp[0][2] >> tmp[1][2] >> tmp[2][2] >> tmp[3][2];
     return tmp;
 }
+
+void read_intrins(const std::string &path, float &fx, float &fy) {
+    std::ifstream ifs(path);
+    if (!ifs) {
+        std::cerr << "ERROR: intrin '" << path << "' does not exist\n";
+        std::exit(1);
+    }
+    float _;  // garbage
+    ifs >> fx >> _ >> _ >> _;
+    ifs >> _ >> fy;
+}
 }  // namespace
 
 int main(int argc, char *argv[]) {
@@ -114,6 +123,8 @@ int main(int argc, char *argv[]) {
     cxxoptions.add_options()
         ("o,write_images", "output directory of images; "
          "if empty, DOES NOT save (for timing only)",
+                cxxopts::value<std::string>()->default_value(""))
+        ("i,intrin", "intrinsics matrix 4x4; if set, overrides the fx/fy",
                 cxxopts::value<std::string>()->default_value(""))
         ;
     // clang-format on
@@ -150,6 +161,15 @@ int main(int argc, char *argv[]) {
     float fx = args["fx"].as<float>();
     if (fx < 0) fx = 1111.11f;
     float fy = args["fy"].as<float>();
+
+    {
+        // Load intrin matrix
+        std::string intrin_path = args["intrin"].as<std::string>();
+        if (intrin_path.size()) {
+            read_intrins(intrin_path, fx, fy);
+        }
+    }
+
     Camera camera(width, height, fx, fy);
     cudaArray_t array;
     cudaStream_t stream;
