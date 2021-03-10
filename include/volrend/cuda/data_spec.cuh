@@ -12,13 +12,14 @@ namespace {
 struct CameraSpec {
     int width;
     int height;
-    float focal;
+    float fx, fy;
     float* transform;
     static CameraSpec load(const Camera& camera) {
         CameraSpec spec;
         spec.width = camera.width;
         spec.height = camera.height;
-        spec.focal = camera.focal;
+        spec.fx = camera.fx;
+        spec.fy = camera.fy;
         spec.transform = camera.device.transform;
         return spec;
     }

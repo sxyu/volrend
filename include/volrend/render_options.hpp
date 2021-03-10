@@ -5,7 +5,7 @@
 namespace volrend {
 
 struct RenderOptions {
-    float step_size = 1.0f / 1000.0;
+    float step_size = 1e-4f;
     // If a point has sigma < this amount, considers sigma = 0
     float sigma_thresh = 1e-2f;
     // If remaining light intensity/alpha < this amount stop marching

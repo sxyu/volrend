@@ -21,10 +21,11 @@ struct Camera::DragState {
     glm::vec3 drag_start_center, drag_start_origin;
 };
 
-Camera::Camera(int width, int height, float focal)
+Camera::Camera(int width, int height, float fx, float fy)
     : width(width),
       height(height),
-      focal(focal),
+      fx(fx),
+      fy(fy < 0.f ? fx : fy),
       drag_state_(std::make_unique<DragState>()) {
     center = {-2.2f, 0.0, 2.2f};
     v_back = {-0.7071068f, 0.0f, 0.7071068f};
@@ -41,13 +42,15 @@ Camera::~Camera() {
 #endif
 }
 
-void Camera::_update(bool copy_cuda) {
-    v_right = glm::normalize(glm::cross(v_world_up, v_back));
-    v_up = glm::cross(v_back, v_right);
-    transform[0] = v_right;
-    transform[1] = v_up;
-    transform[2] = v_back;
-    transform[3] = center;
+void Camera::_update(bool transform_from_vecs, bool copy_cuda) {
+    if (transform_from_vecs) {
+        v_right = glm::normalize(glm::cross(v_world_up, v_back));
+        v_up = glm::cross(v_back, v_right);
+        transform[0] = v_right;
+        transform[1] = v_up;
+        transform[2] = v_back;
+        transform[3] = center;
+    }
 
 #ifdef VOLREND_CUDA
     if (copy_cuda) {
@@ -110,7 +113,7 @@ void Camera::drag_update(float x, float y) {
                                         1.f)) +
                 origin;
         }
-        _update(false);
+        _update(true, false);
     }
 }
 bool Camera::is_dragging() const { return drag_state_->is_dragging; }

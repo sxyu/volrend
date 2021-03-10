@@ -9,8 +9,14 @@
 #include "volrend/renderer.hpp"
 #include "volrend/n3tree.hpp"
 
+#include "volrend/internal/opts.hpp"
+
 #include "imgui_impl_opengl3.h"
 #include "imgui_impl_glfw.h"
+
+#ifdef VOLREND_CUDA
+#include "volrend/cuda/common.cuh"
+#endif
 
 namespace volrend {
 
@@ -39,7 +45,6 @@ void glfw_update_title(GLFWwindow* window) {
         char tmp[128];
         sprintf(tmp, "volrend viewer - FPS: %.2f", fps);
         glfwSetWindowTitle(window, tmp);
-        // glfwSetWindowTitle(window, "volrend viewer");
         frame_count = 0;
     }
 
@@ -53,7 +58,7 @@ void draw_imgui(VolumeRenderer& rend) {
     ImGui::NewFrame();
 
     ImGui::SetNextWindowPos(ImVec2(20.f, 20.f), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(250.f, 170.f), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(250.f, 195.f), ImGuiCond_Once);
     ImGui::Begin("Camera");
 
     // Update vectors indirectly since we need to normalize on change
@@ -68,7 +73,8 @@ void draw_imgui(VolumeRenderer& rend) {
 
     ImGui::InputFloat3("center", glm::value_ptr(cam.center));
     ImGui::InputFloat3("origin", glm::value_ptr(cam.origin));
-    ImGui::SliderFloat("focal", &cam.focal, 300.f, 7000.f);
+    ImGui::SliderFloat("fx", &cam.fx, 300.f, 7000.f);
+    ImGui::SliderFloat("fy", &cam.fy, 300.f, 7000.f);
     ImGui::Spacing();
     ImGui::InputFloat3("world_up", glm::value_ptr(world_up_tmp));
     ImGui::InputFloat3("back", glm::value_ptr(back_tmp));
@@ -80,12 +86,12 @@ void draw_imgui(VolumeRenderer& rend) {
     // End camera window
 
     // Render window
-    ImGui::SetNextWindowPos(ImVec2(20.f, 195.f), ImGuiCond_Once);
+    ImGui::SetNextWindowPos(ImVec2(20.f, 220.f), ImGuiCond_Once);
     ImGui::SetNextWindowSize(ImVec2(250.f, 145.f), ImGuiCond_Once);
     ImGui::Begin("Rendering");
 
     static float inv_step_size = 1.0f / rend.options.step_size;
-    if (ImGui::SliderFloat("1/step_size", &inv_step_size, 128.f, 10000.f)) {
+    if (ImGui::SliderFloat("1/step_size_eps", &inv_step_size, 128.f, 10000.f)) {
         rend.options.step_size = 1.f / inv_step_size;
     }
     ImGui::SliderFloat("sigma_thresh", &rend.options.sigma_thresh, 0.f, 100.0f);
@@ -140,15 +146,18 @@ void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action,
             } break;
 
             case GLFW_KEY_MINUS:
-                cam.focal *= 0.99f;
+                cam.fx *= 0.99f;
+                cam.fy *= 0.99f;
                 break;
 
             case GLFW_KEY_EQUAL:
-                cam.focal *= 1.01f;
+                cam.fx *= 1.01f;
+                cam.fy *= 1.01f;
                 break;
 
             case GLFW_KEY_0:
-                cam.focal = CAMERA_DEFAULT_FOCAL_LENGTH;
+                cam.fx = CAMERA_DEFAULT_FOCAL_LENGTH;
+                cam.fy = CAMERA_DEFAULT_FOCAL_LENGTH;
                 break;
         }
     }
@@ -254,21 +263,52 @@ void glfw_window_size_callback(GLFWwindow* window, int width, int height) {
 
 int main(int argc, char* argv[]) {
     using namespace volrend;
-    if (argc <= 1) {
-        fprintf(stderr, "expect argument: npz file\n");
-        return 1;
-    }
-    const int device_id = (argc > 2) ? atoi(argv[2]) : -1;
 
-    N3Tree tree(argv[1]);
-    int width = 800, height = 800;
-    if (tree.use_ndc) {
-        width = 1008;
-        height = 756;
+    cxxopts::Options cxxoptions(
+        "volrend",
+        "OpenGL octree volume rendering (c) VOLREND contributors 2021");
+
+    internal::add_common_opts(cxxoptions);
+    // clang-format off
+    cxxoptions.add_options()
+        ("nogui", "disable imgui", cxxopts::value<bool>())
+        ("center", "camera center position (world); ignored for NDC",
+                cxxopts::value<std::vector<float>>()->default_value(
+                                                        "-2.2,0,2.2"))
+        ("back", "camera's back direction unit vector (world) for orientation; ignored for NDC",
+                cxxopts::value<std::vector<float>>()->default_value("-0.7071068,0,0.7071068"))
+        ("origin", "origin for right click rotation controls; ignored for NDC",
+                cxxopts::value<std::vector<float>>()->default_value("0,0,0"))
+        ("world_up", "world up direction for rotating controls e.g. "
+                     "0,0,1=blender; ignored for NDC",
+                cxxopts::value<std::vector<float>>()->default_value("0,0,1"))
+        ;
+    // clang-format on
+
+    cxxoptions.positional_help("npz_file");
+
+    cxxopts::ParseResult args = internal::parse_options(cxxoptions, argc, argv);
+
+#ifdef VOLREND_CUDA
+    const int device_id = args["gpu"].as<int>();
+    if (~device_id) {
+        cuda(SetDevice(device_id));
     }
+#endif
+
+    N3Tree tree(args["file"].as<std::string>());
+    int width = args["width"].as<int>(), height = args["height"].as<int>();
+    float fx = args["fx"].as<float>();
+    float fy = args["fy"].as<float>();
+    bool nogui = args["nogui"].as<bool>();
+
     GLFWwindow* window = glfw_init(width, height);
     {
-        VolumeRenderer rend(device_id);
+        VolumeRenderer rend;
+        rend.camera.fx = fx;
+        rend.camera.fy = fy;
+
+        rend.options = internal::render_options_from_args(args);
         if (tree.use_ndc) {
             // Special inital coordinates for NDC
             // (pick average camera)
@@ -276,10 +316,25 @@ int main(int argc, char* argv[]) {
             rend.camera.origin = glm::vec3(0, 0, -3);
             rend.camera.v_back = glm::vec3(0, 0, 1);
             rend.camera.v_world_up = glm::vec3(0, 1, 0);
-            rend.camera.focal = tree.ndc_focal * 0.25f;
+            if (fx < 0) {
+                rend.camera.fx = rend.camera.fy = tree.ndc_focal * 0.25f;
+            }
             rend.camera.movement_speed = 0.1f;
-            rend.options.step_size = 1.f / 4000.f;
+        } else {
+            auto cen = args["center"].as<std::vector<float>>();
+            rend.camera.center = glm::vec3(cen[0], cen[1], cen[2]);
+            auto origin = args["origin"].as<std::vector<float>>();
+            rend.camera.origin = glm::vec3(origin[0], origin[1], origin[2]);
+            auto world_up = args["world_up"].as<std::vector<float>>();
+            rend.camera.v_world_up =
+                glm::vec3(world_up[0], world_up[1], world_up[2]);
+            auto back = args["back"].as<std::vector<float>>();
+            rend.camera.v_back = glm::vec3(back[0], back[1], back[2]);
+            if (fx < 0) {
+                rend.camera.fx = rend.camera.fy = 1111.11f;
+            }
         }
+        if (fy < 0) rend.camera.fy = rend.camera.fx;
         rend.set(tree);
 
         // get initial width/height
@@ -303,7 +358,7 @@ int main(int argc, char* argv[]) {
 
             rend.render();
 
-            draw_imgui(rend);
+            if (!nogui) draw_imgui(rend);
 
             glfwSwapBuffers(window);
             glFinish();

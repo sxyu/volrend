@@ -112,7 +112,7 @@ struct VolumeRenderer::Impl {
         // FIXME reduce uniform transfers?
         glUniformMatrix4x3fv(u.cam_transform, 1, GL_FALSE,
                              glm::value_ptr(camera.transform));
-        glUniform1f(u.cam_focal, camera.focal);
+        glUniform2f(u.cam_focal, camera.fx, camera.fy);
         glUniform2f(u.cam_reso, (float)camera.width, (float)camera.height);
         glUniform1f(u.opt_step_size, options.step_size);
         glUniform1f(u.opt_backgrond_brightness, options.background_brightness);
@@ -319,7 +319,7 @@ struct VolumeRenderer::Impl {
     bool started_ = false;
 };
 
-VolumeRenderer::VolumeRenderer(int device_id)
+VolumeRenderer::VolumeRenderer()
     : impl_(std::make_unique<Impl>(camera, options)) {}
 
 VolumeRenderer::~VolumeRenderer() {}

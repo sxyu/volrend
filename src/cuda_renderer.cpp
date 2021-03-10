@@ -27,6 +27,7 @@ struct VolumeRenderer::Impl {
         }
         glDeleteRenderbuffers(2, rb.data());
         glDeleteFramebuffers(2, fb.data());
+        cuda(StreamDestroy(stream));
     }
 
     void start() {
@@ -112,7 +113,7 @@ struct VolumeRenderer::Impl {
     bool started_ = false;
 };
 
-VolumeRenderer::VolumeRenderer(int device_id)
+VolumeRenderer::VolumeRenderer()
     : impl_(std::make_unique<Impl>(camera, options)) {}
 
 VolumeRenderer::~VolumeRenderer() {}

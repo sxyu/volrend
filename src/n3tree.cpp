@@ -123,7 +123,7 @@ void N3Tree::open(const std::string& path) {
 
     use_ndc = bool(std::ifstream(poses_bounds_path_));
     if (use_ndc) {
-        std::cout << "INFO: Found poses_bounds.npy for NDC: "
+        std::cerr << "INFO: Found poses_bounds.npy for NDC: "
                   << poses_bounds_path_ << "\n";
         cnpy::NpyArray poses_bounds = cnpy::npy_load(poses_bounds_path_);
 
@@ -181,16 +181,16 @@ void N3Tree::load_npz(cnpy::npz_t& npz) {
         // Old style auto-infer SH dims
         if (data_dim == 4) {
             data_format.format = DataFormat::RGBA;
-            std::cout << "INFO: Legacy file with no format specifier; "
+            std::cerr << "INFO: Legacy file with no format specifier; "
                          "spherical basis disabled\n";
         } else {
             data_format.format = DataFormat::SH;
             data_format.basis_dim = (data_dim - 1) / 3;
-            std::cout << "INFO: Legacy file with no format specifier; "
+            std::cerr << "INFO: Legacy file with no format specifier; "
                          "autodetect spherical harmonics order\n";
         }
     }
-    std::cout << "INFO: Data format " << data_format.to_string() << "\n";
+    std::cerr << "INFO: Data format " << data_format.to_string() << "\n";
 
     n_internal = (int)*npz["n_internal"].data<int64_t>();
     if (npz.count("invradius3")) {
@@ -200,7 +200,7 @@ void N3Tree::load_npz(cnpy::npz_t& npz) {
         scale[0] = scale[1] = scale[2] =
             (float)*npz["invradius"].data<double>();
     }
-    std::cout << "INFO: Scale " << scale[0] << " " << scale[1] << " "
+    std::cerr << "INFO: Scale " << scale[0] << " " << scale[1] << " "
               << scale[2] << "\n";
     {
         const float* offset_data = npz["offset"].data<float>();

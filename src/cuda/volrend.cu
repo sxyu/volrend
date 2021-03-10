@@ -22,8 +22,8 @@ __host__ __device__ __inline__ static void screen2worlddir(
         const CameraSpec& cam,
         scalar_t* out,
         scalar_t* cen) {
-    scalar_t xyz[3] ={ (ix - 0.5f * cam.width) / cam.focal,
-                    -(iy - 0.5f * cam.height) / cam.focal, -1.0f};
+    scalar_t xyz[3] ={ (ix - 0.5f * cam.width) / cam.fx,
+                    -(iy - 0.5f * cam.height) / cam.fy, -1.0f};
     _mv3(cam.transform, xyz, out);
     _normalize(out);
     _copy3(cam.transform + 9, cen);

@@ -12,7 +12,7 @@ static const float CAMERA_DEFAULT_FOCAL_LENGTH = 600.f;
 
 struct Camera {
     Camera(int width = 256, int height = 256,
-           float focal = CAMERA_DEFAULT_FOCAL_LENGTH);
+           float fx = CAMERA_DEFAULT_FOCAL_LENGTH, float fy = -1.f);
     ~Camera();
 
     /** Drag helpers **/
@@ -40,7 +40,7 @@ struct Camera {
     int width, height;
 
     // Focal length
-    float focal;
+    float fx, fy;
 
     // GUI movement speed
     float movement_speed = 1.f;
@@ -52,7 +52,7 @@ struct Camera {
 
     // Update the transform after modifying v_right/v_forward/center
     // (internal)
-    void _update(bool copy_cuda = true);
+    void _update(bool transform_from_vecs = true, bool copy_cuda = true);
 
    private:
     // For dragging

@@ -8,7 +8,7 @@
 namespace volrend {
 // Volume renderer using CUDA or compute shader
 struct VolumeRenderer {
-    explicit VolumeRenderer(int device_id = -1);
+    explicit VolumeRenderer();
     ~VolumeRenderer();
 
     // Render the currently set tree

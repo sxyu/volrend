@@ -17,7 +17,7 @@ out vec4 FragColor;
 struct Camera {
     mat4x3 transform;
     vec2 reso;
-    float focal;
+    vec2 focal;
 };
 
 // Store tree data
