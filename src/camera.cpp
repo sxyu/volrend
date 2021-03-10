@@ -24,8 +24,8 @@ struct Camera::DragState {
 Camera::Camera(int width, int height, float fx, float fy)
     : width(width),
       height(height),
-      fx(fx),
-      fy(fy < 0.f ? fx : fy),
+      fx(fx < 0.f ? CAMERA_DEFAULT_FOCAL_LENGTH : fx),
+      fy(fy < 0.f ? this->fx : fy),
       drag_state_(std::make_unique<DragState>()) {
     center = {-2.2f, 0.0, 2.2f};
     v_back = {-0.7071068f, 0.0f, 0.7071068f};

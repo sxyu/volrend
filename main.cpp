@@ -305,8 +305,9 @@ int main(int argc, char* argv[]) {
     GLFWwindow* window = glfw_init(width, height);
     {
         VolumeRenderer rend;
-        rend.camera.fx = fx;
-        rend.camera.fy = fy;
+        if (fx > 0.f) {
+            rend.camera.fx = fx;
+        }
 
         rend.options = internal::render_options_from_args(args);
         if (tree.use_ndc) {
@@ -316,7 +317,7 @@ int main(int argc, char* argv[]) {
             rend.camera.origin = glm::vec3(0, 0, -3);
             rend.camera.v_back = glm::vec3(0, 0, 1);
             rend.camera.v_world_up = glm::vec3(0, 1, 0);
-            if (fx < 0) {
+            if (fx <= 0) {
                 rend.camera.fx = rend.camera.fy = tree.ndc_focal * 0.25f;
             }
             rend.camera.movement_speed = 0.1f;
@@ -330,11 +331,10 @@ int main(int argc, char* argv[]) {
                 glm::vec3(world_up[0], world_up[1], world_up[2]);
             auto back = args["back"].as<std::vector<float>>();
             rend.camera.v_back = glm::vec3(back[0], back[1], back[2]);
-            if (fx < 0) {
-                rend.camera.fx = rend.camera.fy = 1111.11f;
-            }
         }
-        if (fy < 0) rend.camera.fy = rend.camera.fx;
+        if (fy <= 0.f) {
+            rend.camera.fy = rend.camera.fx;
+        }
         rend.set(tree);
 
         // get initial width/height

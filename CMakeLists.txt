@@ -305,7 +305,7 @@ if (EMSCRIPTEN)
         VERBATIM )
     add_custom_target(js_config ALL DEPENDS "${PROJECT_BINARY_DIR}/build/js/main.js")
 
-	add_custom_command(
+    add_custom_command(
         OUTPUT "${PROJECT_BINARY_DIR}/build/css/main.css"
         COMMAND ${CMAKE_COMMAND} -E copy_directory
                 ${PROJECT_SOURCE_DIR}/web/css
@@ -314,7 +314,7 @@ if (EMSCRIPTEN)
     )
     add_custom_target(css_config ALL DEPENDS "${PROJECT_BINARY_DIR}/build/css/main.css")
 
-	add_custom_command(
+    add_custom_command(
         TARGET volrend_web POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
                 ${PROJECT_BINARY_DIR}/volrend_web.wasm
@@ -322,7 +322,7 @@ if (EMSCRIPTEN)
     )
 
     find_package(Python REQUIRED COMPONENTS Interpreter)
-	add_custom_command(
+    add_custom_command(
         OUTPUT "${PROJECT_BINARY_DIR}/build/index.html"
         COMMAND ${CMAKE_COMMAND} -E copy
                 ${PROJECT_SOURCE_DIR}/web/index.html
@@ -383,15 +383,19 @@ else (EMSCRIPTEN)
     target_link_libraries( volrend_exe ${PROJ_LIB_NAME} )
     set_target_properties( volrend_exe PROPERTIES OUTPUT_NAME "volrend" )
 
-    add_executable( volrend_headless_exe main_headless.cpp )
-    target_link_libraries( volrend_headless_exe ${PROJ_LIB_NAME} )
-    set_target_properties( volrend_headless_exe PROPERTIES OUTPUT_NAME "volrend_headless" )
+    if (_VOLREND_USE_CUDA)
+        add_executable( volrend_headless_exe main_headless.cpp )
+        target_link_libraries( volrend_headless_exe ${PROJ_LIB_NAME} )
+        set_target_properties( volrend_headless_exe PROPERTIES OUTPUT_NAME "volrend_headless" )
+    endif(_VOLREND_USE_CUDA)
 
     if(WIN32)
         add_definitions(-DNOMINMAX -D_USE_MATH_DEFINES)
         if (MSVC AND VOLREND_BUILD_EXAMPLE)
             set_property(TARGET volrend_exe APPEND PROPERTY LINK_FLAGS "/DEBUG /LTCG" )
-            set_property(TARGET volrend_headless_exe APPEND PROPERTY LINK_FLAGS "/DEBUG /LTCG" )
+            if (_VOLREND_USE_CUDA)
+                set_property(TARGET volrend_headless_exe APPEND PROPERTY LINK_FLAGS "/DEBUG /LTCG" )
+            endif()
         endif ( MSVC AND VOLREND_BUILD_EXAMPLE )
     endif()
 endif (EMSCRIPTEN)
