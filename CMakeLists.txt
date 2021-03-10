@@ -160,6 +160,12 @@ else()
     set( DEPENDENCIES ${DEPENDENCIES} zlibstatic )
 endif()
 
+if (NOT EMSCRIPTEN)
+    find_package(PNG REQUIRED)
+    include_directories(${PNG_INCLUDE_DIR})
+    set( DEPENDENCIES ${DEPENDENCIES} ${PNG_LIBRARY} )
+endif()
+
 add_definitions(-DGLEW_STATIC -DTINYEXR_USE_MINIZ=0)
 
 include_directories(
@@ -263,7 +269,7 @@ if (EMSCRIPTEN)
     include_directories(
         ${PROJECT_BINARY_DIR}/3rdparty/zlib
     )
-    
+
     set(JS_SRC_DIR "${PROJECT_SOURCE_DIR}/web/js" )
     # Write a list of js files in order they should be loaded here
     # index.html should only include main.js
@@ -347,7 +353,7 @@ else (EMSCRIPTEN)
 
 
         include(GNUInstallDirs)
-        install(TARGETS ${INSTALL_TARGETS} 
+        install(TARGETS ${INSTALL_TARGETS}
                 EXPORT ${PROJ_LIB_NAME}Targets
                 ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
                 LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
@@ -371,10 +377,15 @@ else (EMSCRIPTEN)
     target_link_libraries( volrend_exe ${PROJ_LIB_NAME} )
     set_target_properties( volrend_exe PROPERTIES OUTPUT_NAME "volrend" )
 
+    add_executable( volrend_headless_exe main_headless.cpp )
+    target_link_libraries( volrend_headless_exe ${PROJ_LIB_NAME} )
+    set_target_properties( volrend_headless_exe PROPERTIES OUTPUT_NAME "volrend_headless" )
+
     if(WIN32)
         add_definitions(-DNOMINMAX -D_USE_MATH_DEFINES)
         if (MSVC AND VOLREND_BUILD_EXAMPLE)
             set_property(TARGET volrend_exe APPEND PROPERTY LINK_FLAGS "/DEBUG /LTCG" )
+            set_property(TARGET volrend_headless_exe APPEND PROPERTY LINK_FLAGS "/DEBUG /LTCG" )
         endif ( MSVC AND VOLREND_BUILD_EXAMPLE )
     endif()
 endif (EMSCRIPTEN)

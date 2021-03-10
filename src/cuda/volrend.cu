@@ -74,7 +74,7 @@ __global__ static void render_kernel(
     trace_ray(tree, dir, vdir, cen, opt, out);
 
     // pixel color
-    uint8_t rgbx[4] = { uint8_t(out[0] * 255), uint8_t(out[1] * 255), uint8_t(out[2] * 255) };
+    uint8_t rgbx[4] = { uint8_t(out[0] * 255), uint8_t(out[1] * 255), uint8_t(out[2] * 255), 255 };
     surf2Dwrite(
             *reinterpret_cast<uint32_t*>(rgbx),
             surf_obj,

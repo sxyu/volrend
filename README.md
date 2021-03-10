@@ -44,6 +44,7 @@ In the same direcotry.
 - C++14
 - OpenGL
     - any dependencies of GLFW
+- libpng-dev (only for writing image in headless mode)
 
 #### Optional
 - CUDA Toolkit, I use 11.0

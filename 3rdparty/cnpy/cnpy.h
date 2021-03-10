@@ -2,6 +2,10 @@
 // Released under MIT License
 // license available in LICENSE file, or at
 // http://www.opensource.org/licenses/mit-license.php
+//
+// Following changes were made for VOLREND:
+// - Added ZIP64 support for large numpy arrays
+// - Fixed handling of unicode strings
 
 #ifndef LIBCNPY_H_
 #define LIBCNPY_H_

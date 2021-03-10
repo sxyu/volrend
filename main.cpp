@@ -255,7 +255,7 @@ void glfw_window_size_callback(GLFWwindow* window, int width, int height) {
 int main(int argc, char* argv[]) {
     using namespace volrend;
     if (argc <= 1) {
-        fprintf(stderr, "Expect argument: npz file\n");
+        fprintf(stderr, "expect argument: npz file\n");
         return 1;
     }
     const int device_id = (argc > 2) ? atoi(argv[2]) : -1;
