@@ -3,9 +3,6 @@
 #include "volrend/n3tree.hpp"
 #include "volrend/camera.hpp"
 
-// Max global basis 
-#define VOLREND_GLOBAL_BASIS_MAX 25
-
 namespace volrend {
 namespace {
 

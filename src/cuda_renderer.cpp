@@ -121,6 +121,7 @@ VolumeRenderer::~VolumeRenderer() {}
 void VolumeRenderer::render() { impl_->render(); }
 void VolumeRenderer::set(N3Tree& tree) {
     impl_->start();
+    options._basis_dim = tree.data_format.basis_dim;
     impl_->tree = &tree;
 }
 void VolumeRenderer::clear() { impl_->tree = nullptr; }

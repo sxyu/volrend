@@ -137,6 +137,7 @@ struct VolumeRenderer::Impl {
         start();
         if (tree.capacity > 0) {
             this->tree = &tree;
+            options._basis_dim = tree.data_format.basis_dim;
             upload_data();
             upload_child_links();
             upload_tree_spec();

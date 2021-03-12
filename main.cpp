@@ -58,54 +58,78 @@ void draw_imgui(VolumeRenderer& rend) {
     ImGui::NewFrame();
 
     ImGui::SetNextWindowPos(ImVec2(20.f, 20.f), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(250.f, 195.f), ImGuiCond_Once);
-    ImGui::Begin("Camera");
+    ImGui::SetNextWindowSize(ImVec2(290.f, 400.f), ImGuiCond_Once);
 
-    // Update vectors indirectly since we need to normalize on change
-    // (press update button) and it would be too confusing to keep normalizing
-    static glm::vec3 world_up_tmp = rend.camera.v_world_up;
-    static glm::vec3 world_down_prev = rend.camera.v_world_up;
-    static glm::vec3 back_tmp = rend.camera.v_back;
-    static glm::vec3 forward_prev = rend.camera.v_back;
-    if (cam.v_world_up != world_down_prev)
-        world_up_tmp = world_down_prev = cam.v_world_up;
-    if (cam.v_back != forward_prev) back_tmp = forward_prev = cam.v_back;
-
-    ImGui::InputFloat3("center", glm::value_ptr(cam.center));
-    ImGui::InputFloat3("origin", glm::value_ptr(cam.origin));
-    ImGui::SliderFloat("fx", &cam.fx, 300.f, 7000.f);
-    ImGui::SliderFloat("fy", &cam.fy, 300.f, 7000.f);
-    ImGui::Spacing();
-    ImGui::InputFloat3("world_up", glm::value_ptr(world_up_tmp));
-    ImGui::InputFloat3("back", glm::value_ptr(back_tmp));
-    if (ImGui::Button("update dirs")) {
-        cam.v_world_up = glm::normalize(world_up_tmp);
-        cam.v_back = glm::normalize(back_tmp);
+    static char title[128] = {0};
+    if (title[0] == 0) {
+        sprintf(title, "volrend backend: %s", rend.get_backend());
     }
-    ImGui::End();
-    // End camera window
 
-    // Render window
-    ImGui::SetNextWindowPos(ImVec2(20.f, 220.f), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(250.f, 145.f), ImGuiCond_Once);
-    ImGui::Begin("Rendering");
+    ImGui::Begin(title);
+    ImGui::SetNextTreeNodeOpen(false, ImGuiCond_Once);
+    if (ImGui::TreeNode("Camera")) {
+        // Update vectors indirectly since we need to normalize on change
+        // (press update button) and it would be too confusing to keep
+        // normalizing
+        static glm::vec3 world_up_tmp = rend.camera.v_world_up;
+        static glm::vec3 world_down_prev = rend.camera.v_world_up;
+        static glm::vec3 back_tmp = rend.camera.v_back;
+        static glm::vec3 forward_prev = rend.camera.v_back;
+        if (cam.v_world_up != world_down_prev)
+            world_up_tmp = world_down_prev = cam.v_world_up;
+        if (cam.v_back != forward_prev) back_tmp = forward_prev = cam.v_back;
 
-    static float inv_step_size = 1.0f / rend.options.step_size;
-    if (ImGui::SliderFloat("1/step_size_eps", &inv_step_size, 128.f, 10000.f)) {
-        rend.options.step_size = 1.f / inv_step_size;
-    }
-    ImGui::SliderFloat("sigma_thresh", &rend.options.sigma_thresh, 0.f, 100.0f);
-    ImGui::SliderFloat("stop_thresh", &rend.options.stop_thresh, 0.001f, 0.4f);
-    ImGui::SliderFloat("bg_brightness", &rend.options.background_brightness,
-                       0.f, 1.0f);
+        ImGui::InputFloat3("center", glm::value_ptr(cam.center));
+        ImGui::InputFloat3("origin", glm::value_ptr(cam.origin));
+        ImGui::SliderFloat("fx", &cam.fx, 300.f, 7000.f);
+        ImGui::SliderFloat("fy", &cam.fy, 300.f, 7000.f);
+        if (ImGui::TreeNode("Directions")) {
+            ImGui::InputFloat3("world_up", glm::value_ptr(world_up_tmp));
+            ImGui::InputFloat3("back", glm::value_ptr(back_tmp));
+            if (ImGui::Button("norm & update dirs")) {
+                cam.v_world_up = glm::normalize(world_up_tmp);
+                cam.v_back = glm::normalize(back_tmp);
+            }
+        }
+        ImGui::TreePop();
+    }  // End camera node
+
+    ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
+    if (ImGui::TreeNode("Render")) {
+        static float inv_step_size = 1.0f / rend.options.step_size;
+        if (ImGui::SliderFloat("1/eps", &inv_step_size, 128.f, 10000.f)) {
+            rend.options.step_size = 1.f / inv_step_size;
+        }
+        ImGui::SliderFloat("sigma_thresh", &rend.options.sigma_thresh, 0.f,
+                           100.0f);
+        ImGui::SliderFloat("stop_thresh", &rend.options.stop_thresh, 0.001f,
+                           0.4f);
+        ImGui::SliderFloat("bg_brightness", &rend.options.background_brightness,
+                           0.f, 1.0f);
+
+        ImGui::TreePop();
+    }  // End render node
 #ifdef VOLREND_CUDA
-    ImGui::Checkbox("show_grid", &rend.options.show_grid);
-    ImGui::SameLine();
-#endif
-    ImGui::Text("Backend: %s", rend.get_backend());
+    ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
+    if (ImGui::TreeNode("Visualization")) {
+        ImGui::PushItemWidth(200);
+        ImGui::SliderFloat3("bb_min", rend.options.render_bbox, 0.0, 1.0);
+        ImGui::SliderFloat3("bb_max", rend.options.render_bbox + 3, 0.0, 1.0);
+        ImGui::Checkbox("show grid", &rend.options.show_grid);
+        ImGui::SameLine();
+        ImGui::Checkbox("render depth", &rend.options.render_depth);
+        ImGui::PushItemWidth(180);
+        ImGui::SliderInt("view basis fn", &rend.options.basis_id, -1,
+                         rend.options._basis_dim - 1);
+        ImGui::TreePop();
+    }
 
+    // ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
+    // if (ImGui::TreeNode("Manipulation")) {
+    //     ImGui::TreePop();
+    // }
+#endif
     ImGui::End();
-    // End render window
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
