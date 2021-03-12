@@ -178,11 +178,11 @@ __device__ __inline__ void trace_ray(
 
     if (tmax < 0 || tmin > tmax) {
         // Ray doesn't hit box
-        if (opt.show_grid) {
-            out[0] = out[1] = out[2] = .2f;
-        } else {
+        // if (opt.show_grid) {
+            // out[0] = out[1] = out[2] = .2f;
+        // } else {
             out[0] = out[1] = out[2] = opt.background_brightness;
-        }
+        // }
         return;
     } else {
         out[0] = out[1] = out[2] = 0.0f;
@@ -208,14 +208,16 @@ __device__ __inline__ void trace_ray(
             if (opt.show_grid) {
                 scalar_t max3 = max(max(pos[0], pos[1]), pos[2]);
                 scalar_t min3 = min(min(pos[0], pos[1]), pos[2]);
-                scalar_t sum3 = pos[0] + pos[1] + pos[2];
-                scalar_t mid3 = sum3 - min3 - max3;
-                const scalar_t edge_draw_thresh = 1.5e-2f;
+                scalar_t mid3 = pos[0] + pos[1] + pos[2] - min3 - max3;
+                const scalar_t edge_draw_thresh = 2e-2f;
+                int n_edges = (abs(min3) < edge_draw_thresh) +
+                              ((1.f - abs(max3)) < edge_draw_thresh) +
+                              (abs(mid3) < edge_draw_thresh ||
+                               (1.f - abs(mid3)) < edge_draw_thresh);
 
-                if (abs(max3 - sum3) < edge_draw_thresh ||
-                    abs(min3 - sum3 + 2.f) < edge_draw_thresh ||
-                    abs(mid3 - sum3 + 1.f) < edge_draw_thresh) {
-                    out[0] = out[1] = out[2] = .2f;
+                if (n_edges >= 2) {
+                    const float remain = light_intensity * .3f;
+                    out[0] += remain; out[1] += remain; out[2] += remain;
                     return;
                 }
             }
