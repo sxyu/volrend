@@ -109,6 +109,11 @@ N3Tree::~N3Tree() {
 }
 
 void N3Tree::open(const std::string& path) {
+    child_.data_holder.clear();
+    child_.data_holder.shrink_to_fit();
+    data_.data_holder.clear();
+    data_.data_holder.shrink_to_fit();
+
     data_loaded_ = false;
 #ifdef VOLREND_CUDA
     cuda_loaded_ = false;

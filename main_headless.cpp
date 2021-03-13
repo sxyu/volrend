@@ -13,59 +13,9 @@
 
 #include "volrend/cuda/common.cuh"
 #include "volrend/cuda/renderer_kernel.hpp"
+#include "volrend/internal/imwrite.hpp"
 
 namespace {
-#ifdef VOLREND_PNG
-#include <png.h>
-#endif
-
-void write_png_file(const std::string &filename, uint8_t *ptr, int width,
-                    int height) {
-#ifdef VOLREND_PNG
-    FILE *fp = fopen(filename.c_str(), "wb");
-    if (!fp) abort();
-
-    png_structp png =
-        png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
-    if (!png) abort();
-
-    png_infop info = png_create_info_struct(png);
-    if (!info) abort();
-
-    if (setjmp(png_jmpbuf(png))) abort();
-
-    png_init_io(png, fp);
-
-    // Output is 8bit depth, RGBA format.
-    png_set_IHDR(png, info, width, height, 8, PNG_COLOR_TYPE_RGBA,
-                 PNG_INTERLACE_NONE, PNG_COMPRESSION_TYPE_DEFAULT,
-                 PNG_FILTER_TYPE_DEFAULT);
-    png_write_info(png, info);
-
-    // To remove the alpha channel for PNG_COLOR_TYPE_RGB format,
-    // Use png_set_filler().
-    // png_set_filler(png, 0, PNG_FILLER_AFTER);
-
-    if (!ptr) abort();
-
-    std::vector<uint8_t *> row_ptrs(height);
-    for (int i = 0; i < height; ++i) {
-        row_ptrs[i] = ptr + i * width * 4;
-    }
-
-    png_write_image(png, row_ptrs.data());
-    png_write_end(png, NULL);
-
-    fclose(fp);
-
-    png_destroy_write_struct(&png, &info);
-#else
-    std::cerr
-        << "WARNING: Not writing image because volrend was not built with "
-           "libpng\n";
-#endif
-}
-
 std::string path_basename(const std::string &str) {
     for (size_t i = str.size() - 1; ~i; --i) {
         const char c = str[i];
@@ -202,7 +152,7 @@ int main(int argc, char *argv[]) {
                                         4 * width, height,
                                         cudaMemcpyDeviceToHost, stream));
             std::string fpath = out_dir + "/" + basenames[i] + ".png";
-            write_png_file(fpath, buf.data(), width, height);
+            internal::write_png_file(fpath, buf.data(), width, height);
         }
     }
     cudaEventRecord(stop);

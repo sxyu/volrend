@@ -8,9 +8,9 @@
 
 #include "volrend/renderer.hpp"
 #include "volrend/n3tree.hpp"
-#include "volrend/mesh.hpp"
 
 #include "volrend/internal/opts.hpp"
+#include "volrend/internal/imwrite.hpp"
 
 #include "imgui_impl_opengl3.h"
 #include "imgui_impl_glfw.h"
@@ -66,13 +66,71 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
     if (title[0] == 0) {
         sprintf(title, "volrend backend: %s", rend.get_backend());
     }
-    static ImGui::FileBrowser open_obj_mesh_dialog;
+
+    static ImGui::FileBrowser open_obj_mesh_dialog, open_tree_dialog,
+        save_screenshot_dialog(ImGuiFileBrowserFlags_EnterNewFilename);
     if (open_obj_mesh_dialog.GetTitle().empty()) {
         open_obj_mesh_dialog.SetTypeFilters({".obj"});
         open_obj_mesh_dialog.SetTitle("Load basic triangle OBJ");
     }
+    if (open_tree_dialog.GetTitle().empty()) {
+        open_tree_dialog.SetTypeFilters({".npz"});
+        open_tree_dialog.SetTitle("Load N3Tree npz from svox");
+    }
+    if (save_screenshot_dialog.GetTitle().empty()) {
+        save_screenshot_dialog.SetTypeFilters({".png"});
+        save_screenshot_dialog.SetTitle("Save screenshot (png)");
+    }
 
+    // Begin window
     ImGui::Begin(title);
+
+    if (ImGui::Button("Open tree")) {
+        open_tree_dialog.Open();
+    }
+    ImGui::SameLine();
+    if (ImGui::Button("Save screenshot")) {
+        save_screenshot_dialog.Open();
+    }
+
+    open_tree_dialog.Display();
+    if (open_tree_dialog.HasSelected()) {
+        // Load octree
+        std::string path = open_tree_dialog.GetSelected().string();
+        Mesh tmp;
+        std::cout << "Load N3Tree npz: " << path << "\n";
+        tree.open(path);
+        rend.set(tree);
+        open_tree_dialog.ClearSelected();
+    }
+
+    save_screenshot_dialog.Display();
+    if (save_screenshot_dialog.HasSelected()) {
+        // Save screenshot
+        std::string path = save_screenshot_dialog.GetSelected().string();
+        save_screenshot_dialog.ClearSelected();
+        int width = rend.camera.width, height = rend.camera.height;
+        std::vector<unsigned char> windowPixels(4 * width * height);
+        glReadPixels(0, 0, width, height, GL_RGBA, GL_UNSIGNED_BYTE,
+                     &windowPixels[0]);
+
+        std::vector<unsigned char> flippedPixels(4 * width * height);
+        for (int row = 0; row < height; ++row)
+            memcpy(&flippedPixels[row * width * 4],
+                   &windowPixels[(height - row - 1) * width * 4], 4 * width);
+
+        if (path.size() < 4 ||
+            path.compare(path.size() - 4, 4, ".png", 0, 4) != 0) {
+            path.append(".png");
+        }
+        if (internal::write_png_file(path, flippedPixels.data(), width,
+                                     height)) {
+            std::cout << "Wrote " << path << "\n";
+        } else {
+            std::cout << "Failed to save screenshot\n";
+        }
+    }
+
     ImGui::SetNextTreeNodeOpen(false, ImGuiCond_Once);
     if (ImGui::TreeNode("Camera")) {
         // Update vectors indirectly since we need to normalize on change
@@ -188,7 +246,7 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
 
     open_obj_mesh_dialog.Display();
     if (open_obj_mesh_dialog.HasSelected()) {
-        // Load new sequence
+        // Load mesh
         std::string path = open_obj_mesh_dialog.GetSelected().string();
         Mesh tmp;
         std::cout << "Load OBJ: " << path << "\n";
@@ -254,6 +312,30 @@ void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action,
             case GLFW_KEY_0:
                 cam.fx = CAMERA_DEFAULT_FOCAL_LENGTH;
                 cam.fy = CAMERA_DEFAULT_FOCAL_LENGTH;
+                break;
+
+            case GLFW_KEY_1:
+                cam.v_world_up = glm::vec3(0.f, 0.f, 1.f);
+                break;
+
+            case GLFW_KEY_2:
+                cam.v_world_up = glm::vec3(0.f, 0.f, -1.f);
+                break;
+
+            case GLFW_KEY_3:
+                cam.v_world_up = glm::vec3(0.f, 1.f, 0.f);
+                break;
+
+            case GLFW_KEY_4:
+                cam.v_world_up = glm::vec3(0.f, -1.f, 0.f);
+                break;
+
+            case GLFW_KEY_5:
+                cam.v_world_up = glm::vec3(1.f, 0.f, 0.f);
+                break;
+
+            case GLFW_KEY_6:
+                cam.v_world_up = glm::vec3(-1.f, 0.f, 0.f);
                 break;
         }
     }
@@ -437,13 +519,13 @@ int main(int argc, char* argv[]) {
         }
         rend.set(tree);
 
-        // get initial width/height
+        // Get initial width/height
         {
             glfwGetFramebufferSize(window, &width, &height);
             rend.resize(width, height);
         }
 
-        // SET USER POINTER AND CALLBACKS
+        // Set user pointer and callbacks
         glfwSetWindowUserPointer(window, &rend);
         glfwSetKeyCallback(window, glfw_key_callback);
         glfwSetMouseButtonCallback(window, glfw_mouse_button_callback);
@@ -451,9 +533,7 @@ int main(int argc, char* argv[]) {
         glfwSetScrollCallback(window, glfw_scroll_callback);
         glfwSetFramebufferSizeCallback(window, glfw_window_size_callback);
 
-        // LOOP UNTIL DONE
         while (!glfwWindowShouldClose(window)) {
-            // MONITOR FPS
             glEnable(GL_DEPTH_TEST);
             glfw_update_title(window);
 
