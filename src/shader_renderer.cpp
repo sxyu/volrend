@@ -16,9 +16,8 @@
 #include <GL/glew.h>
 #endif
 
-#include <GLFW/glfw3.h>
-
 #include "volrend/internal/rt_frag.inl"
+#include "volrend/internal/shader.hpp"
 
 namespace volrend {
 
@@ -37,33 +36,6 @@ void main()
 const float quad_verts[] = {
     -1.f, -1.f, 0.f, 1.f, -1.f, 0.f, -1.f, 1.f, 0.f, 1.f, 1.f, 0.f,
 };
-
-void check_compile_errors(GLuint shader, const std::string& type) {
-    GLint success;
-    GLchar infoLog[1024];
-    if (type != "PROGRAM") {
-        glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
-        if (!success) {
-            glGetShaderInfoLog(shader, 1024, NULL, infoLog);
-            std::cout
-                << "ERROR::SHADER_COMPILATION_ERROR of type: " << type << "\n"
-                << infoLog
-                << "\n -- ---------------------------------------------------  "
-                << std::endl;
-        }
-    } else {
-        glGetProgramiv(shader, GL_LINK_STATUS, &success);
-        if (!success) {
-            glGetProgramInfoLog(shader, 1024, NULL, infoLog);
-            std::cout
-                << "ERROR::PROGRAM_LINKING_ERROR of type: " << type << "\n"
-                << infoLog
-                << "\n -- --------------------------------------------------- "
-                   "-- "
-                << std::endl;
-        }
-    }
-}
 
 struct _RenderUniforms {
     GLint cam_transform, cam_focal, cam_reso;
@@ -137,7 +109,6 @@ struct VolumeRenderer::Impl {
         start();
         if (tree.capacity > 0) {
             this->tree = &tree;
-            options._basis_dim = tree.data_format.basis_dim;
             upload_data();
             upload_child_links();
             upload_tree_spec();
@@ -250,29 +221,7 @@ struct VolumeRenderer::Impl {
     }
 
     void shader_init() {
-        // Dummy vertex shader
-        GLuint vert_shader = glCreateShader(GL_VERTEX_SHADER);
-        glShaderSource(vert_shader, 1, &PASSTHRU_VERT_SHADER_SRC, NULL);
-        glCompileShader(vert_shader);
-        check_compile_errors(vert_shader, "VERTEX");
-
-        // Fragment shader
-        GLuint frag_shader = glCreateShader(GL_FRAGMENT_SHADER);
-
-        glShaderSource(frag_shader, 1, &RT_FRAG_SRC, NULL);
-        glCompileShader(frag_shader);
-        check_compile_errors(frag_shader, "FRAGMENT");
-
-        program = glCreateProgram();
-        glAttachShader(program, vert_shader);
-        glAttachShader(program, frag_shader);
-        glLinkProgram(program);
-        check_compile_errors(program, "PROGRAM");
-
-        glDeleteShader(vert_shader);
-        glDeleteShader(frag_shader);
-
-        glUseProgram(program);
+        program = create_shader_program(PASSTHRU_VERT_SHADER_SRC, RT_FRAG_SRC);
 
         u.cam_transform = glGetUniformLocation(program, "cam.transform");
         u.cam_focal = glGetUniformLocation(program, "cam.focal");

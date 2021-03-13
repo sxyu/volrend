@@ -8,11 +8,13 @@
 
 #include "volrend/renderer.hpp"
 #include "volrend/n3tree.hpp"
+#include "volrend/mesh.hpp"
 
 #include "volrend/internal/opts.hpp"
 
 #include "imgui_impl_opengl3.h"
 #include "imgui_impl_glfw.h"
+#include "imfilebrowser.h"
 
 #ifdef VOLREND_CUDA
 #include "volrend/cuda/common.cuh"
@@ -51,18 +53,23 @@ void glfw_update_title(GLFWwindow* window) {
     frame_count++;
 }
 
-void draw_imgui(VolumeRenderer& rend) {
+void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
     auto& cam = rend.camera;
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
 
     ImGui::SetNextWindowPos(ImVec2(20.f, 20.f), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(290.f, 400.f), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(340.f, 400.f), ImGuiCond_Once);
 
     static char title[128] = {0};
     if (title[0] == 0) {
         sprintf(title, "volrend backend: %s", rend.get_backend());
+    }
+    static ImGui::FileBrowser open_obj_mesh_dialog;
+    if (open_obj_mesh_dialog.GetTitle().empty()) {
+        open_obj_mesh_dialog.SetTypeFilters({".obj"});
+        open_obj_mesh_dialog.SetTitle("Load basic triangle OBJ");
     }
 
     ImGui::Begin(title);
@@ -86,10 +93,11 @@ void draw_imgui(VolumeRenderer& rend) {
         if (ImGui::TreeNode("Directions")) {
             ImGui::InputFloat3("world_up", glm::value_ptr(world_up_tmp));
             ImGui::InputFloat3("back", glm::value_ptr(back_tmp));
-            if (ImGui::Button("norm & update dirs")) {
+            if (ImGui::Button("normalize & update dirs")) {
                 cam.v_world_up = glm::normalize(world_up_tmp);
                 cam.v_back = glm::normalize(back_tmp);
             }
+            ImGui::TreePop();
         }
         ImGui::TreePop();
     }  // End camera node
@@ -112,24 +120,88 @@ void draw_imgui(VolumeRenderer& rend) {
 #ifdef VOLREND_CUDA
     ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
     if (ImGui::TreeNode("Visualization")) {
-        ImGui::PushItemWidth(200);
+        ImGui::PushItemWidth(230);
         ImGui::SliderFloat3("bb_min", rend.options.render_bbox, 0.0, 1.0);
         ImGui::SliderFloat3("bb_max", rend.options.render_bbox + 3, 0.0, 1.0);
+        ImGui::SliderInt("decomp", &rend.options.basis_id, -1,
+                         tree.data_format.basis_dim - 1);
+        ImGui::SliderFloat3("vdir shift", rend.options.rot_dirs, -M_PI / 4,
+                            M_PI / 4);
+        ImGui::PopItemWidth();
+        if (ImGui::Button("reset vdir shift")) {
+            for (int i = 0; i < 3; ++i) rend.options.rot_dirs[i] = 0.f;
+        }
         ImGui::Checkbox("show grid", &rend.options.show_grid);
         ImGui::SameLine();
         ImGui::Checkbox("render depth", &rend.options.render_depth);
-        ImGui::PushItemWidth(180);
-        ImGui::SliderInt("view basis fn", &rend.options.basis_id, -1,
-                         rend.options._basis_dim - 1);
         ImGui::TreePop();
     }
 
-    // ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
-    // if (ImGui::TreeNode("Manipulation")) {
-    //     ImGui::TreePop();
-    // }
+    ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
+    if (ImGui::TreeNode("Manipulation")) {
+        for (auto& mesh : rend.meshes) {
+            if (ImGui::TreeNode(mesh.name.c_str())) {
+                ImGui::PushItemWidth(230);
+                ImGui::SliderFloat3("trans", glm::value_ptr(mesh.translation),
+                                    -2.0f, 2.0f);
+                ImGui::SliderFloat3("rot", glm::value_ptr(mesh.rotation), -M_PI,
+                                    M_PI);
+                ImGui::SliderFloat("scale", &mesh.scale, 0.01f, 10.0f);
+                ImGui::PopItemWidth();
+                ImGui::Checkbox("unlit", &mesh.unlit);
+                ImGui::TreePop();
+            }
+        }
+        if (ImGui::Button("Add Sphere")) {
+            static int sphereid = 0;
+            {
+                Mesh sph = Mesh::Sphere();
+                sph.scale = 0.1f;
+                sph.translation[2] = 1.0f;
+                sph.update();
+                if (sphereid) sph.name = sph.name + std::to_string(sphereid);
+                ++sphereid;
+                rend.meshes.push_back(std::move(sph));
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Cube")) {
+            static int cubeid = 0;
+            {
+                Mesh cube = Mesh::Cube();
+                cube.scale = 0.2f;
+                cube.translation[2] = 1.0f;
+                cube.update();
+                if (cubeid) cube.name = cube.name + std::to_string(cubeid);
+                ++cubeid;
+                rend.meshes.push_back(std::move(cube));
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Load Tri OBJ")) {
+            open_obj_mesh_dialog.Open();
+        }
+        ImGui::TreePop();
+    }
 #endif
     ImGui::End();
+
+    open_obj_mesh_dialog.Display();
+    if (open_obj_mesh_dialog.HasSelected()) {
+        // Load new sequence
+        std::string path = open_obj_mesh_dialog.GetSelected().string();
+        Mesh tmp;
+        std::cout << "Load OBJ: " << path << "\n";
+        tmp.load_basic_obj(path);
+        if (tmp.vert.size()) {
+            tmp.update();
+            rend.meshes.push_back(std::move(tmp));
+            std::cout << "Load success\n";
+        } else {
+            std::cout << "Load failed\n";
+        }
+        open_obj_mesh_dialog.ClearSelected();
+    }
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -225,9 +297,9 @@ GLFWwindow* glfw_init(const int width, const int height) {
 
     if (!glfwInit()) std::exit(EXIT_FAILURE);
 
-    // glfwWindowHint(GLFW_DEPTH_BITS, GL_TRUE);
-    glfwWindowHint(GLFW_DEPTH_BITS, GL_FALSE);
-    glfwWindowHint(GLFW_STENCIL_BITS, GL_FALSE);
+    glfwWindowHint(GLFW_DEPTH_BITS, GL_TRUE);
+    // glfwWindowHint(GLFW_DEPTH_BITS, GL_FALSE);
+    // glfwWindowHint(GLFW_STENCIL_BITS, GL_FALSE);
 
     // glfwWindowHint(GLFW_SRGB_CAPABLE, GL_TRUE);
     // glEnable(GL_FRAMEBUFFER_SRGB);
@@ -237,12 +309,13 @@ GLFWwindow* glfw_init(const int width, const int height) {
 
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
 
-    // glEnable(GL_DEPTH_TEST);
-    // glEnable(GL_CULL_FACE);
-    // glPolygonMode(GL_FRONT_AND_BACK, GL_LINE);
-
     GLFWwindow* window =
         glfwCreateWindow(width, height, "volrend viewer", NULL, NULL);
+
+    glClearDepth(1.0);
+    glDepthFunc(GL_LESS);
+    glEnable(GL_CULL_FACE);
+    glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     if (window == nullptr) {
         glfwTerminate();
@@ -273,12 +346,14 @@ GLFWwindow* glfw_init(const int width, const int height) {
     ImGui_ImplOpenGL3_Init(glsl_version);
     // Setup Dear ImGui style
     ImGui::StyleColorsDark();
+    ImGui::GetIO().IniFilename = nullptr;
     glfwSetCharCallback(window, ImGui_ImplGlfw_CharCallback);
 
     return window;
 }
 
 void glfw_window_size_callback(GLFWwindow* window, int width, int height) {
+    glViewport(0, 0, width, height);
     GET_RENDERER(window).resize(width, height);
 }
 
@@ -327,6 +402,7 @@ int main(int argc, char* argv[]) {
     bool nogui = args["nogui"].as<bool>();
 
     GLFWwindow* window = glfw_init(width, height);
+
     {
         VolumeRenderer rend;
         if (fx > 0.f) {
@@ -378,11 +454,12 @@ int main(int argc, char* argv[]) {
         // LOOP UNTIL DONE
         while (!glfwWindowShouldClose(window)) {
             // MONITOR FPS
+            glEnable(GL_DEPTH_TEST);
             glfw_update_title(window);
 
             rend.render();
 
-            if (!nogui) draw_imgui(rend);
+            if (!nogui) draw_imgui(rend, tree);
 
             glfwSwapBuffers(window);
             glFinish();

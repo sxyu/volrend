@@ -4,6 +4,7 @@
 #include <memory>
 #include "volrend/common.hpp"
 #include "glm/mat4x3.hpp"
+#include "glm/mat4x4.hpp"
 #include "glm/vec3.hpp"
 #include "glm/vec2.hpp"
 
@@ -33,8 +34,14 @@ struct Camera {
     // Vectors below are automatically updated
     glm::vec3 v_up, v_right;
 
-    // 4x3 affine transform used for actual rendering, automatically updated
+    // 4x3 C2W transform used for volume rendering, automatically updated
     glm::mat4x3 transform;
+
+    // 4x4 projection matrix for triangle rendering
+    glm::mat4x4 K;
+
+    // 4x4 W2C transform
+    glm::mat4x4 w2c;
 
     // Image size
     int width, height;

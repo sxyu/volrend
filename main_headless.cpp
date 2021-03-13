@@ -182,6 +182,7 @@ int main(int argc, char *argv[]) {
 
     cuda(MallocArray(&array, &channelDesc, width, height));
     cuda(StreamCreateWithFlags(&stream, cudaStreamDefault));
+    cudaArray_t depth_arr = nullptr;  // Not using depth buffer
 
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
@@ -194,7 +195,7 @@ int main(int argc, char *argv[]) {
 
         RenderOptions options = internal::render_options_from_args(args);
 
-        launch_renderer(tree, camera, options, array, stream);
+        launch_renderer(tree, camera, options, array, depth_arr, stream, true);
 
         if (out_dir.size()) {
             cuda(Memcpy2DFromArrayAsync(buf.data(), 4 * width, array, 0, 0,

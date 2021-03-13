@@ -46,6 +46,14 @@ __host__ __device__ __inline__ static scalar_t _dot3(
     return u[0] * v[0] + u[1] * v[1] + u[2] * v[2];
 }
 
+template<typename scalar_t>
+__host__ __device__ __inline__ static 
+void _cross3(const scalar_t* a, const scalar_t* b, scalar_t* out) { 
+    out[0] = a[1] * b[2] - a[2] * b[1]; 
+    out[1] = a[2] * b[0] - a[0] * b[2]; 
+    out[2] = a[0] * b[1] - a[1] * b[0]; 
+} 
+
 template <typename scalar_t>
 __device__ __inline__ bool outside_grid(const scalar_t* __restrict__ q) {
     for (int i = 0; i < 3; ++i) {

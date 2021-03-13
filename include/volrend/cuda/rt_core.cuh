@@ -180,9 +180,12 @@ __device__ __inline__ void trace_ray(
         const scalar_t* __restrict__ vdir,
         const scalar_t* __restrict__ cen,
         RenderOptions opt,
+        float tmax_bg,
         scalar_t* __restrict__ out) {
 
-    const float delta_scale = _get_delta_scale(tree.scale, dir);
+    const float delta_scale = _get_delta_scale(
+            tree.scale, /*modifies*/ dir);
+    tmax_bg /= delta_scale;
 
     scalar_t tmin, tmax;
     scalar_t invdir[3];
@@ -191,10 +194,16 @@ __device__ __inline__ void trace_ray(
         invdir[i] = 1.f / (dir[i] + 1e-9);
     }
     _dda_world(cen, invdir, &tmin, &tmax, opt.render_bbox);
+    tmax = min(tmax, tmax_bg);
 
     if (tmax < 0 || tmin > tmax) {
         // Ray doesn't hit box
-        out[0] = out[1] = out[2] = opt.render_depth ? 0.f : opt.background_brightness;
+        if (opt.render_depth) {
+            out[0] = out[1] = out[2] = 0.f;
+            out[3] = 1.f;
+        } else {
+            out[3] = 0.f;
+        }
         return;
     } else {
         out[0] = out[1] = out[2] = 0.0f;
@@ -229,6 +238,7 @@ __device__ __inline__ void trace_ray(
                 if (n_edges >= 2) {
                     const float remain = light_intensity * .3f;
                     out[0] += remain; out[1] += remain; out[2] += remain;
+                    out[3] = 1.f;
                     return;
                 }
             }
@@ -283,6 +293,7 @@ __device__ __inline__ void trace_ray(
                     }
                     scalar_t scale = 1.f / (1.f - light_intensity);
                     out[0] *= scale; out[1] *= scale; out[2] *= scale;
+                    out[3] = 1.f;
                     return;
                 }
             }
@@ -290,9 +301,9 @@ __device__ __inline__ void trace_ray(
         }
         if (opt.render_depth) {
             out[0] = out[1] = out[2] = min(out[0] * 0.3f, 1.0f);
+            out[3] = 1.f;
         } else {
-            const float remain = light_intensity * opt.background_brightness;
-            out[0] += remain; out[1] += remain; out[2] += remain;
+            out[3] = 1.f - light_intensity;
         }
     }
 }

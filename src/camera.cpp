@@ -1,9 +1,12 @@
 #include "volrend/camera.hpp"
 #include <cmath>
+#include <iostream>
 
+#include <glm/gtx/string_cast.hpp>
 #include <glm/geometric.hpp>
 #include <glm/mat4x4.hpp>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
 
 #include "volrend/cuda/common.cuh"
 
@@ -44,6 +47,7 @@ Camera::~Camera() {
 
 void Camera::_update(bool transform_from_vecs, bool copy_cuda) {
     if (transform_from_vecs) {
+        v_back = glm::normalize(v_back);
         v_right = glm::normalize(glm::cross(v_world_up, v_back));
         v_up = glm::cross(v_back, v_right);
         transform[0] = v_right;
@@ -51,6 +55,15 @@ void Camera::_update(bool transform_from_vecs, bool copy_cuda) {
         transform[2] = v_back;
         transform[3] = center;
     }
+
+    const float CLIP_NEAR = 1e-3;
+    // clang-format off
+    K = glm::mat4x4(fx / (0.5f * width), 0, 0, 0,
+                  0, -fy / (0.5f * height), 0, 0,
+                  0, 0, -1.f, -1,
+                  0, 0, -2 * CLIP_NEAR, 0);
+    // clang-format on
+    w2c = glm::affineInverse(glm::mat4x4(transform));
 
 #ifdef VOLREND_CUDA
     if (copy_cuda) {
