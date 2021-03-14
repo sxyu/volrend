@@ -76,6 +76,8 @@ int main(int argc, char *argv[]) {
                 cxxopts::value<std::string>()->default_value(""))
         ("i,intrin", "intrinsics matrix 4x4; if set, overrides the fx/fy",
                 cxxopts::value<std::string>()->default_value(""))
+        ("r,reverse_yz", "use OpenCV camera space convention instead of NeRF",
+                cxxopts::value<bool>()->default_value(""))
         ;
     // clang-format on
 
@@ -98,6 +100,21 @@ int main(int argc, char *argv[]) {
     for (auto path : args.unmatched()) {
         trans.push_back(read_transform_matrix(path));
         basenames.push_back(remove_ext(path_basename(path)));
+    }
+
+    if (args["reverse_yz"].as<bool>()) {
+        std::cout << "INFO: Use OpenCV camera convention\n";
+        // clang-format off
+        glm::mat4x4 cam_trans(1, 0, 0, 0,
+                              0, -1, 0, 0,
+                              0, 0, -1, 0,
+                              0, 0, 0, 1);
+        // clang-format on
+        for (auto& trans : trans) {
+            trans = trans * cam_trans;
+        }
+    } else {
+        std::cout << "INFO: Use NeRF camera convention\n";
     }
 
     if (trans.size() == 0) {
