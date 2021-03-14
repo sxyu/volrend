@@ -3,52 +3,49 @@
 #include "volrend/n3tree.hpp"
 #include "volrend/camera.hpp"
 
+#ifdef __CUDACC__
+#define VOLREND_RESTRICT __restrict__
+#else
+#define VOLREND_RESTRICT
+#endif
+
 namespace volrend {
 namespace {
 
 struct CameraSpec {
-    int width;
-    int height;
-    float fx, fy;
-    float* transform;
-    static CameraSpec load(const Camera& camera) {
-        CameraSpec spec;
-        spec.width = camera.width;
-        spec.height = camera.height;
-        spec.fx = camera.fx;
-        spec.fy = camera.fy;
-        spec.transform = camera.device.transform;
-        return spec;
+    const int width;
+    const int height;
+    const float fx, fy;
+    const float* VOLREND_RESTRICT transform;
+    CameraSpec(const Camera& camera) : width(camera.width),
+        height(camera.height), fx(camera.fx), fy(camera.fy),
+        transform(camera.device.transform) {
     }
 };
 struct TreeSpec {
-    __half* data;
-    int32_t* child;
-    float* offset;
-    float* scale;
-    float* extra;
-    int N;
-    int data_dim;
-    DataFormat data_format;
-    float ndc_width;
-    float ndc_height;
-    float ndc_focal;
+    const __half* VOLREND_RESTRICT const data;
+    const int32_t* VOLREND_RESTRICT const child;
+    const float* VOLREND_RESTRICT const offset;
+    const float* VOLREND_RESTRICT const scale;
+    const float* VOLREND_RESTRICT const extra;
+    const int N;
+    const int data_dim;
+    const DataFormat data_format;
+    const float ndc_width;
+    const float ndc_height;
+    const float ndc_focal;
 
-    static TreeSpec load(const N3Tree& tree) {
-        TreeSpec spec;
-        spec.data = tree.device.data;
-        spec.child = tree.device.child;
-        spec.offset = tree.device.offset;
-        spec.scale = tree.device.scale;
-        spec.extra = tree.device.extra;
-        spec.N = tree.N;
-        spec.data_dim = tree.data_dim;
-        spec.data_format = tree.data_format;
-        spec.ndc_width = tree.use_ndc ? tree.ndc_width : -1,
-        spec.ndc_height = tree.ndc_height;
-        spec.ndc_focal = tree.ndc_focal;
-        return spec;
-    }
+    TreeSpec(const N3Tree& tree, bool cpu=false) :
+        data(cpu ? tree.data_.data<__half>() : tree.device.data),
+        child(cpu ? tree.child_.data<int32_t>() : tree.device.child),
+        offset(cpu ? tree.offset.data() : tree.device.offset),
+        scale(cpu ? tree.scale.data() : tree.device.scale),
+        extra(cpu ? tree.extra_.data<float>() : tree.device.extra),
+        N(tree.N), data_dim(tree.data_dim),
+        data_format(tree.data_format),
+        ndc_width(tree.use_ndc ? tree.ndc_width : -1),
+        ndc_height(tree.ndc_height),
+        ndc_focal(tree.ndc_focal) { }
 };
 
 }  // namespace

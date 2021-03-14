@@ -23,7 +23,9 @@ struct RenderOptions {
     // Background brightness
     float background_brightness = 1.f;
 
-    // * ADVANCED VISUALIZATION
+#ifdef VOLREND_CUDA
+    // * ADVANCED VISUALIZATION, currently in CUDA only
+
     // Draw a (rather low-quality) grid to help visualize the octree
     bool show_grid = false;
 
@@ -40,6 +42,12 @@ struct RenderOptions {
 
     // Rotation applied to viewdirs for all rays
     float rot_dirs[3] = {0.f, 0.f, 0.f};
+
+    // * Probe for inspecting lumispheres
+    bool enable_probe = false;
+    float probe[3] = {0.f, 0.f, 1.f};
+    int probe_disp_size = 100;
+#endif
 };
 
 }  // namespace volrend

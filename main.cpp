@@ -60,7 +60,7 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
     ImGui::NewFrame();
 
     ImGui::SetNextWindowPos(ImVec2(20.f, 20.f), ImGuiCond_Once);
-    ImGui::SetNextWindowSize(ImVec2(340.f, 400.f), ImGuiCond_Once);
+    ImGui::SetNextWindowSize(ImVec2(340.f, 480.f), ImGuiCond_Once);
 
     static char title[128] = {0};
     if (title[0] == 0) {
@@ -85,11 +85,11 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
     // Begin window
     ImGui::Begin(title);
 
-    if (ImGui::Button("Open tree")) {
+    if (ImGui::Button("Open Tree")) {
         open_tree_dialog.Open();
     }
     ImGui::SameLine();
-    if (ImGui::Button("Save screenshot")) {
+    if (ImGui::Button("Save Screenshot")) {
         save_screenshot_dialog.Open();
     }
 
@@ -132,7 +132,7 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
     }
 
     ImGui::SetNextTreeNodeOpen(false, ImGuiCond_Once);
-    if (ImGui::TreeNode("Camera")) {
+    if (ImGui::CollapsingHeader("Camera")) {
         // Update vectors indirectly since we need to normalize on change
         // (press update button) and it would be too confusing to keep
         // normalizing
@@ -157,11 +157,10 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
             }
             ImGui::TreePop();
         }
-        ImGui::TreePop();
     }  // End camera node
 
     ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
-    if (ImGui::TreeNode("Render")) {
+    if (ImGui::CollapsingHeader("Render")) {
         static float inv_step_size = 1.0f / rend.options.step_size;
         if (ImGui::SliderFloat("1/eps", &inv_step_size, 128.f, 10000.f)) {
             rend.options.step_size = 1.f / inv_step_size;
@@ -173,31 +172,32 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
         ImGui::SliderFloat("bg_brightness", &rend.options.background_brightness,
                            0.f, 1.0f);
 
-        ImGui::TreePop();
     }  // End render node
 #ifdef VOLREND_CUDA
     ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
-    if (ImGui::TreeNode("Visualization")) {
+    if (ImGui::CollapsingHeader("Visualization")) {
         ImGui::PushItemWidth(230);
         ImGui::SliderFloat3("bb_min", rend.options.render_bbox, 0.0, 1.0);
         ImGui::SliderFloat3("bb_max", rend.options.render_bbox + 3, 0.0, 1.0);
         ImGui::SliderInt("decomp", &rend.options.basis_id, -1,
                          tree.data_format.basis_dim - 1);
-        ImGui::SliderFloat3("vdir shift", rend.options.rot_dirs, -M_PI / 4,
+        ImGui::SliderFloat3("viewdir shift", rend.options.rot_dirs, -M_PI / 4,
                             M_PI / 4);
         ImGui::PopItemWidth();
-        if (ImGui::Button("reset vdir shift")) {
+        if (ImGui::Button("Reset Viewdir Shift")) {
             for (int i = 0; i < 3; ++i) rend.options.rot_dirs[i] = 0.f;
         }
-        ImGui::Checkbox("show grid", &rend.options.show_grid);
+
+        ImGui::Checkbox("Show Grid", &rend.options.show_grid);
         ImGui::SameLine();
-        ImGui::Checkbox("render depth", &rend.options.render_depth);
-        ImGui::TreePop();
+        ImGui::Checkbox("Render Depth", &rend.options.render_depth);
     }
 
     ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
-    if (ImGui::TreeNode("Manipulation")) {
-        for (auto& mesh : rend.meshes) {
+    if (ImGui::CollapsingHeader("Manipulation")) {
+        ImGui::BeginGroup();
+        for (int i = 1; i < (int)rend.meshes.size(); ++i) {
+            auto& mesh = rend.meshes[i];
             if (ImGui::TreeNode(mesh.name.c_str())) {
                 ImGui::PushItemWidth(230);
                 ImGui::SliderFloat3("trans", glm::value_ptr(mesh.translation),
@@ -206,10 +206,14 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
                                     M_PI);
                 ImGui::SliderFloat("scale", &mesh.scale, 0.01f, 10.0f);
                 ImGui::PopItemWidth();
+                ImGui::Checkbox("visible", &mesh.visible);
+                ImGui::SameLine();
                 ImGui::Checkbox("unlit", &mesh.unlit);
+
                 ImGui::TreePop();
             }
         }
+        ImGui::EndGroup();
         if (ImGui::Button("Add Sphere")) {
             static int sphereid = 0;
             {
@@ -239,7 +243,19 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
         if (ImGui::Button("Load Tri OBJ")) {
             open_obj_mesh_dialog.Open();
         }
-        ImGui::TreePop();
+        ImGui::SameLine();
+        if (ImGui::Button("Clear All")) {
+            rend.meshes.resize(1);
+        }
+
+        ImGui::BeginGroup();
+        ImGui::Checkbox("Enable Lumisphere Probe", &rend.options.enable_probe);
+        if (rend.options.enable_probe) {
+            ImGui::SliderFloat3("probe", rend.options.probe, -2.f, 2.f);
+            ImGui::SliderInt("probe_win_sz", &rend.options.probe_disp_size, 50,
+                             400);
+        }
+        ImGui::EndGroup();
     }
 #endif
     ImGui::End();
@@ -380,12 +396,6 @@ GLFWwindow* glfw_init(const int width, const int height) {
     if (!glfwInit()) std::exit(EXIT_FAILURE);
 
     glfwWindowHint(GLFW_DEPTH_BITS, GL_TRUE);
-    // glfwWindowHint(GLFW_DEPTH_BITS, GL_FALSE);
-    // glfwWindowHint(GLFW_STENCIL_BITS, GL_FALSE);
-
-    // glfwWindowHint(GLFW_SRGB_CAPABLE, GL_TRUE);
-    // glEnable(GL_FRAMEBUFFER_SRGB);
-
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
 
@@ -396,7 +406,6 @@ GLFWwindow* glfw_init(const int width, const int height) {
 
     glClearDepth(1.0);
     glDepthFunc(GL_LESS);
-    glEnable(GL_CULL_FACE);
     glPolygonMode(GL_FRONT_AND_BACK, GL_FILL);
 
     if (window == nullptr) {

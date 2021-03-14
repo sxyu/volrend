@@ -1,11 +1,16 @@
 #include "volrend/mesh.hpp"
 
+#include "volrend/common.hpp"
+
+#ifdef VOLREND_CUDA
+
 #ifdef __EMSCRIPTEN__
 // WebGL
 #include <GLES3/gl3.h>
 #else
 #include <GL/glew.h>
 #endif
+
 #include <numeric>
 #include <sstream>
 #include <fstream>
@@ -196,7 +201,7 @@ void Mesh::update() {
 }
 
 void Mesh::draw(const glm::mat4x4& V, const glm::mat4x4& K) const {
-    // glUseProgram(program);
+    if (!visible) return;
     float norm = glm::length(rotation);
     glm::mat4 transform;
     if (norm < 1e-3) {
@@ -409,3 +414,5 @@ void Mesh::load_basic_obj(const std::string& path) {
 }
 
 }  // namespace volrend
+
+#endif

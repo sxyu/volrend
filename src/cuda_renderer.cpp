@@ -12,12 +12,29 @@
 
 #include "volrend/cuda/common.cuh"
 #include "volrend/cuda/renderer_kernel.hpp"
+#include "volrend/cuda/lumisphere.cuh"
+#include "volrend/internal/imwrite.hpp"
 
 namespace volrend {
 
 struct VolumeRenderer::Impl {
     Impl(Camera& camera, RenderOptions& options, std::vector<Mesh>& meshes)
-        : camera(camera), options(options), meshes(meshes), buf_index(0) {}
+        : camera(camera), options(options), meshes(meshes), buf_index(0) {
+        Mesh cube = Mesh::Cube(glm::vec3(0.0));
+        cube.name = "_probe_cube";
+        cube.visible = false;
+        cube.scale = 0.05f;
+        for (int i = 0; i < 3; ++i) {
+            int off = i * 12 * 9;
+            for (int j = 0; j < 12; ++j) {
+                int soff = off + 9 * j + 3;
+                cube.vert[soff + 2 - i] = 1.f;
+            }
+        }
+        cube.unlit = true;
+        cube.update();
+        meshes.push_back(std::move(cube));
+    }
 
     ~Impl() {
         // Unregister CUDA resources
@@ -69,6 +86,9 @@ struct VolumeRenderer::Impl {
         glClearNamedFramebufferfv(fb[buf_index], GL_COLOR, 1, &depth_inf);
         glClearNamedFramebufferfv(fb[buf_index], GL_DEPTH, 0, &depth_inf);
         if (tree == nullptr || !started_) return;
+
+        meshes[0].visible = options.enable_probe;
+        for (int i = 0; i < 3; ++i) meshes[0].translation[i] = options.probe[i];
 
         camera._update();
 

@@ -5,13 +5,12 @@
 #include "volrend/cuda/data_spec.cuh"
 
 namespace volrend {
-namespace device {
 
-__device__ __inline__ static void query_single_from_root(
+__host__ __device__ __inline__ static void query_single_from_root(
                                       const TreeSpec& tree,
-                                      float* __restrict__ xyz,
-                                      const half** __restrict__ out,
-                                      float* __restrict__ cube_sz) {
+                                      float* VOLREND_RESTRICT xyz,
+                                      const half** VOLREND_RESTRICT out,
+                                      float* VOLREND_RESTRICT cube_sz) {
     const float fN = tree.N;
     xyz[0] = max(min(xyz[0], 1.f - 1e-6f), 0.f);
     xyz[1] = max(min(xyz[1], 1.f - 1e-6f), 0.f);
@@ -45,5 +44,4 @@ __device__ __inline__ static void query_single_from_root(
     }
 }
 
-}  // namespace device
 }  // namespace volrend

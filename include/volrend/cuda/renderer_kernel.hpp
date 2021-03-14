@@ -10,4 +10,4 @@ __host__ void launch_renderer(const N3Tree& tree, const Camera& cam,
                               const RenderOptions& options,
                               cudaArray_t& image_arr, cudaArray_t& depth_arr,
                               cudaStream_t stream, bool offscreen = false);
-}
+}  // namespace volrend

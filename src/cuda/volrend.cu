@@ -79,30 +79,88 @@ __global__ static void render_kernel(
         CameraSpec cam,
         TreeSpec tree,
         RenderOptions opt,
+        float* probe_coeffs,
         bool offscreen) {
     CUDA_GET_THREAD_ID(idx, cam.width * cam.height);
     const int x = idx % cam.width, y = idx / cam.width;
 
-    uint8_t rgbx_init[4];
-    float t_max = 1e9f;
-    if (!offscreen) {
-        surf2Dread(reinterpret_cast<uint32_t*>(rgbx_init), surf_obj, x * 4,
-                    y, cudaBoundaryModeZero);
-        surf2Dread(&t_max, surf_obj_depth, x * sizeof(float), y, cudaBoundaryModeZero);
-    }
-
     float dir[3], cen[3], out[4];
 
-    screen2worlddir(x, y, cam, dir, cen);
-    float vdir[3] = {dir[0], dir[1], dir[2]};
-    maybe_world2ndc(tree, dir, cen);
-    for (int i = 0; i < 3; ++i) {
-        cen[i] = tree.offset[i] + tree.scale[i] * cen[i];
+    uint8_t rgbx_init[4];
+    if (!offscreen) {
+        // Read existing values for compositing (with meshes)
+        surf2Dread(reinterpret_cast<uint32_t*>(rgbx_init), surf_obj, x * 4,
+                y, cudaBoundaryModeZero);
     }
 
-    rodrigues(opt.rot_dirs, vdir);
+    bool enable_draw = true;
+    if (opt.enable_probe && y < opt.probe_disp_size + 5 &&
+                            x >= cam.width - opt.probe_disp_size - 5) {
+        // Draw probe circle
+        float basis_fn[VOLREND_GLOBAL_BASIS_MAX];
+        int xx = x - (cam.width - opt.probe_disp_size) + 5;
+        int yy = y - 5;
+        cen[0] = xx / (0.5f * opt.probe_disp_size) - 1.f;
+        cen[1] = yy / (0.5f * opt.probe_disp_size) - 1.f;
 
-    trace_ray(tree, dir, vdir, cen, opt, t_max, out);
+        float c = cen[0] * cen[0] + cen[1] * cen[1];
+        if (c <= 1.f) {
+            enable_draw = false;
+            if (tree.data_format.basis_dim >= 0) {
+                cen[2] = 1 - sqrtf(4 - 4 * c) / 2;
+                for (int t = 0; t < 3; ++t)
+                    cen[t] = -cen[t];
+                _mv3(cam.transform, cen, dir);
+
+                maybe_precalc_basis(tree, dir, basis_fn);
+                if (~opt.basis_id) {
+                    for (int t = 0; t < 3; ++t) {
+                        int off = t * tree.data_format.basis_dim;
+                        out[t] =
+                            1.f /
+                            (1.f +
+                             expf(-basis_fn[opt.basis_id] *
+                                 probe_coeffs[off + opt.basis_id]));
+                    }
+                } else {
+                    for (int t = 0; t < 3; ++t) {
+                        int off = t * tree.data_format.basis_dim;
+                        float tmp = basis_fn[0] * probe_coeffs[off];
+                        for (int i = 1; i < tree.data_format.basis_dim;
+                                ++i) {
+                            tmp += basis_fn[i] * probe_coeffs[off + i];
+                        }
+                        out[t] = 1.f / (1.f + expf(-tmp));
+                    }
+                }
+                out[3] = 1.f;
+            } else {
+                for (int i = 0; i < 3; ++i)
+                    out[i] = probe_coeffs[i];
+                out[3] = 1.f;
+            }
+        } else {
+            out[0] = out[1] = out[2] = 0.f;
+            out[3] = 0.f;
+        }
+    }
+    if (enable_draw) {
+        screen2worlddir(x, y, cam, dir, cen);
+        float vdir[3] = {dir[0], dir[1], dir[2]};
+        maybe_world2ndc(tree, dir, cen);
+        for (int i = 0; i < 3; ++i) {
+            cen[i] = tree.offset[i] + tree.scale[i] * cen[i];
+        }
+
+        float t_max = 1e9f;
+        if (!offscreen) {
+            surf2Dread(&t_max, surf_obj_depth, x * sizeof(float), y, cudaBoundaryModeZero);
+        }
+
+        rodrigues(opt.rot_dirs, vdir);
+
+        trace_ray(tree, dir, vdir, cen, opt, t_max, out);
+    }
     // Compositing with existing color
     const float nalpha = 1.f - out[3];
     if (offscreen) {
@@ -126,6 +184,24 @@ __global__ static void render_kernel(
             cudaBoundaryModeZero); // squelches out-of-bound writes
 }
 
+__global__ static void retrieve_cursor_lumisphere_kernel(
+        TreeSpec tree,
+        RenderOptions opt,
+        float* out) {
+    float cen[3];
+    for (int i = 0; i < 3; ++i) {
+        cen[i] = tree.offset[i] + tree.scale[i] * opt.probe[i];
+    }
+
+    float _cube_sz;
+    const half* tree_val;
+    query_single_from_root(tree, cen, &tree_val, &_cube_sz);
+
+    for (int i = 0; i < tree.data_dim - 1; ++i) {
+        out[i] = __half2float(tree_val[i]);
+    }
+}
+
 }  // namespace device
 
 __host__ void launch_renderer(const N3Tree& tree,
@@ -134,6 +210,16 @@ __host__ void launch_renderer(const N3Tree& tree,
         cudaStream_t stream,
         bool offscreen) {
     cudaSurfaceObject_t surf_obj = 0, surf_obj_depth = 0;
+
+    float* probe_coeffs = nullptr;
+    if (options.enable_probe) {
+        cuda(Malloc(&probe_coeffs, (tree.data_dim - 1) * sizeof(float)));
+        device::retrieve_cursor_lumisphere_kernel<<<1, 1, 0, stream>>>(
+                tree,
+                options,
+                probe_coeffs);
+    }
+
     {
         struct cudaResourceDesc res_desc;
         memset(&res_desc, 0, sizeof(res_desc));
@@ -159,9 +245,14 @@ __host__ void launch_renderer(const N3Tree& tree,
     device::render_kernel<<<blocks, N_CUDA_THREADS, 0, stream>>>(
             surf_obj,
             surf_obj_depth,
-            CameraSpec::load(cam),
-            TreeSpec::load(tree),
+            cam,
+            tree,
             options,
+            probe_coeffs,
             offscreen);
+
+    if (options.enable_probe) {
+        cudaFree(probe_coeffs);
+    }
 }
 }  // namespace volrend

@@ -28,7 +28,8 @@ struct Mesh {
     float scale = 1.f;
 
     int face_size;
-    bool unlit = true;
+    bool visible = true;
+    bool unlit = false;
 
     std::string name = "Mesh";
 
