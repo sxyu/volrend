@@ -143,6 +143,7 @@ source_group( "Source Files" FILES ${VOLREND_SOURCES} )
 
 set(
   DEPENDENCIES
+  stdc++fs
 )
 
 if (NOT EMSCRIPTEN)
