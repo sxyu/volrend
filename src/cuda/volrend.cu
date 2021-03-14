@@ -100,16 +100,14 @@ __global__ static void render_kernel(
         float basis_fn[VOLREND_GLOBAL_BASIS_MAX];
         int xx = x - (cam.width - opt.probe_disp_size) + 5;
         int yy = y - 5;
-        cen[0] = xx / (0.5f * opt.probe_disp_size) - 1.f;
-        cen[1] = -(yy / (0.5f * opt.probe_disp_size) - 1.f);
+        cen[0] = -(xx / (0.5f * opt.probe_disp_size) - 1.f);
+        cen[1] = (yy / (0.5f * opt.probe_disp_size) - 1.f);
 
         float c = cen[0] * cen[0] + cen[1] * cen[1];
         if (c <= 1.f) {
             enable_draw = false;
             if (tree.data_format.basis_dim >= 0) {
-                cen[2] = -(1 - sqrtf(4 - 4 * c) / 2);
-                for (int t = 0; t < 3; ++t)
-                    cen[t] = -cen[t];
+                cen[2] = -sqrtf(1 - c);
                 _mv3(cam.transform, cen, dir);
 
                 maybe_precalc_basis(tree, dir, basis_fn);
