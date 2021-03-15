@@ -110,8 +110,8 @@ int main(int argc, char *argv[]) {
                               0, 0, -1, 0,
                               0, 0, 0, 1);
         // clang-format on
-        for (auto& trans : trans) {
-            trans = trans * cam_trans;
+        for (auto &transform : trans) {
+            transform = transform * cam_trans;
         }
     } else {
         std::cout << "INFO: Use NeRF camera convention\n";
