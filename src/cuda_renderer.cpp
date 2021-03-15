@@ -170,7 +170,7 @@ struct VolumeRenderer::Impl {
         wire_.faces.clear();
         options.basis_minmax[0] = 0;
         options.basis_minmax[1] = std::max(tree.data_format.basis_dim - 1, 0);
-        probe_.scale = 0.3f / tree.scale[0];
+        probe_.scale = 0.02f / tree.scale[0];
         last_wire_depth_ = -1;
     }
 

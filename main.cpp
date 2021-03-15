@@ -265,7 +265,7 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
         if (rend.options.enable_probe) {
             ImGui::SliderFloat3("probe", rend.options.probe, -2.f, 2.f);
             ImGui::SliderInt("probe_win_sz", &rend.options.probe_disp_size, 50,
-                             400);
+                             800);
         }
         ImGui::EndGroup();
     }
@@ -315,6 +315,7 @@ void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action,
             case GLFW_KEY_D:
             case GLFW_KEY_E:
             case GLFW_KEY_Q: {
+                // Camera movement
                 float speed = 0.002f;
                 if (mods & GLFW_MOD_SHIFT) speed *= 5.f;
                 if (key == GLFW_KEY_S || key == GLFW_KEY_A || key == GLFW_KEY_E)
@@ -326,6 +327,29 @@ void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action,
                                             : -cam.v_up;
                 cam.move(vec * speed);
             } break;
+
+#ifdef VOLREND_CUDA
+            case GLFW_KEY_I:
+            case GLFW_KEY_J:
+            case GLFW_KEY_K:
+            case GLFW_KEY_L:
+            case GLFW_KEY_U:
+            case GLFW_KEY_O:
+                if (rend.options.enable_probe) {
+                    // Probe movement
+                    float speed = 0.002f;
+                    if (mods & GLFW_MOD_SHIFT) speed *= 5.f;
+                    if (key == GLFW_KEY_J || key == GLFW_KEY_K ||
+                        key == GLFW_KEY_U)
+                        speed = -speed;
+                    int dim =
+                        (key == GLFW_KEY_J || key == GLFW_KEY_L)
+                            ? 0
+                            : (key == GLFW_KEY_I || key == GLFW_KEY_K) ? 1 : 2;
+                    rend.options.probe[dim] += speed;
+                }
+                break;
+#endif
 
             case GLFW_KEY_MINUS:
                 cam.fx *= 0.99f;
@@ -484,6 +508,9 @@ int main(int argc, char* argv[]) {
         ("world_up", "world up direction for rotating controls e.g. "
                      "0,0,1=blender; ignored for NDC",
                 cxxopts::value<std::vector<float>>()->default_value("0,0,1"))
+        ("grid", "show grid with given max resolution (4 is reasonable)", cxxopts::value<int>())
+        ("probe", "enable lumisphere_probe and place it at given x,y,z",
+                   cxxopts::value<std::vector<float>>())
         ;
     // clang-format on
 
@@ -556,6 +583,8 @@ int main(int argc, char* argv[]) {
 
         while (!glfwWindowShouldClose(window)) {
             glEnable(GL_DEPTH_TEST);
+            // glEnable(GL_LINE_WIDTH);
+            // glLineWidth(2.0f);
             glfw_update_title(window);
 
             rend.render();
@@ -566,7 +595,6 @@ int main(int argc, char* argv[]) {
             glFinish();
             glfwPollEvents();
             // glfwWaitEvents();
-            // break;
         }
     }
 

@@ -22,7 +22,6 @@ void add_common_opts(cxxopts::Options& options) {
              cxxopts::value<float>()->default_value("1e-2"))
         ("a,sigma_thresh", "sigma threshold (skip cells with < sigma)",
              cxxopts::value<float>()->default_value("1e-2"))
-        ("show_grid", "show grid", cxxopts::value<bool>())
         ("help", "Print this help message")
         ;
     // clang-format on
@@ -42,7 +41,21 @@ cxxopts::ParseResult parse_options(cxxopts::Options& options, int argc,
 RenderOptions render_options_from_args(cxxopts::ParseResult& args) {
     RenderOptions options;
     options.background_brightness = args["bg"].as<float>();
-    options.show_grid = args["show_grid"].as<bool>();
+#ifdef VOLREND_CUDA
+    if (args.count("grid")) {
+        options.show_grid = true;
+        options.grid_max_depth = args["grid"].as<int>();
+    }
+    if (args.count("probe")) {
+        options.enable_probe = true;
+        auto probe = args["probe"].as<std::vector<float>>();
+        if (probe.size() < 3) {
+            std::cerr << "ERROR: --probe must be of format 'x,y,z'\n";
+        } else {
+            for (int i = 0; i < 3; ++i) options.probe[i] = probe[i];
+        }
+    }
+#endif
     options.step_size = args["step_size"].as<float>();
     options.stop_thresh = args["stop_thresh"].as<float>();
     options.sigma_thresh = args["sigma_thresh"].as<float>();
