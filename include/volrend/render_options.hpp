@@ -36,9 +36,9 @@ struct RenderOptions {
     // [minx, miny, minz, maxx, maxy, maxz]
     float render_bbox[6] = {0.f, 0.f, 0.f, 1.f, 1.f, 1.f};
 
-    // Whether to show a specific basis function only; -1 = show sum as usual
+    // Whether to show a range of basis functions only
     // no effect if RGBA data format
-    int basis_id = -1;
+    int basis_minmax[2] = {0, VOLREND_GLOBAL_BASIS_MAX - 1};
 
     // Rotation applied to viewdirs for all rays
     float rot_dirs[3] = {0.f, 0.f, 0.f};

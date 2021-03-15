@@ -63,7 +63,7 @@ __device__ __inline__ scalar_t _get_delta_scale(
 
 template<typename scalar_t>
 __device__ __inline__ void trace_ray(
-        const TreeSpec& tree,
+        const TreeSpec& __restrict__ tree,
         scalar_t* __restrict__ dir,
         const scalar_t* __restrict__ vdir,
         const scalar_t* __restrict__ cen,
@@ -99,6 +99,12 @@ __device__ __inline__ void trace_ray(
         const half* tree_val;
         scalar_t basis_fn[VOLREND_GLOBAL_BASIS_MAX];
         maybe_precalc_basis(tree, vdir, basis_fn);
+        for (int i = 0; i < opt.basis_minmax[0]; ++i) {
+            basis_fn[i] = 0.f;
+        }
+        for (int i = opt.basis_minmax[1] + 1; i < VOLREND_GLOBAL_BASIS_MAX; ++i) {
+            basis_fn[i] = 0.f;
+        }
 
         scalar_t light_intensity = 1.f;
         scalar_t t = tmin;
@@ -114,20 +120,29 @@ __device__ __inline__ void trace_ray(
             scalar_t subcube_tmax;
             _dda_unit(pos, invdir, &subcube_tmax);
             if (opt.show_grid) {
-                scalar_t max3 = max(max(pos[0], pos[1]), pos[2]);
-                scalar_t min3 = min(min(pos[0], pos[1]), pos[2]);
-                scalar_t mid3 = pos[0] + pos[1] + pos[2] - min3 - max3;
-                const scalar_t edge_draw_thresh = 2e-2f;
+                float tmp_pos[3];
+                for (int j = 0; j < 3; ++j) {
+                    tmp_pos[j] = cen[j] + t * dir[j];
+                }
+                const half* tmp_tree_val;
+                float tmp_cube_sz;
+                query_single_from_root(tree, tmp_pos, &tmp_tree_val, &tmp_cube_sz,
+                        32);
+                scalar_t max3 = max(max(tmp_pos[0], tmp_pos[1]), tmp_pos[2]);
+                scalar_t min3 = min(min(tmp_pos[0], tmp_pos[1]), tmp_pos[2]);
+                scalar_t mid3 = tmp_pos[0] + tmp_pos[1] + tmp_pos[2] - min3 - max3;
+                const scalar_t edge_draw_thresh = 3e-2;
                 int n_edges = (abs(min3) < edge_draw_thresh) +
                               ((1.f - abs(max3)) < edge_draw_thresh) +
                               (abs(mid3) < edge_draw_thresh ||
                                (1.f - abs(mid3)) < edge_draw_thresh);
 
                 if (n_edges >= 2) {
-                    const float remain = light_intensity * .3f;
-                    out[0] += remain; out[1] += remain; out[2] += remain;
-                    out[3] = 1.f;
-                    return;
+                    const float alpha = 0.8;// exp(-1.0 * max(t - 2.0, 0.));
+                    const float weight = light_intensity * alpha;
+                    out[0] += 0.5 * weight; out[1] += 0.5 * weight; out[2] += 0.5 * weight;
+                    out[3] += weight;
+                    light_intensity *= 1 - alpha;
                 }
             }
 
@@ -141,30 +156,46 @@ __device__ __inline__ void trace_ray(
                     out[0] += weight * t;
                 } else {
                     if (tree.data_format.basis_dim >= 0) {
-                        if (~opt.basis_id) {
+                        int off = 0;
+#define MUL_BASIS_I(t) basis_fn[t] * __half2float(tree_val[off + t])
 #pragma unroll 3
-                            for (int t = 0; t < 3; ++ t) {
-                                int off = t * tree.data_format.basis_dim;
-                                out[t] += weight / (1.f + expf(-
-                                    basis_fn[opt.basis_id] * __half2float(
-                                        tree_val[off + opt.basis_id])
-                                ));
+                        for (int t = 0; t < 3; ++ t) {
+                            tmp = basis_fn[0] * __half2float(tree_val[off]);
+                            switch(tree.data_format.basis_dim) {
+                                case 25:
+                                    tmp += MUL_BASIS_I(16) +
+                                        MUL_BASIS_I(17) +
+                                        MUL_BASIS_I(18) +
+                                        MUL_BASIS_I(19) +
+                                        MUL_BASIS_I(20) +
+                                        MUL_BASIS_I(21) +
+                                        MUL_BASIS_I(22) +
+                                        MUL_BASIS_I(23) +
+                                        MUL_BASIS_I(24);
+                                case 16:
+                                    tmp += MUL_BASIS_I(9) +
+                                          MUL_BASIS_I(10) +
+                                          MUL_BASIS_I(12) +
+                                          MUL_BASIS_I(13) +
+                                          MUL_BASIS_I(14) +
+                                          MUL_BASIS_I(15);
+
+                                case 9:
+                                    tmp += MUL_BASIS_I(4) +
+                                        MUL_BASIS_I(5) +
+                                        MUL_BASIS_I(6) +
+                                        MUL_BASIS_I(7) +
+                                        MUL_BASIS_I(8);
+
+                                case 4:
+                                    tmp += MUL_BASIS_I(1) +
+                                        MUL_BASIS_I(2) +
+                                        MUL_BASIS_I(3);
                             }
-                        } else {
-#pragma unroll 3
-                            for (int t = 0; t < 3; ++ t) {
-                                int off = t * tree.data_format.basis_dim;
-                                tmp = basis_fn[0] * __half2float(tree_val[off]) +
-                                    basis_fn[1] * __half2float(tree_val[off + 1]) +
-                                    basis_fn[2] * __half2float(tree_val[off + 2]) +
-                                    basis_fn[3] * __half2float(tree_val[off + 3]);
-#pragma unroll 6
-                                for (int i = 4; i < tree.data_format.basis_dim; ++i) {
-                                    tmp += basis_fn[i] * __half2float(tree_val[off + i]);
-                                }
-                                out[t] += weight / (1.f + expf(-tmp));
-                            }
+                            out[t] += weight / (1.f + expf(-tmp));
+                            off += tree.data_format.basis_dim;
                         }
+#undef MUL_BASIS_I
                     } else {
                         for (int j = 0; j < 3; ++j) {
                             out[j] += __half2float(tree_val[j]) * weight;

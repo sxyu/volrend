@@ -181,6 +181,8 @@ void VolumeRenderer::render() { impl_->render(); }
 void VolumeRenderer::set(N3Tree& tree) {
     impl_->start();
     impl_->tree = &tree;
+    options.basis_minmax[0] = 0;
+    options.basis_minmax[1] = std::max(tree.data_format.basis_dim - 1, 0);
 }
 void VolumeRenderer::clear() { impl_->tree = nullptr; }
 

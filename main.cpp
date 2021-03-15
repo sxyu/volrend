@@ -146,8 +146,16 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
 
         ImGui::InputFloat3("center", glm::value_ptr(cam.center));
         ImGui::InputFloat3("origin", glm::value_ptr(cam.origin));
-        ImGui::SliderFloat("fx", &cam.fx, 300.f, 7000.f);
-        ImGui::SliderFloat("fy", &cam.fy, 300.f, 7000.f);
+        static bool lock_fx_fy = true;
+        ImGui::Checkbox("fx=fy", &lock_fx_fy);
+        if (lock_fx_fy) {
+            if (ImGui::SliderFloat("focal", &cam.fx, 300.f, 7000.f)) {
+                cam.fy = cam.fx;
+            }
+        } else {
+            ImGui::SliderFloat("fx", &cam.fx, 300.f, 7000.f);
+            ImGui::SliderFloat("fy", &cam.fy, 300.f, 7000.f);
+        }
         if (ImGui::TreeNode("Directions")) {
             ImGui::InputFloat3("world_up", glm::value_ptr(world_up_tmp));
             ImGui::InputFloat3("back", glm::value_ptr(back_tmp));
@@ -162,7 +170,7 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
     ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
     if (ImGui::CollapsingHeader("Render")) {
         static float inv_step_size = 1.0f / rend.options.step_size;
-        if (ImGui::SliderFloat("1/eps", &inv_step_size, 128.f, 10000.f)) {
+        if (ImGui::SliderFloat("1/eps", &inv_step_size, 128.f, 20000.f)) {
             rend.options.step_size = 1.f / inv_step_size;
         }
         ImGui::SliderFloat("sigma_thresh", &rend.options.sigma_thresh, 0.f,
@@ -179,8 +187,8 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
         ImGui::PushItemWidth(230);
         ImGui::SliderFloat3("bb_min", rend.options.render_bbox, 0.0, 1.0);
         ImGui::SliderFloat3("bb_max", rend.options.render_bbox + 3, 0.0, 1.0);
-        ImGui::SliderInt("decomp", &rend.options.basis_id, -1,
-                         tree.data_format.basis_dim - 1);
+        ImGui::SliderInt2("decomp", rend.options.basis_minmax, 0,
+                          std::max(tree.data_format.basis_dim - 1, 0));
         ImGui::SliderFloat3("viewdir shift", rend.options.rot_dirs, -M_PI / 4,
                             M_PI / 4);
         ImGui::PopItemWidth();

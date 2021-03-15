@@ -111,25 +111,13 @@ __global__ static void render_kernel(
                 _mv3(cam.transform, cen, dir);
 
                 maybe_precalc_basis(tree, dir, basis_fn);
-                if (~opt.basis_id) {
-                    for (int t = 0; t < 3; ++t) {
-                        int off = t * tree.data_format.basis_dim;
-                        out[t] =
-                            1.f /
-                            (1.f +
-                             expf(-basis_fn[opt.basis_id] *
-                                 probe_coeffs[off + opt.basis_id]));
+                for (int t = 0; t < 3; ++t) {
+                    int off = t * tree.data_format.basis_dim;
+                    float tmp = 0.f;
+                    for (int i = opt.basis_minmax[0]; i <= opt.basis_minmax[1]; ++i) {
+                        tmp += basis_fn[i] * probe_coeffs[off + i];
                     }
-                } else {
-                    for (int t = 0; t < 3; ++t) {
-                        int off = t * tree.data_format.basis_dim;
-                        float tmp = basis_fn[0] * probe_coeffs[off];
-                        for (int i = 1; i < tree.data_format.basis_dim;
-                                ++i) {
-                            tmp += basis_fn[i] * probe_coeffs[off + i];
-                        }
-                        out[t] = 1.f / (1.f + expf(-tmp));
-                    }
+                    out[t] = 1.f / (1.f + expf(-tmp));
                 }
                 out[3] = 1.f;
             } else {
