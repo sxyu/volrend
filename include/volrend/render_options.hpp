@@ -28,6 +28,8 @@ struct RenderOptions {
 
     // Draw a (rather low-quality) grid to help visualize the octree
     bool show_grid = false;
+    // Grid max depth
+    int grid_max_depth = 4;
 
     // Render depth instead of color
     bool render_depth = false;

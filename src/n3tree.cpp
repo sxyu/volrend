@@ -29,7 +29,6 @@ void unpack_llff_poses_bounds(cnpy::NpyArray& poses_bounds, float& width,
     backward = glm::vec3(0);
     glm::vec3 right(0);
 
-    // Random spaghetti emulating NeRF LLFF data loader
     const size_t BLOCK_SZ = 17;
     float bd_min = 1e9;
     for (size_t offs = 0; offs < poses_bounds.num_vals; offs += BLOCK_SZ) {
@@ -148,6 +147,7 @@ void N3Tree::open(const std::string& path) {
 #ifdef VOLREND_CUDA
     load_cuda();
 #endif
+    data_loaded_ = true;
 }
 
 void N3Tree::open_mem(const char* data, uint64_t size) {
@@ -168,6 +168,7 @@ void N3Tree::open_mem(const char* data, uint64_t size) {
 #ifdef VOLREND_CUDA
     load_cuda();
 #endif
+    data_loaded_ = true;
 }
 
 void N3Tree::load_npz(cnpy::npz_t& npz) {
@@ -234,6 +235,78 @@ void N3Tree::load_npz(cnpy::npz_t& npz) {
         extra_.data_holder.clear();
     }
     std::swap(data_, data_node);
+}
+
+namespace {
+void _push_wireframe_bb(const float bb[6], std::vector<float>& verts_out) {
+#define PUSH_VERT(i, j, k)              \
+    verts_out.push_back(bb[i * 3]);     \
+    verts_out.push_back(bb[j * 3 + 1]); \
+    verts_out.push_back(bb[k * 3 + 2]); \
+    verts_out.push_back(0);             \
+    verts_out.push_back(0);             \
+    verts_out.push_back(0);             \
+    verts_out.push_back(0);             \
+    verts_out.push_back(0);             \
+    verts_out.push_back(1)
+    // clang-format off
+    for (int i = 0; i < 2; ++i) {
+        for (int j = 0; j < 2; ++j) {
+            PUSH_VERT(0, i, j);
+            PUSH_VERT(1, i, j);
+            PUSH_VERT(i, 0, j);
+            PUSH_VERT(i, 1, j);
+            PUSH_VERT(i, j, 0);
+            PUSH_VERT(i, j, 1);
+        }
+    }
+    // clang-format on
+#undef PUSH_VERT
+}
+void _gen_wireframe_impl(const N3Tree& tree, size_t nodeid, size_t xi,
+                         size_t yi, size_t zi, int depth, size_t gridsz,
+                         int max_depth, std::vector<float>& verts_out) {
+    const int32_t* child =
+        tree.child_.data<int32_t>() + nodeid * tree.N * tree.N * tree.N;
+    int cnt = 0;
+    // Use integer coords to avoid precision issues
+    for (size_t i = xi * tree.N; i < (xi + 1) * tree.N; ++i) {
+        for (size_t j = yi * tree.N; j < (yi + 1) * tree.N; ++j) {
+            for (size_t k = zi * tree.N; k < (zi + 1) * tree.N; ++k) {
+                if (child[cnt] == 0 || depth >= max_depth) {
+                    // Add this cube
+                    const float bb[6] = {
+                        ((float)i / gridsz - tree.offset[0]) / tree.scale[0],
+                        ((float)j / gridsz - tree.offset[1]) / tree.scale[1],
+                        ((float)k / gridsz - tree.offset[2]) / tree.scale[2],
+                        ((float)(i + 1) / gridsz - tree.offset[0]) /
+                            tree.scale[0],
+                        ((float)(j + 1) / gridsz - tree.offset[1]) /
+                            tree.scale[1],
+                        ((float)(k + 1) / gridsz - tree.offset[2]) /
+                            tree.scale[2]};
+                    _push_wireframe_bb(bb, verts_out);
+                } else {
+                    _gen_wireframe_impl(tree, nodeid + child[cnt], i, j, k,
+                                        depth + 1, gridsz * tree.N, max_depth,
+                                        verts_out);
+                }
+                ++cnt;
+            }
+        }
+    }
+}  // namespace
+}  // namespace
+
+std::vector<float> N3Tree::gen_wireframe(int max_depth) const {
+    std::vector<float> verts;
+    if (!data_loaded_) {
+        std::cerr << "ERROR: Please load data before gen_wireframe!\n";
+        return verts;
+    }
+    _gen_wireframe_impl(*this, 0, 0, 0, 0,
+                        /*depth*/ 0, N, max_depth, verts);
+    return verts;
 }
 
 bool N3Tree::is_data_loaded() { return data_loaded_; }

@@ -16,7 +16,11 @@ struct Mesh {
     // Draw the mesh (unshaded)
     void draw(const glm::mat4x4& V, const glm::mat4x4& K) const;
 
+    // Load a basic OBJ file (triangles & optionally vertex colors)
     void load_basic_obj(const std::string& path);
+
+    // Create faces by grouping consecutive vertices
+    void auto_faces();
 
     // Vertex positions
     std::vector<float> vert;

@@ -7,6 +7,7 @@
 #include <vector>
 #include <array>
 #include <tuple>
+#include <utility>
 #include "cnpy.h"
 
 #include "glm/vec3.hpp"
@@ -26,9 +27,15 @@ struct N3Tree {
     explicit N3Tree(const std::string& path);
     ~N3Tree();
 
+    // Open npz
     void open(const std::string& path);
+    // Open memory data stream (for web mostly)
     void open_mem(const char* data, uint64_t size);
-    void load_npz(cnpy::npz_t& npz);
+
+    // Generate wireframe (returns line vertex positions; 9 * (a-b c-d) ..)
+    // assignable to Mesh.vert
+    // up to given depth (default none)
+    std::vector<float> gen_wireframe(int max_depth = 100000) const;
 
     // Spatial branching factor
     int N;
@@ -80,11 +87,13 @@ struct N3Tree {
     cnpy::NpyArray extra_;
 
    private:
-    int N2_, N3_;
+    void load_npz(cnpy::npz_t& npz);
 
     // Paths
     std::string npz_path_, data_path_, poses_bounds_path_;
     bool data_loaded_;
+
+    int N2_, N3_;
 
     mutable float last_sigma_thresh_;
 

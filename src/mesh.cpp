@@ -413,6 +413,11 @@ void Mesh::load_basic_obj(const std::string& path) {
     name = path;
 }
 
+void Mesh::auto_faces() {
+    faces.resize(vert.size());
+    std::iota(faces.begin(), faces.end(), 0);
+}
+
 }  // namespace volrend
 
 #endif

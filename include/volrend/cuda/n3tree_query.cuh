@@ -10,8 +10,7 @@ __host__ __device__ __inline__ static void query_single_from_root(
                                       const TreeSpec& tree,
                                       float* VOLREND_RESTRICT xyz,
                                       const half** VOLREND_RESTRICT out,
-                                      float* VOLREND_RESTRICT cube_sz,
-                                      float max_cube_sz=1000000) {
+                                      float* VOLREND_RESTRICT cube_sz) {
     const float fN = tree.N;
     xyz[0] = max(min(xyz[0], 1.f - 1e-6f), 0.f);
     xyz[1] = max(min(xyz[1], 1.f - 1e-6f), 0.f);
@@ -35,7 +34,7 @@ __host__ __device__ __inline__ static void query_single_from_root(
         const int32_t skip = tree.child[sub_ptr];
 
         // Add to output
-        if (skip == 0 || *cube_sz >= max_cube_sz) {
+        if (skip == 0/* || *cube_sz >= max_cube_sz*/) {
             *out = tree.data + sub_ptr * tree.data_dim;
             break;
         }

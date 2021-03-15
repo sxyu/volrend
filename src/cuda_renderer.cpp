@@ -20,20 +20,22 @@ namespace volrend {
 struct VolumeRenderer::Impl {
     Impl(Camera& camera, RenderOptions& options, std::vector<Mesh>& meshes)
         : camera(camera), options(options), meshes(meshes), buf_index(0) {
-        Mesh cube = Mesh::Cube(glm::vec3(0.0));
-        cube.name = "_probe_cube";
-        cube.visible = false;
-        cube.scale = 0.05f;
+        probe_ = Mesh::Cube(glm::vec3(0.0));
+        probe_.name = "_probe_cube";
+        probe_.visible = false;
+        probe_.scale = 0.05f;
+        // Make face colors
         for (int i = 0; i < 3; ++i) {
             int off = i * 12 * 9;
             for (int j = 0; j < 12; ++j) {
                 int soff = off + 9 * j + 3;
-                cube.vert[soff + 2 - i] = 1.f;
+                probe_.vert[soff + 2 - i] = 1.f;
             }
         }
-        cube.unlit = true;
-        cube.update();
-        meshes.push_back(std::move(cube));
+        probe_.unlit = true;
+        probe_.update();
+        wire_.face_size = 2;
+        wire_.unlit = true;
     }
 
     ~Impl() {
@@ -87,15 +89,23 @@ struct VolumeRenderer::Impl {
         glClearNamedFramebufferfv(fb[buf_index], GL_DEPTH, 0, &depth_inf);
         if (tree == nullptr || !started_) return;
 
-        meshes[0].visible = options.enable_probe;
-        for (int i = 0; i < 3; ++i) meshes[0].translation[i] = options.probe[i];
+        probe_.visible = options.enable_probe;
+        for (int i = 0; i < 3; ++i) probe_.translation[i] = options.probe[i];
 
         camera._update();
+
+        if (options.show_grid) {
+            maybe_gen_wire(options.grid_max_depth);
+        }
 
         glDepthMask(GL_TRUE);
         glBindFramebuffer(GL_FRAMEBUFFER, fb[buf_index]);
         for (const Mesh& mesh : meshes) {
             mesh.draw(camera.w2c, camera.K);
+        }
+        probe_.draw(camera.w2c, camera.K);
+        if (options.show_grid) {
+            wire_.draw(camera.w2c, camera.K);
         }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
@@ -153,6 +163,26 @@ struct VolumeRenderer::Impl {
         cuda(GraphicsUnmapResources(cgr.size(), cgr.data(), 0));
     }
 
+    void set(N3Tree& tree) {
+        start();
+        this->tree = &tree;
+        wire_.vert.clear();
+        wire_.faces.clear();
+        options.basis_minmax[0] = 0;
+        options.basis_minmax[1] = std::max(tree.data_format.basis_dim - 1, 0);
+        probe_.scale = 0.3f / tree.scale[0];
+        last_wire_depth_ = -1;
+    }
+
+    void maybe_gen_wire(int depth) {
+        if (last_wire_depth_ != depth) {
+            wire_.vert = tree->gen_wireframe(depth);
+            wire_.auto_faces();
+            wire_.update();
+            last_wire_depth_ = depth;
+        }
+    }
+
     const N3Tree* tree = nullptr;
 
    private:
@@ -167,6 +197,9 @@ struct VolumeRenderer::Impl {
     std::array<cudaGraphicsResource_t, 4> cgr = {{0}};
     std::array<cudaArray_t, 4> ca;
 
+    Mesh probe_, wire_;
+    int last_wire_depth_ = -1;
+
     std::vector<Mesh>& meshes;
     cudaStream_t stream;
     bool started_ = false;
@@ -178,12 +211,7 @@ VolumeRenderer::VolumeRenderer()
 VolumeRenderer::~VolumeRenderer() {}
 
 void VolumeRenderer::render() { impl_->render(); }
-void VolumeRenderer::set(N3Tree& tree) {
-    impl_->start();
-    impl_->tree = &tree;
-    options.basis_minmax[0] = 0;
-    options.basis_minmax[1] = std::max(tree.data_format.basis_dim - 1, 0);
-}
+void VolumeRenderer::set(N3Tree& tree) { impl_->set(tree); }
 void VolumeRenderer::clear() { impl_->tree = nullptr; }
 
 void VolumeRenderer::resize(int width, int height) {

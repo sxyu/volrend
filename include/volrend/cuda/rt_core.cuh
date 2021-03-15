@@ -119,32 +119,32 @@ __device__ __inline__ void trace_ray(
             scalar_t att;
             scalar_t subcube_tmax;
             _dda_unit(pos, invdir, &subcube_tmax);
-            if (opt.show_grid) {
-                float tmp_pos[3];
-                for (int j = 0; j < 3; ++j) {
-                    tmp_pos[j] = cen[j] + t * dir[j];
-                }
-                const half* tmp_tree_val;
-                float tmp_cube_sz;
-                query_single_from_root(tree, tmp_pos, &tmp_tree_val, &tmp_cube_sz,
-                        32);
-                scalar_t max3 = max(max(tmp_pos[0], tmp_pos[1]), tmp_pos[2]);
-                scalar_t min3 = min(min(tmp_pos[0], tmp_pos[1]), tmp_pos[2]);
-                scalar_t mid3 = tmp_pos[0] + tmp_pos[1] + tmp_pos[2] - min3 - max3;
-                const scalar_t edge_draw_thresh = 3e-2;
-                int n_edges = (abs(min3) < edge_draw_thresh) +
-                              ((1.f - abs(max3)) < edge_draw_thresh) +
-                              (abs(mid3) < edge_draw_thresh ||
-                               (1.f - abs(mid3)) < edge_draw_thresh);
-
-                if (n_edges >= 2) {
-                    const float alpha = 0.8;// exp(-1.0 * max(t - 2.0, 0.));
-                    const float weight = light_intensity * alpha;
-                    out[0] += 0.5 * weight; out[1] += 0.5 * weight; out[2] += 0.5 * weight;
-                    out[3] += weight;
-                    light_intensity *= 1 - alpha;
-                }
-            }
+            // if (opt.show_grid) {
+            //     float tmp_pos[3];
+            //     for (int j = 0; j < 3; ++j) {
+            //         tmp_pos[j] = cen[j] + t * dir[j];
+            //     }
+            //     const half* tmp_tree_val;
+            //     float tmp_cube_sz;
+            //     query_single_from_root(tree, tmp_pos, &tmp_tree_val, &tmp_cube_sz,
+            //             32);
+            //     scalar_t max3 = max(max(tmp_pos[0], tmp_pos[1]), tmp_pos[2]);
+            //     scalar_t min3 = min(min(tmp_pos[0], tmp_pos[1]), tmp_pos[2]);
+            //     scalar_t mid3 = tmp_pos[0] + tmp_pos[1] + tmp_pos[2] - min3 - max3;
+            //     const scalar_t edge_draw_thresh = 3e-2;
+            //     int n_edges = (abs(min3) < edge_draw_thresh) +
+            //                   ((1.f - abs(max3)) < edge_draw_thresh) +
+            //                   (abs(mid3) < edge_draw_thresh ||
+            //                    (1.f - abs(mid3)) < edge_draw_thresh);
+            //
+            //     if (n_edges >= 2) {
+            //         const float alpha = 0.8;// exp(-1.0 * max(t - 2.0, 0.));
+            //         const float weight = light_intensity * alpha;
+            //         out[0] += 0.5 * weight; out[1] += 0.5 * weight; out[2] += 0.5 * weight;
+            //         out[3] += weight;
+            //         light_intensity *= 1 - alpha;
+            //     }
+            // }
 
             const scalar_t t_subcube = subcube_tmax / cube_sz;
             const scalar_t delta_t = t_subcube + opt.step_size;

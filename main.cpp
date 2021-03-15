@@ -199,12 +199,16 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
         ImGui::Checkbox("Show Grid", &rend.options.show_grid);
         ImGui::SameLine();
         ImGui::Checkbox("Render Depth", &rend.options.render_depth);
+        if (rend.options.show_grid) {
+            ImGui::SliderInt("grid max depth", &rend.options.grid_max_depth, 0,
+                             10);
+        }
     }
 
     ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
     if (ImGui::CollapsingHeader("Manipulation")) {
         ImGui::BeginGroup();
-        for (int i = 1; i < (int)rend.meshes.size(); ++i) {
+        for (int i = 0; i < (int)rend.meshes.size(); ++i) {
             auto& mesh = rend.meshes[i];
             if (ImGui::TreeNode(mesh.name.c_str())) {
                 ImGui::PushItemWidth(230);
@@ -253,7 +257,7 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
         }
         ImGui::SameLine();
         if (ImGui::Button("Clear All")) {
-            rend.meshes.resize(1);
+            rend.meshes.clear();
         }
 
         ImGui::BeginGroup();
