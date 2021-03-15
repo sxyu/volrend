@@ -77,7 +77,7 @@ int main(int argc, char *argv[]) {
         ("i,intrin", "intrinsics matrix 4x4; if set, overrides the fx/fy",
                 cxxopts::value<std::string>()->default_value(""))
         ("r,reverse_yz", "use OpenCV camera space convention instead of NeRF",
-                cxxopts::value<bool>()->default_value(""))
+                cxxopts::value<bool>())
         ;
     // clang-format on
 
