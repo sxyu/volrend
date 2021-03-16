@@ -326,7 +326,7 @@ std::tuple<int, int, int, int> N3Tree::unpack_index(int packed) {
     packed /= N;
     int i = packed % N;
     packed /= N;
-    return {packed, i, j, k};
+    return std::tuple<int, int, int, int> {packed, i, j, k};
 }
 
 }  // namespace volrend
