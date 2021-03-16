@@ -175,6 +175,7 @@ __device__ __inline__ void trace_ray(
                                 case 16:
                                     tmp += MUL_BASIS_I(9) +
                                           MUL_BASIS_I(10) +
+                                          MUL_BASIS_I(11) +
                                           MUL_BASIS_I(12) +
                                           MUL_BASIS_I(13) +
                                           MUL_BASIS_I(14) +
