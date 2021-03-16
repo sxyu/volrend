@@ -154,9 +154,15 @@ int main(int argc, char *argv[]) {
     cudaEvent_t start, stop;
     cudaEventCreate(&start);
     cudaEventCreate(&stop);
-
-    cudaEventRecord(start);
+    
+    // use some warm up iters to avoid slow GPU init.
+    int warmup_iters = std::min(3, (int) trans.size());
+    //cudaEventRecord(start);
     for (size_t i = 0; i < trans.size(); ++i) {
+        if (i == warmup_iters) {
+            std::cout << "start time counter at " << i << "-th iter\n";
+            cudaEventRecord(start);
+        }
         camera.transform = trans[i];
         camera._update(false);
 
@@ -176,7 +182,7 @@ int main(int argc, char *argv[]) {
     cudaEventSynchronize(stop);
     float milliseconds = 0;
     cudaEventElapsedTime(&milliseconds, start, stop);
-    milliseconds = milliseconds / trans.size();
+    milliseconds = milliseconds / (trans.size() - warmup_iters);
 
     std::cout << std::fixed << std::setprecision(10);
     std::cout << milliseconds << " ms per frame\n";
