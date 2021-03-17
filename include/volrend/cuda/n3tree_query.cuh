@@ -15,7 +15,7 @@ __host__ __device__ __inline__ static void query_single_from_root(
     xyz[0] = max(min(xyz[0], 1.f - 1e-6f), 0.f);
     xyz[1] = max(min(xyz[1], 1.f - 1e-6f), 0.f);
     xyz[2] = max(min(xyz[2], 1.f - 1e-6f), 0.f);
-    int ptr = 0;
+    int64_t ptr = 0;
     *cube_sz = fN;
     while (true) {
         // Find index of query point, in {0, ... N^3}
@@ -30,8 +30,8 @@ __host__ __device__ __inline__ static void query_single_from_root(
         }
 
         // Find child offset
-        const int32_t sub_ptr = ptr + (int32_t)index;
-        const int32_t skip = tree.child[sub_ptr];
+        const int64_t sub_ptr = ptr + (int32_t)index;
+        const int64_t skip = tree.child[sub_ptr];
 
         // Add to output
         if (skip == 0/* || *cube_sz >= max_cube_sz*/) {

@@ -1,6 +1,5 @@
 #pragma once
 
-#include <array>
 #include "volrend/common.hpp"
 
 // Max global basis

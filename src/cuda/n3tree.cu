@@ -9,8 +9,8 @@ namespace volrend {
 void N3Tree::load_cuda() {
     if (device.data != nullptr) cuda(Free(device.data));
     if (device.child != nullptr) cuda(Free(device.child));
-    const size_t data_sz = capacity * N3_ * data_dim * sizeof(half);
-    const size_t child_sz = capacity * N3_ * sizeof(int32_t);
+    const size_t data_sz = (size_t) capacity * N3_ * data_dim * sizeof(half);
+    const size_t child_sz = (size_t) capacity * N3_ * sizeof(int32_t);
     cuda(Malloc((void**)&device.data, data_sz));
     cuda(Malloc((void**)&device.child, child_sz));
     if (device.offset == nullptr) {

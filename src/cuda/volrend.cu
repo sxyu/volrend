@@ -2,7 +2,6 @@
 #include <cstdio>
 #include <ctime>
 #include <cstring>
-#include <glm/gtc/type_ptr.hpp>
 #include <cuda_fp16.h>
 
 #include "volrend/cuda/common.cuh"
