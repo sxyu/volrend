@@ -34,7 +34,7 @@ void main()
 )glsl";
 
 const float quad_verts[] = {
-    -1.f, -1.f, 0.f, 1.f, -1.f, 0.f, -1.f, 1.f, 0.f, 1.f, 1.f, 0.f,
+    -1.f, -1.f, 0.5f, 1.f, -1.f, 0.5f, -1.f, 1.f, 0.5f, 1.f, 1.f, 0.5f,
 };
 
 struct _RenderUniforms {
@@ -127,13 +127,17 @@ struct VolumeRenderer::Impl {
     }
 
    private:
-    void auto_size_2d(size_t size, size_t& width, size_t& height) {
+    void auto_size_2d(size_t size, size_t& width, size_t& height,
+                      int base_dim = 1) {
         if (size == 0) {
             width = height = 0;
             return;
         }
-        height = std::sqrt(size);
-        width = (size - 1) / height + 1;
+        width = std::sqrt(size);
+        if (width % base_dim) {
+            width += base_dim - width % base_dim;
+        }
+        height = (size - 1) / width + 1;
         if (height > tex_max_size || width > tex_max_size) {
             throw std::runtime_error(
                 "Octree data exceeds hardward 2D texture limit\n");
@@ -144,7 +148,7 @@ struct VolumeRenderer::Impl {
         const GLint data_size =
             tree->capacity * tree->N * tree->N * tree->N * tree->data_dim;
         size_t width, height;
-        auto_size_2d(data_size, width, height);
+        auto_size_2d(data_size, width, height, tree->data_dim);
         // FIXME can we remove the copy to float here?
         // Can't seem to get half glTexImage2D to work
         const size_t pad = width * height - data_size;

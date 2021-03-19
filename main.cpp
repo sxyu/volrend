@@ -67,6 +67,9 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
         sprintf(title, "volrend backend: %s", rend.get_backend());
     }
 
+    // Begin window
+    ImGui::Begin(title);
+#ifdef VOLREND_CUDA
     static ImGui::FileBrowser open_obj_mesh_dialog, open_tree_dialog,
         save_screenshot_dialog(ImGuiFileBrowserFlags_EnterNewFilename);
     if (open_obj_mesh_dialog.GetTitle().empty()) {
@@ -81,9 +84,6 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
         save_screenshot_dialog.SetTypeFilters({".png"});
         save_screenshot_dialog.SetTitle("Save screenshot (png)");
     }
-
-    // Begin window
-    ImGui::Begin(title);
 
     if (ImGui::Button("Open Tree")) {
         open_tree_dialog.Open();
@@ -130,6 +130,7 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
             std::cout << "Failed to save screenshot\n";
         }
     }
+#endif
 
     ImGui::SetNextTreeNodeOpen(false, ImGuiCond_Once);
     if (ImGui::CollapsingHeader("Camera")) {
@@ -269,9 +270,6 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
         }
         ImGui::EndGroup();
     }
-#endif
-    ImGui::End();
-
     open_obj_mesh_dialog.Display();
     if (open_obj_mesh_dialog.HasSelected()) {
         // Load mesh
@@ -288,6 +286,9 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
         }
         open_obj_mesh_dialog.ClearSelected();
     }
+
+#endif
+    ImGui::End();
 
     ImGui::Render();
     ImGui_ImplOpenGL3_RenderDrawData(ImGui::GetDrawData());
@@ -500,7 +501,7 @@ int main(int argc, char* argv[]) {
         ("nogui", "disable imgui", cxxopts::value<bool>())
         ("center", "camera center position (world); ignored for NDC",
                 cxxopts::value<std::vector<float>>()->default_value(
-                                                        "-2.2,0,2.2"))
+                                                        "-3.2,0,3.2"))
         ("back", "camera's back direction unit vector (world) for orientation; ignored for NDC",
                 cxxopts::value<std::vector<float>>()->default_value("-0.7071068,0,0.7071068"))
         ("origin", "origin for right click rotation controls; ignored for NDC",
@@ -582,7 +583,9 @@ int main(int argc, char* argv[]) {
         glfwSetFramebufferSizeCallback(window, glfw_window_size_callback);
 
         while (!glfwWindowShouldClose(window)) {
+#ifdef VOLREND_CUDA
             glEnable(GL_DEPTH_TEST);
+#endif
             // glEnable(GL_LINE_WIDTH);
             // glLineWidth(2.0f);
             glfw_update_title(window);

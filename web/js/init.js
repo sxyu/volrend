@@ -96,7 +96,7 @@ let setupHandlers = function() {
     });
 };
 let onInit = function() {
-    Volrend.delayedRedraw = Util.debounce(Volrend.redraw, 5, {maxWait: 40});
+    Volrend.delayedRedraw = function() {}; //Util.debounce(Volrend.redraw, 15, {maxWait: 40});
     setupHandlers()
     glfwPatch();
     onResizeCanvas();

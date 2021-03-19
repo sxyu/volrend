@@ -143,8 +143,14 @@ source_group( "Source Files" FILES ${VOLREND_SOURCES} )
 
 set(
   DEPENDENCIES
-  stdc++fs
 )
+if (NOT EMSCRIPTEN)
+    set(
+      DEPENDENCIES
+      ${DEPENDENCIES}
+      stdc++fs
+    )
+endif()
 
 if (NOT EMSCRIPTEN)
     find_package(ZLIB QUIET)
