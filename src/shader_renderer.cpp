@@ -152,17 +152,12 @@ struct VolumeRenderer::Impl {
         // FIXME can we remove the copy to float here?
         // Can't seem to get half glTexImage2D to work
         const size_t pad = width * height - data_size;
-        tree->data_.data_holder.resize((data_size + pad) * sizeof(float));
-        auto* data_ptr_half = tree->data_.data<half>();
-        auto* data_ptr = tree->data_.data<float>();
-        std::copy_backward(data_ptr_half, data_ptr_half + data_size,
-                           data_ptr + data_size);
-
+        tree->data_.data_holder.resize((data_size + pad) * sizeof(half));
         glUniform1i(glGetUniformLocation(program, "tree_data_dim"), width);
 
         glBindTexture(GL_TEXTURE_2D, tex_tree_data);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, width, height, 0, GL_RED,
-                     GL_FLOAT, tree->data_.data<half>());
+                     GL_HALF_FLOAT, tree->data_.data<half>());
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 

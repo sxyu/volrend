@@ -43,8 +43,6 @@ struct N3Tree {
     int data_dim;
     // Data format (SH, SG etc)
     DataFormat data_format;
-    // Number of internal nodes
-    int n_internal;
     // Capacity
     int capacity = 0;
 
@@ -57,6 +55,9 @@ struct N3Tree {
 #ifdef VOLREND_CUDA
     bool is_cuda_loaded();
 #endif
+
+    // Clear the CPU memory.
+    void clear_cpu_memory();
 
     // Index pack/unpack
     int pack_index(int nd, int i, int j, int k);

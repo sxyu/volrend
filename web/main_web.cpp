@@ -94,8 +94,9 @@ void redraw() {
 
 void on_key(int key, bool ctrl, bool shift, bool alt) {
     if (key == GLFW_KEY_T) {
-        std::cout << "Print\n";
+        std::cout << "FPS counting started\n";
         gui.measure_fps ^= 1;
+        gui.curr_fps_frame = -1;
     }
 }
 void on_mousedown(int x, int y, bool middle) {
@@ -123,8 +124,9 @@ void load_remote(const std::string& url) {
         tree.open_mem(fetch->data, fetch->numBytes);
         emscripten_fetch_close(fetch);  // Free data associated with the fetch.
         renderer.set(tree);
+        tree.clear_cpu_memory();
         // redraw();
-        report_progress(101.0f);
+        report_progress(101.0f);  // Report finished loading
     };
 
     auto _load_remote_download_failed = [](emscripten_fetch_t* fetch) {
