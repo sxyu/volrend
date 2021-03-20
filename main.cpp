@@ -501,7 +501,7 @@ int main(int argc, char* argv[]) {
         ("nogui", "disable imgui", cxxopts::value<bool>())
         ("center", "camera center position (world); ignored for NDC",
                 cxxopts::value<std::vector<float>>()->default_value(
-                                                        "-3.2,0,3.2"))
+                                                        "-3.5,0,3.5"))
         ("back", "camera's back direction unit vector (world) for orientation; ignored for NDC",
                 cxxopts::value<std::vector<float>>()->default_value("-0.7071068,0,0.7071068"))
         ("origin", "origin for right click rotation controls; ignored for NDC",
