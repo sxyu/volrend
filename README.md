@@ -50,10 +50,10 @@ For LLFF scenes, we also expect
 In the same directory. This may be copied directly from the scene's `poses_bounds.npy` in the LLFF dataset.
 
 ### Dependencies
-- C++14
+- C++17
 - OpenGL
     - any dependencies of GLFW
-- libpng-dev (only for writing image in headless mode)
+- libpng-dev (only for writing image in headless mode and saving screenshot)
 
 #### Optional
 - CUDA Toolkit, I use 11.0
