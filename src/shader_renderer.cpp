@@ -40,7 +40,7 @@ const float quad_verts[] = {
 struct _RenderUniforms {
     GLint cam_transform, cam_focal, cam_reso;
     GLint opt_step_size, opt_backgrond_brightness, opt_stop_thresh,
-        opt_sigma_thresh;
+        opt_sigma_thresh, opt_render_bbox, opt_basis_minmax, opt_rot_dirs;
     GLint tree_data_tex, tree_child_tex, tree_extra_tex;
 };
 
@@ -62,10 +62,10 @@ struct VolumeRenderer::Impl {
         resize(0, 0);
 
         glGetIntegerv(GL_MAX_TEXTURE_SIZE, &tex_max_size);
-        int tex_3d_max_size;
-        glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &tex_3d_max_size);
-        std::cout << " texture dim limit: " << tex_max_size << "\n";
-        std::cout << " texture 3D dim limit: " << tex_3d_max_size << "\n";
+        // int tex_3d_max_size;
+        // glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &tex_3d_max_size);
+        // std::cout << " texture dim limit: " << tex_max_size << "\n";
+        // std::cout << " texture 3D dim limit: " << tex_3d_max_size << "\n";
 
         glGenTextures(1, &tex_tree_data);
         glGenTextures(1, &tex_tree_child);
@@ -90,19 +90,23 @@ struct VolumeRenderer::Impl {
         glUniform1f(u.opt_backgrond_brightness, options.background_brightness);
         glUniform1f(u.opt_stop_thresh, options.stop_thresh);
         glUniform1f(u.opt_sigma_thresh, options.sigma_thresh);
+        glUniform1fv(u.opt_render_bbox, 6, options.render_bbox);
+        glUniform1iv(u.opt_basis_minmax, 2, options.basis_minmax);
+        glUniform3fv(u.opt_rot_dirs, 1, options.rot_dirs);
 
+        // FIXME Probably can be done ony once
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, tex_tree_child);
 
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, tex_tree_data);
 
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, tex_tree_extra);
+        // glActiveTexture(GL_TEXTURE2);
+        // glBindTexture(GL_TEXTURE_2D, tex_tree_extra);
 
         glBindVertexArray(vao_quad);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, (GLsizei)4);
-        glBindVertexArray(0);
+        // glBindVertexArray(0);
     }
 
     void set(N3Tree& tree) {
@@ -230,6 +234,9 @@ struct VolumeRenderer::Impl {
             glGetUniformLocation(program, "opt.background_brightness");
         u.opt_stop_thresh = glGetUniformLocation(program, "opt.stop_thresh");
         u.opt_sigma_thresh = glGetUniformLocation(program, "opt.sigma_thresh");
+        u.opt_render_bbox = glGetUniformLocation(program, "opt.render_bbox");
+        u.opt_basis_minmax = glGetUniformLocation(program, "opt.basis_minmax");
+        u.opt_rot_dirs = glGetUniformLocation(program, "opt.rot_dirs");
         u.tree_data_tex = glGetUniformLocation(program, "tree_data_tex");
         u.tree_child_tex = glGetUniformLocation(program, "tree_child_tex");
         u.tree_extra_tex = glGetUniformLocation(program, "tree_extra_tex");

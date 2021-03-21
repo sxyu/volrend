@@ -19,8 +19,7 @@ let setupHandlers = function() {
     canvas.addEventListener("mousedown", function(e){
         let oleft = $(canvas).offset().left;
         let otop = $(canvas).offset().top;
-        Volrend.on_mousedown(e.clientX - oleft, e.clientY - otop, e.button == 1);
-        Volrend.delayedRedraw();
+        Volrend.on_mousedown(e.clientX - oleft, e.clientY - otop, e.button === 1);
     });
     var pinch_zoom_dist = -1.;
     var touch_cen_x = -1.;
@@ -38,7 +37,7 @@ let setupHandlers = function() {
             let otop = $(canvas).offset().top;
             touch_cen_x -= oleft;
             touch_cen_y -= otop;
-            if (e.touches.length == 2) {
+            if (e.touches.length === 2) {
                 let touch1 = e.touches[0],
                     touch2 = e.touches[1];
                 let dist = Math.hypot(
@@ -47,7 +46,7 @@ let setupHandlers = function() {
                 pinch_zoom_dist = dist;
             }
             Volrend.on_mousedown(e.touches[0].pageX - oleft,
-                e.touches[0].pageY - otop);
+                e.touches[0].pageY - otop, false);
             e.preventDefault();
         }
     });
@@ -56,12 +55,11 @@ let setupHandlers = function() {
             let oleft = $(canvas).offset().left;
             let otop = $(canvas).offset().top;
             Volrend.on_mousemove(e.clientX - oleft, e.clientY - otop);
-            Volrend.delayedRedraw();
         }
     });
     canvas.addEventListener("touchmove", function(e){
         if (e.touches.length > 0) {
-            if (e.touches.length == 2) {
+            if (e.touches.length === 2) {
                 let touch1 = e.touches[0],
                     touch2 = e.touches[1];
                 let dist = Math.hypot(
@@ -79,7 +77,6 @@ let setupHandlers = function() {
             let otop = $(canvas).offset().top;
             Volrend.on_mousemove(e.touches[0].pageX - oleft,
                 e.touches[0].pageY - otop);
-            Volrend.delayedRedraw();
             e.preventDefault();
         }
     });
@@ -91,24 +88,32 @@ let setupHandlers = function() {
     canvas.addEventListener("wheel", function(e){
         Volrend.on_mousewheel(e.deltaY < 0,
             15., e.offsetX, e.offsetY);
-        Volrend.delayedRedraw();
         event.preventDefault();
     });
 };
+var load_remote = function(remote_path) {
+    console.log('Downloading', remote_path);
+    Volrend.load_remote(remote_path);
+    let loading_ele = $('#loading');
+    loading_ele.css('display', 'block');
+    setTimeout(function() {
+        loading_ele.css('opacity', '1');
+    }, 100);
+};
+
 let onInit = function() {
-    Volrend.delayedRedraw = function() {}; //Util.debounce(Volrend.redraw, 15, {maxWait: 40});
     setupHandlers()
     glfwPatch();
     onResizeCanvas();
+    guiInit();
 
     $('.load-remote-scene').click(function() {
         let remote_path = this.getAttribute("data");
-        console.log('Downloading', remote_path);
-        Volrend.load_remote(remote_path);
-        let loading_ele = $('#loading');
-        loading_ele.css('display', 'block');
-        setTimeout(function() {
-            loading_ele.css('opacity', '1');
-        }, 100);
+        load_remote(remote_path);
     });
+
+    let init_load_path = Util.findGetParameter('load');
+    if (init_load_path !== null) {
+        load_remote(init_load_path);
+    }
 };

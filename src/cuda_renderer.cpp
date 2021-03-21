@@ -17,6 +17,9 @@
 
 namespace volrend {
 
+// Starting CUDA/OpenGL interop code from
+// https://gist.github.com/allanmac/4ff11985c3562830989f
+
 struct VolumeRenderer::Impl {
     Impl(Camera& camera, RenderOptions& options, std::vector<Mesh>& meshes)
         : camera(camera), options(options), meshes(meshes), buf_index(0) {

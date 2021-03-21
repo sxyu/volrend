@@ -10,9 +10,14 @@ var cppReportProgress = function(x) {
                 loading_ele.css('display', 'none');
             }, 600);
         }, 50);
+        guiLoadTreeUpdate();
     } else {
-        prog_ele.text(Math.round(x * 100) / 100);
+        prog_ele.text(x.toFixed(2));
     }
+};
+
+var cppUpdateFPS = function(fps) {
+    $('#fps-counter-val').text(fps.toFixed(2));
 };
 
 var onResizeCanvas = function() {
@@ -22,7 +27,6 @@ var onResizeCanvas = function() {
     canvas.width = width;
     canvas.height = height;
     Volrend.on_resize(width, height);
-    Volrend.delayedRedraw();
 };
 
 var Volrend = {

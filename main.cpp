@@ -14,16 +14,16 @@
 
 #include "imgui_impl_opengl3.h"
 #include "imgui_impl_glfw.h"
+
+#ifndef __EMSCRIPTEN__
 #include "imfilebrowser.h"
+#endif
 
 #ifdef VOLREND_CUDA
 #include "volrend/cuda/common.cuh"
 #endif
 
 namespace volrend {
-
-// Starting CUDA/OpenGL interop code from
-// https://gist.github.com/allanmac/4ff11985c3562830989f
 
 namespace {
 
@@ -69,13 +69,16 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
 
     // Begin window
     ImGui::Begin(title);
+#ifndef __EMSCRIPTEN__
 #ifdef VOLREND_CUDA
-    static ImGui::FileBrowser open_obj_mesh_dialog, open_tree_dialog,
-        save_screenshot_dialog(ImGuiFileBrowserFlags_EnterNewFilename);
+    static ImGui::FileBrowser open_obj_mesh_dialog;
     if (open_obj_mesh_dialog.GetTitle().empty()) {
         open_obj_mesh_dialog.SetTypeFilters({".obj"});
         open_obj_mesh_dialog.SetTitle("Load basic triangle OBJ");
     }
+#endif
+    static ImGui::FileBrowser open_tree_dialog,
+        save_screenshot_dialog(ImGuiFileBrowserFlags_EnterNewFilename);
     if (open_tree_dialog.GetTitle().empty()) {
         open_tree_dialog.SetTypeFilters({".npz"});
         open_tree_dialog.SetTitle("Load N3Tree npz from svox");
@@ -97,7 +100,6 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
     if (open_tree_dialog.HasSelected()) {
         // Load octree
         std::string path = open_tree_dialog.GetSelected().string();
-        Mesh tmp;
         std::cout << "Load N3Tree npz: " << path << "\n";
         tree.open(path);
         rend.set(tree);
@@ -182,7 +184,6 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
                            0.f, 1.0f);
 
     }  // End render node
-#ifdef VOLREND_CUDA
     ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
     if (ImGui::CollapsingHeader("Visualization")) {
         ImGui::PushItemWidth(230);
@@ -197,15 +198,18 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
             for (int i = 0; i < 3; ++i) rend.options.rot_dirs[i] = 0.f;
         }
 
+#ifdef VOLREND_CUDA
         ImGui::Checkbox("Show Grid", &rend.options.show_grid);
         ImGui::SameLine();
         ImGui::Checkbox("Render Depth", &rend.options.render_depth);
         if (rend.options.show_grid) {
             ImGui::SliderInt("grid max depth", &rend.options.grid_max_depth, 0,
-                             10);
+                             7);
         }
+#endif
     }
 
+#ifdef VOLREND_CUDA
     ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
     if (ImGui::CollapsingHeader("Manipulation")) {
         ImGui::BeginGroup();

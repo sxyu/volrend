@@ -43,6 +43,14 @@ struct RenderOptions {
     float sigma_thresh;
     // Background brightness
     float background_brightness;
+
+    // Rendering bounding box (relative to outer tree bounding box [0, 1])
+    // [minx, miny, minz, maxx, maxy, maxz]
+    float render_bbox[6];
+    // Range of basis functions to use
+    int basis_minmax[2];
+    // Rotation applied to viewdirs for all rays
+    vec3 rot_dirs;
 };
 
 uniform Camera cam;
@@ -100,8 +108,20 @@ int query_single_from_root(inout vec3 xyz, out float cube_sz) {
 }
 
 
+void rodrigues(vec3 aa, inout vec3 dir) {
+    float angle = length(aa);
+    if (angle < 1e-6) return;
+    vec3 k = aa / angle;
+    float cos_angle = cos(angle);
+    float sin_angle = sin(angle);
+    vec3 cp = cross(k, dir);
+    float dot = dot(k, dir);
+    dir = dir * cos_angle + cp * sin_angle + k * dot * (1.0 - cos_angle);
+}
+
+
 // **** CORE RAY TRACER IMPLEMENTATION ****
-void maybe_precalc_sh(const vec3 dir, inout float outb[VOLREND_GLOBAL_BASIS_MAX]) {
+void maybe_precalc_basis(const vec3 dir, inout float outb[VOLREND_GLOBAL_BASIS_MAX]) {
     // switch(tree.format) {
     //     case FORMAT_ASG:
     //         {
@@ -173,8 +193,8 @@ void dda_world(vec3 cen, vec3 _invdir, out float tmin, out float tmax) {
     tmin = 0.0f;
     tmax = 1e9f;
     for (int i = 0; i < 3; ++i) {
-        t1 = - cen[i] * _invdir[i];
-        t2 = t1 +  _invdir[i];
+        t1 = (opt.render_bbox[i] - cen[i]) * _invdir[i];
+        t2 = (opt.render_bbox[i + 3] - cen[i]) * _invdir[i];
         tmin = max(tmin, min(t1, t2));
         tmax = min(tmax, max(t1, t2));
     }
@@ -210,7 +230,13 @@ vec3 trace_ray(vec3 dir, vec3 vdir, vec3 cen) {
     } else {
         output_color = vec3(.0f);
         float basis_fn[VOLREND_GLOBAL_BASIS_MAX];
-        maybe_precalc_sh(vdir, basis_fn);
+        maybe_precalc_basis(vdir, basis_fn);
+        for (int i = 0; i < opt.basis_minmax[0]; ++i) {
+            basis_fn[i] = 0.f;
+        }
+        for (int i = opt.basis_minmax[1] + 1; i < VOLREND_GLOBAL_BASIS_MAX; ++i) {
+            basis_fn[i] = 0.f;
+        }
 
         float light_intensity = 1.f;
         float t = tmin;
@@ -320,6 +346,7 @@ void main()
         world2ndc(dir, cen, 1.f);
     }
     cen = tree.center + cen * tree.scale;
+    rodrigues(opt.rot_dirs, vdir);
     rgb = trace_ray(dir, vdir, cen);
     rgb = clamp(rgb, 0.0, 1.0);
     FragColor = vec4(rgb, 1.0);
