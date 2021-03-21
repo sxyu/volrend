@@ -10,19 +10,29 @@ A variant of the DDA ray tracing algorithm is used to compute the length within 
 performance improvement may be possible..
 
 ## Build
-Build using CMake
+Build using CMake as typical
+
+### Unix-like Systems
 ```sh
 mkdir build && cd build
 cmake ..
 make -j12
-```
 
-- Pass `-DVOLREND_USE_CUDA=ON` to use CUDA-OpenGL interop renderer.
-- Pass `-DVOLREND_USE_CUDA=OFF` to use GLSL shader backend.
-It is slower but can work without CUDA (e.g. AMD GPU).
+- If you do not have CUDA-capable GPU, pass `-DVOLREND_USE_CUDA=OFF` after `cmake ..` to use fragment shader backend, which is also used for the web demo.
+  It is slower and does not support mesh-insertion and dependent features such as lumisphere inspection.
 
 On Ubuntu, to get the dependencies, try
 `sudo apt-get install libgl1-mesa-dev libxi-dev libxinerama-dev libxcursor-dev libxrandr-dev libgl1-mesa-dev libglu1-mesa-dev`
+
+### Windows 10
+Install Visual Studio 2019. Then
+```sh
+mkdir build && cd build
+cmake .. -G"Visual Studio 16 2019"
+cmake --build . --config Release
+```
+- If you do not have CUDA-capable GPU, pass `-DVOLREND_USE_CUDA=OFF` after `cmake ..` to use fragment shader backend, which is also used for the web demo.
+  It is slower and does not support mesh-insertion and dependent features such as lumisphere inspection.
 
 ## Run
 ```sh
@@ -51,8 +61,9 @@ In the same direcotry.
     - Pass `-DVOLREND_USE_CUDA=OFF` to disable it.
 
 
-## Web
+## Building the Website
 
+The backend of the web demo is built from the shader version of the C++ source using emscripten.
 Install emscripten per instructions here:
 https://emscripten.org/docs/getting_started/downloads.html
 
@@ -63,7 +74,9 @@ emcmake cmake ..
 make -j12
 ```
 
-The full website (including html/css) should be written to `embuild/build`. To launch it locally for previewing, you can use the make target:
+The full website should be written to `embuild/build`.
+Some CMake scripts even write the html/css/js files.
+To launch it locally for previewing, you can use the make target:
 ```sh
 make serve
 ```
