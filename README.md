@@ -42,17 +42,12 @@ A real-time rendererer `volrend` and a headless version `volrend_headless` are b
 ```sh
 ./volrend <name>.npz
 ```
+See `--help` for flags.
 For LLFF scenes, we also expect
 ```sh
 <name>_poses_bounds.npy
 ```
 In the same directory. This may be copied directly from the scene's `poses_bounds.npy` in the LLFF dataset.
-
-Note: In older octrees, an OpenEXR file was used to store the image data, this was
-```sh
-<name>_data.exr
-```
-In the same direcotry.
 
 ### Dependencies
 - C++14
