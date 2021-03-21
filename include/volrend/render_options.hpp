@@ -22,8 +22,20 @@ struct RenderOptions {
     // Background brightness
     float background_brightness = 1.f;
 
+    // * VISUALIZATION
+    // Rendering bounding box (relative to outer tree bounding box [0, 1])
+    // [minx, miny, minz, maxx, maxy, maxz]
+    float render_bbox[6] = {0.f, 0.f, 0.f, 1.f, 1.f, 1.f};
+
+    // Range of basis functions to use
+    // no effect if RGBA data format
+    int basis_minmax[2] = {0, VOLREND_GLOBAL_BASIS_MAX - 1};
+
+    // Rotation applied to viewdirs for all rays
+    float rot_dirs[3] = {0.f, 0.f, 0.f};
+
 #ifdef VOLREND_CUDA
-    // * ADVANCED VISUALIZATION, currently in CUDA only
+    // * ADVANCED VISUALIZATION, requires mesh, currently in CUDA only
 
     // Draw a (rather low-quality) grid to help visualize the octree
     bool show_grid = false;
@@ -32,17 +44,6 @@ struct RenderOptions {
 
     // Render depth instead of color
     bool render_depth = false;
-
-    // Rendering bounding box (relative to outer tree bounding box [0, 1])
-    // [minx, miny, minz, maxx, maxy, maxz]
-    float render_bbox[6] = {0.f, 0.f, 0.f, 1.f, 1.f, 1.f};
-
-    // Whether to show a range of basis functions only
-    // no effect if RGBA data format
-    int basis_minmax[2] = {0, VOLREND_GLOBAL_BASIS_MAX - 1};
-
-    // Rotation applied to viewdirs for all rays
-    float rot_dirs[3] = {0.f, 0.f, 0.f};
 
     // * Probe for inspecting lumispheres
     bool enable_probe = false;

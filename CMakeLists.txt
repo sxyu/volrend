@@ -142,15 +142,15 @@ endif()
 source_group( "Header Files" FILES ${VOLREND_HEADERS} )
 source_group( "Source Files" FILES ${VOLREND_SOURCES} )
 
+set(
+  DEPENDENCIES
+)
 if (NOT EMSCRIPTEN AND NOT WIN32)
-  set(
-    DEPENDENCIES
-    stdc++fs
-  )
-else()
-  set(
-    DEPENDENCIES
-  )
+    set(
+      DEPENDENCIES
+      ${DEPENDENCIES}
+      stdc++fs
+    )
 endif()
 
 if (NOT EMSCRIPTEN)
@@ -277,7 +277,7 @@ target_link_libraries( ${PROJ_LIB_NAME} PUBLIC
 
 if (EMSCRIPTEN)
     include_directories ( )
-    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3 --bind -s EXPORT_NAME=\"'Volrend'\" -s USE_WEBGL2=1 -s USE_GLFW=3 -s FULL_ES3=1 -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s FETCH=1 -std=c++14")
+    set(CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -O3  -s ASSERTIONS=1 --bind -s EXPORT_NAME=\"'Volrend'\" -s USE_WEBGL2=1 -s USE_GLFW=3 -s FULL_ES3=1 -s WASM=1 -s ALLOW_MEMORY_GROWTH=1 -s TOTAL_MEMORY=536870912 -s FETCH=1 -std=c++14")
     add_executable( volrend_web "web/main_web.cpp" )
     target_link_libraries( volrend_web
         ${PROJ_LIB_NAME} ${DEPENDENCIES} )

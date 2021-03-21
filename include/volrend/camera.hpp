@@ -9,7 +9,7 @@
 #include "glm/vec2.hpp"
 
 namespace volrend {
-static const float CAMERA_DEFAULT_FOCAL_LENGTH = 600.f;
+static const float CAMERA_DEFAULT_FOCAL_LENGTH = 1111.11f;
 
 struct Camera {
     Camera(int width = 256, int height = 256,

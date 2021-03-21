@@ -34,13 +34,13 @@ void main()
 )glsl";
 
 const float quad_verts[] = {
-    -1.f, -1.f, 0.f, 1.f, -1.f, 0.f, -1.f, 1.f, 0.f, 1.f, 1.f, 0.f,
+    -1.f, -1.f, 0.5f, 1.f, -1.f, 0.5f, -1.f, 1.f, 0.5f, 1.f, 1.f, 0.5f,
 };
 
 struct _RenderUniforms {
     GLint cam_transform, cam_focal, cam_reso;
     GLint opt_step_size, opt_backgrond_brightness, opt_stop_thresh,
-        opt_sigma_thresh;
+        opt_sigma_thresh, opt_render_bbox, opt_basis_minmax, opt_rot_dirs;
     GLint tree_data_tex, tree_child_tex, tree_extra_tex;
 };
 
@@ -62,10 +62,10 @@ struct VolumeRenderer::Impl {
         resize(0, 0);
 
         glGetIntegerv(GL_MAX_TEXTURE_SIZE, &tex_max_size);
-        int tex_3d_max_size;
-        glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &tex_3d_max_size);
-        std::cout << " texture dim limit: " << tex_max_size << "\n";
-        std::cout << " texture 3D dim limit: " << tex_3d_max_size << "\n";
+        // int tex_3d_max_size;
+        // glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &tex_3d_max_size);
+        // std::cout << " texture dim limit: " << tex_max_size << "\n";
+        // std::cout << " texture 3D dim limit: " << tex_3d_max_size << "\n";
 
         glGenTextures(1, &tex_tree_data);
         glGenTextures(1, &tex_tree_child);
@@ -90,19 +90,23 @@ struct VolumeRenderer::Impl {
         glUniform1f(u.opt_backgrond_brightness, options.background_brightness);
         glUniform1f(u.opt_stop_thresh, options.stop_thresh);
         glUniform1f(u.opt_sigma_thresh, options.sigma_thresh);
+        glUniform1fv(u.opt_render_bbox, 6, options.render_bbox);
+        glUniform1iv(u.opt_basis_minmax, 2, options.basis_minmax);
+        glUniform3fv(u.opt_rot_dirs, 1, options.rot_dirs);
 
+        // FIXME Probably can be done ony once
         glActiveTexture(GL_TEXTURE0);
         glBindTexture(GL_TEXTURE_2D, tex_tree_child);
 
         glActiveTexture(GL_TEXTURE1);
         glBindTexture(GL_TEXTURE_2D, tex_tree_data);
 
-        glActiveTexture(GL_TEXTURE2);
-        glBindTexture(GL_TEXTURE_2D, tex_tree_extra);
+        // glActiveTexture(GL_TEXTURE2);
+        // glBindTexture(GL_TEXTURE_2D, tex_tree_extra);
 
         glBindVertexArray(vao_quad);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, (GLsizei)4);
-        glBindVertexArray(0);
+        // glBindVertexArray(0);
     }
 
     void set(N3Tree& tree) {
@@ -127,13 +131,17 @@ struct VolumeRenderer::Impl {
     }
 
    private:
-    void auto_size_2d(size_t size, size_t& width, size_t& height) {
+    void auto_size_2d(size_t size, size_t& width, size_t& height,
+                      int base_dim = 1) {
         if (size == 0) {
             width = height = 0;
             return;
         }
-        height = std::sqrt(size);
-        width = (size - 1) / height + 1;
+        width = std::sqrt(size);
+        if (width % base_dim) {
+            width += base_dim - width % base_dim;
+        }
+        height = (size - 1) / width + 1;
         if (height > tex_max_size || width > tex_max_size) {
             throw std::runtime_error(
                 "Octree data exceeds hardward 2D texture limit\n");
@@ -144,21 +152,16 @@ struct VolumeRenderer::Impl {
         const GLint data_size =
             tree->capacity * tree->N * tree->N * tree->N * tree->data_dim;
         size_t width, height;
-        auto_size_2d(data_size, width, height);
+        auto_size_2d(data_size, width, height, tree->data_dim);
         // FIXME can we remove the copy to float here?
         // Can't seem to get half glTexImage2D to work
         const size_t pad = width * height - data_size;
-        tree->data_.data_holder.resize((data_size + pad) * sizeof(float));
-        auto* data_ptr_half = tree->data_.data<half>();
-        auto* data_ptr = tree->data_.data<float>();
-        std::copy_backward(data_ptr_half, data_ptr_half + data_size,
-                           data_ptr + data_size);
-
+        tree->data_.data_holder.resize((data_size + pad) * sizeof(half));
         glUniform1i(glGetUniformLocation(program, "tree_data_dim"), width);
 
         glBindTexture(GL_TEXTURE_2D, tex_tree_data);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, width, height, 0, GL_RED,
-                     GL_FLOAT, tree->data_.data<half>());
+                     GL_HALF_FLOAT, tree->data_.data<half>());
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
@@ -231,6 +234,9 @@ struct VolumeRenderer::Impl {
             glGetUniformLocation(program, "opt.background_brightness");
         u.opt_stop_thresh = glGetUniformLocation(program, "opt.stop_thresh");
         u.opt_sigma_thresh = glGetUniformLocation(program, "opt.sigma_thresh");
+        u.opt_render_bbox = glGetUniformLocation(program, "opt.render_bbox");
+        u.opt_basis_minmax = glGetUniformLocation(program, "opt.basis_minmax");
+        u.opt_rot_dirs = glGetUniformLocation(program, "opt.rot_dirs");
         u.tree_data_tex = glGetUniformLocation(program, "tree_data_tex");
         u.tree_child_tex = glGetUniformLocation(program, "tree_child_tex");
         u.tree_extra_tex = glGetUniformLocation(program, "tree_extra_tex");

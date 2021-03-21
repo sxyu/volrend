@@ -108,10 +108,7 @@ N3Tree::~N3Tree() {
 }
 
 void N3Tree::open(const std::string& path) {
-    child_.data_holder.clear();
-    child_.data_holder.shrink_to_fit();
-    data_.data_holder.clear();
-    data_.data_holder.shrink_to_fit();
+    clear_cpu_memory();
 
     data_loaded_ = false;
 #ifdef VOLREND_CUDA
@@ -155,10 +152,7 @@ void N3Tree::open_mem(const char* data, uint64_t size) {
 #ifdef VOLREND_CUDA
     cuda_loaded_ = false;
 #endif
-    child_.data_holder.clear();
-    child_.data_holder.shrink_to_fit();
-    data_.data_holder.clear();
-    data_.data_holder.shrink_to_fit();
+    clear_cpu_memory();
 
     npz_path_ = "";
     cnpy::npz_t npz = cnpy::npz_load_mem(data, size);
@@ -198,7 +192,6 @@ void N3Tree::load_npz(cnpy::npz_t& npz) {
     }
     std::cerr << "INFO: Data format " << data_format.to_string() << "\n";
 
-    n_internal = (int)*npz["n_internal"].data<int64_t>();
     if (npz.count("invradius3")) {
         const float* scale_data = npz["invradius3"].data<float>();
         for (int i = 0; i < 3; ++i) scale[i] = scale_data[i];
@@ -219,14 +212,54 @@ void N3Tree::load_npz(cnpy::npz_t& npz) {
     N2_ = N * N;
     N3_ = N * N * N;
 
-    auto& data_node = npz["data"];
-    capacity = data_node.shape[0];
-    if (capacity != n_internal) {
-        std::cerr << "WARNING: N3Tree capacity != n_internal, "
-                  << "call shrink_to_fit() before saving to save space\n";
-    }
-    if (npz["data"].word_size != 2) {
-        throw std::runtime_error("data must be stored in half precision");
+    if (npz.count("quant_colors")) {
+        std::cerr << "INFO: Decoding quantized colors\n";
+        auto& quant_colors_node = npz["quant_colors"];
+        if (quant_colors_node.word_size != 2) {
+            throw std::runtime_error(
+                "codebook must be stored in half precision");
+        }
+        auto& quant_map_node = npz["quant_map"];
+        capacity = quant_map_node.shape[1];
+        int n_basis = quant_map_node.shape[0];
+        if (quant_colors_node.shape[0] != n_basis) {
+            throw std::runtime_error(
+                "codebook and map basis numbers does not match");
+        }
+        data_.data_holder.clear();
+        data_.reinit({(size_t)capacity, (size_t)N, (size_t)N, (size_t)N,
+                      (size_t)data_dim},
+                     2, false);
+
+        // Decode quantized
+        auto& sigma_node = npz["sigma"];
+        half* data_ptr = data_.data<half>();
+        const half* sigma_ptr = sigma_node.data<half>();
+        const uint16_t* quant_map_ptr = quant_map_node.data<uint16_t>();
+        const half* quant_colors_ptr = quant_colors_node.data<half>();
+        const size_t n_child = (size_t)capacity * N * N * N;
+        for (size_t i = 0; i < n_child; ++i) {
+            int off = i * data_dim;
+            for (int j = 0; j < n_basis; ++j) {
+                int boff = off + j;
+                int id = quant_map_ptr[j * n_child + i];
+                const half* colors_ptr =
+                    quant_colors_ptr + j * 65536 * 3 + id * 3;
+                for (int k = 0; k < 3; ++k) {
+                    data_ptr[boff] = colors_ptr[k];
+                    boff += n_basis;
+                }
+            }
+
+            data_ptr[off + data_dim - 1] = sigma_ptr[i];
+        }
+    } else {
+        auto& data_node = npz["data"];
+        capacity = data_node.shape[0];
+        if (data_node.word_size != 2) {
+            throw std::runtime_error("data must be stored in half precision");
+        }
+        std::swap(data_, data_node);
     }
 
     if (npz.count("extra_data")) {
@@ -234,7 +267,6 @@ void N3Tree::load_npz(cnpy::npz_t& npz) {
     } else {
         extra_.data_holder.clear();
     }
-    std::swap(data_, data_node);
 }
 
 namespace {
@@ -314,6 +346,13 @@ bool N3Tree::is_data_loaded() { return data_loaded_; }
 bool N3Tree::is_cuda_loaded() { return cuda_loaded_; }
 #endif
 
+void N3Tree::clear_cpu_memory() {
+    child_.data_holder.clear();
+    child_.data_holder.shrink_to_fit();
+    data_.data_holder.clear();
+    data_.data_holder.shrink_to_fit();
+}
+
 int N3Tree::pack_index(int nd, int i, int j, int k) {
     assert(i < N && j < N && k < N && i >= 0 && j >= 0 && k >= 0);
     return nd * N3_ + i * N2_ + j * N + k;
@@ -326,7 +365,7 @@ std::tuple<int, int, int, int> N3Tree::unpack_index(int packed) {
     packed /= N;
     int i = packed % N;
     packed /= N;
-    return std::tuple<int, int, int, int> {packed, i, j, k};
+    return std::tuple<int, int, int, int>{packed, i, j, k};
 }
 
 }  // namespace volrend
