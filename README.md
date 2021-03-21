@@ -65,6 +65,8 @@ In the same directory. This may be copied directly from the scene's `poses_bound
 - Shift + Left mouse btn + drag: pan camera
 - Middle mouse btn + drag: pan camera AND move origin point simultaneously
 - WASDQE: move; Shift + WASDQE to move faster
+- 123456: preset `world_up` directions, sweep through these keys if scene is using different coordinate system.
+- 0: reset the focal length to default, if you messed with it
 
 Lumisphere probe:
 - IJKLUO: move the lumisphere probe; Hold shift to move faster
