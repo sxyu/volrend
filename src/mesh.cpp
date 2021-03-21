@@ -40,12 +40,12 @@ void _cross3(const scalar_t* a, const scalar_t* b, scalar_t* out) {
 }
 
 template <typename scalar_t>
-static scalar_t _norm(scalar_t* __restrict__ dir) {
+scalar_t _norm(scalar_t* dir) {
     return sqrtf(dir[0] * dir[0] + dir[1] * dir[1] + dir[2] * dir[2]);
 }
 
 template <typename scalar_t>
-static void _normalize(scalar_t* __restrict__ dir) {
+void _normalize(scalar_t* dir) {
     scalar_t norm = _norm(dir);
     if (norm > 1e-6) {
         dir[0] /= norm;

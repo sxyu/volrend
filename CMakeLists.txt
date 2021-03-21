@@ -39,6 +39,7 @@ if (EMSCRIPTEN)
 endif()
 if (_VOLREND_USE_CUDA)
     set (_VOLREND_CUDA_ "")
+    set (CUDA_SEPARABLE_COMPILATION ON)
     enable_language(CUDA)
     message(STATUS "CUDA enabled")
     set( CMAKE_CUDA_STANDARD 14 )
@@ -141,10 +142,16 @@ endif()
 source_group( "Header Files" FILES ${VOLREND_HEADERS} )
 source_group( "Source Files" FILES ${VOLREND_SOURCES} )
 
-set(
-  DEPENDENCIES
-  stdc++fs
-)
+if (NOT EMSCRIPTEN AND NOT WIN32)
+  set(
+    DEPENDENCIES
+    stdc++fs
+  )
+else()
+  set(
+    DEPENDENCIES
+  )
+endif()
 
 if (NOT EMSCRIPTEN)
     find_package(ZLIB QUIET)
@@ -227,6 +234,9 @@ set ( VOLREND_PUBLIC_HEADERS ${VOLREND_PUBLIC_HEADERS} "${COMMON_HPP_PATH}")
 # Add main library
 add_library( ${PROJ_LIB_NAME} STATIC ${VOLREND_SOURCES}
     ${IMGUI_SOURCES} ${VOLREND_VENDOR_SOURCES} )
+if (WIN32)
+    set_target_properties( ${PROJ_LIB_NAME} PROPERTIES OUTPUT_NAME "libvolrend" )
+endif()
 
 if (_VOLREND_USE_CUDA)
     set_target_properties( ${PROJ_LIB_NAME}
@@ -388,6 +398,14 @@ else (EMSCRIPTEN)
         add_executable( volrend_headless_exe main_headless.cpp )
         target_link_libraries( volrend_headless_exe ${PROJ_LIB_NAME} )
         set_target_properties( volrend_headless_exe PROPERTIES OUTPUT_NAME "volrend_headless" )
+        if(WIN32)
+		set_target_properties( ${PROJ_LIB_NAME}
+		    PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+            set_target_properties( volrend_exe
+		    PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+            set_target_properties( volrend_headless_exe
+		    PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+	endif()
     endif(_VOLREND_USE_CUDA)
 
     if(WIN32)
