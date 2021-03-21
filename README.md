@@ -1,7 +1,7 @@
 # PlenOctree Volume Rendering
 
 This is a real-time volume renderer using OpenGL.
-Here, we use a octre (or more generally N^3 tree) to model volumetric emission and absorption at RGB frequencies
+Here, we use a octree (or more generally N^3 tree) to model volumetric emission and absorption at RGB frequencies
 
 Each voxel cell contains `(k, sigma)`,
 where `k` are SH, SG, or ASG coefficients to model view-dependency, and
@@ -64,6 +64,7 @@ In the same directory. This may be copied directly from the scene's `poses_bound
 - Right mouse btn + drag: rotate about origin point (can be moved)
 - Shift + Left mouse btn + drag: pan camera
 - Middle mouse btn + drag: pan camera AND move origin point simultaneously
+- Scroll with wheel: move forward/back in z
 - WASDQE: move; Shift + WASDQE to move faster
 - 123456: preset `world_up` directions, sweep through these keys if scene is using different coordinate system.
 - 0: reset the focal length to default, if you messed with it
