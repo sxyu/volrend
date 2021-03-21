@@ -72,6 +72,13 @@
     color: #444;
 }
 
+.options-description>a {
+    font-size: 0.9em;
+    padding: 0 1em;
+    cursor: pointer;
+    color: #26e !important;
+}
+
 #options-dragger {
     min-width: 6px;
     max-width: 6px;

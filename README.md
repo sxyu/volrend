@@ -1,13 +1,12 @@
-# N3-Tree Volume Rendering
+# PlenOctree Volume Rendering
 
-This is a real-time volume renderer built using OpenGL.
+This is a real-time volume renderer using OpenGL.
 Here, we use a N^3 tree to model volumetric emission and absorption at RGB frequencies
-(by N^3 tree we mean octree but with branching factor N, the standard case is N=2).
 
-Similar to NeRF, each voxel cell contains `(r,g,b,sigma)`, and
+Similar to NeRF, each voxel cell contains `(k,sigma)`,
+where `k` are SH, SH, or ASG components, and
 alpha composition is applied via the rule `1 - exp(-length * sigma)`.
-A variant of the DDA ray tracing algorithm is used to compute the length within each grid cell;
-performance improvement may be possible..
+Ray tracing is used to compute the length within each grid cell.
 
 ## Build
 Build using CMake as typical
@@ -17,9 +16,12 @@ Build using CMake as typical
 mkdir build && cd build
 cmake ..
 make -j12
+```
 
 - If you do not have CUDA-capable GPU, pass `-DVOLREND_USE_CUDA=OFF` after `cmake ..` to use fragment shader backend, which is also used for the web demo.
   It is slower and does not support mesh-insertion and dependent features such as lumisphere inspection.
+
+A real-time rendererer `volrend` and a headless version `volrend_headless` are built. The latter requires CUDA.
 
 On Ubuntu, to get the dependencies, try
 `sudo apt-get install libgl1-mesa-dev libxi-dev libxinerama-dev libxcursor-dev libxrandr-dev libgl1-mesa-dev libglu1-mesa-dev`
@@ -33,6 +35,8 @@ cmake --build . --config Release
 ```
 - If you do not have CUDA-capable GPU, pass `-DVOLREND_USE_CUDA=OFF` after `cmake ..` to use fragment shader backend, which is also used for the web demo.
   It is slower and does not support mesh-insertion and dependent features such as lumisphere inspection.
+
+A real-time rendererer `volrend` and a headless version `volrend_headless` are built. The latter requires CUDA.
 
 ## Run
 ```sh

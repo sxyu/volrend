@@ -68,6 +68,15 @@ let guiInit = function() {
     $('#options-btn').click(function() {
         $('#options').css('display', 'block');
     });
+
+    $('#vdir-reset-btn').click(function() {
+        sliders_vdir.val(0.0);
+        let opt = Volrend.get_options();
+        opt.rot_dirs[0] = 0.0;
+        opt.rot_dirs[1] = 0.0;
+        opt.rot_dirs[2] = 0.0;
+        Volrend.set_options(opt);
+    });
 };
 
 let guiLoadTreeUpdate = function() {
