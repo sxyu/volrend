@@ -264,7 +264,9 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
             {
                 Mesh latt = Mesh::Lattice();
                 if (tree.N > 0) {
-                    latt.scale = 1.f / tree.scale[0];
+                    latt.scale =
+                        1.f / std::min(std::min(tree.scale[0], tree.scale[1]),
+                                       tree.scale[2]);
                     for (int i = 0; i < 3; ++i) {
                         latt.translation[i] =
                             -1.f / tree.scale[0] * tree.offset[0];

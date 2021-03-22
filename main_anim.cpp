@@ -140,6 +140,7 @@ struct AnimKF {
         fy = rend.camera.fy;
         opt = rend.options;
 
+        mesh_state.clear();
         for (const Mesh& mesh : rend.meshes) {
             if (!mesh.visible) continue;
             MeshState state{mesh};
@@ -293,8 +294,8 @@ struct AnimState {
 
         glm::vec3 start_rot_dirs(start.opt.rot_dirs[0], start.opt.rot_dirs[1],
                                  start.opt.rot_dirs[2]);
-        glm::vec3 end_rot_dirs(start.opt.rot_dirs[0], start.opt.rot_dirs[1],
-                               start.opt.rot_dirs[2]);
+        glm::vec3 end_rot_dirs(end.opt.rot_dirs[0], end.opt.rot_dirs[1],
+                               end.opt.rot_dirs[2]);
         if (start_rot_dirs != end_rot_dirs) {
             glm::vec3 curr_rot_dirs =
                 sphc_interp(start_rot_dirs, end_rot_dirs, q, ax, ay, az);
@@ -737,7 +738,9 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
                 {
                     Mesh latt = Mesh::Lattice();
                     if (tree.N > 0) {
-                        latt.scale = 1.f / tree.scale[0];
+                        latt.scale = 1.f / std::min(std::min(tree.scale[0],
+                                                             tree.scale[1]),
+                                                    tree.scale[2]);
                         for (int i = 0; i < 3; ++i) {
                             latt.translation[i] =
                                 -1.f / tree.scale[0] * tree.offset[0];

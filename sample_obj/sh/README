@@ -1,0 +1,4 @@
+To generate SH obj and offset files, run
+g++ gen_sh.cpp -O2 -o gen_sh
+./gen_sh <maxdeg>
+where <maxdeg> should be 1-4
