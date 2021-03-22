@@ -86,15 +86,10 @@ __device__ __inline__ void trace_ray(
 
     if (tmax < 0 || tmin > tmax) {
         // Ray doesn't hit box
-        if (opt.render_depth) {
-            out[0] = out[1] = out[2] = 0.f;
+        if (opt.render_depth)
             out[3] = 1.f;
-        } else {
-            out[3] = 0.f;
-        }
         return;
     } else {
-        out[0] = out[1] = out[2] = 0.0f;
         scalar_t pos[3], tmp;
         const half* tree_val;
         scalar_t basis_fn[VOLREND_GLOBAL_BASIS_MAX];

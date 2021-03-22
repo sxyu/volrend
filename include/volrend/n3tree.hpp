@@ -38,7 +38,7 @@ struct N3Tree {
     std::vector<float> gen_wireframe(int max_depth = 100000) const;
 
     // Spatial branching factor
-    int N;
+    int N = 0;
     // Size of data stored on each leaf
     int data_dim;
     // Data format (SH, SG etc)

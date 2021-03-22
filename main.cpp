@@ -5,6 +5,7 @@
 #include <cstdlib>
 #include <cstdio>
 #include <string>
+#include <fstream>
 
 #include "volrend/renderer.hpp"
 #include "volrend/n3tree.hpp"
@@ -71,7 +72,8 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
     ImGui::Begin(title);
 #ifndef __EMSCRIPTEN__
 #ifdef VOLREND_CUDA
-    static ImGui::FileBrowser open_obj_mesh_dialog;
+    static ImGui::FileBrowser open_obj_mesh_dialog(
+        ImGuiFileBrowserFlags_MultipleSelection);
     if (open_obj_mesh_dialog.GetTitle().empty()) {
         open_obj_mesh_dialog.SetTypeFilters({".obj"});
         open_obj_mesh_dialog.SetTitle("Load basic triangle OBJ");
@@ -277,16 +279,25 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
     open_obj_mesh_dialog.Display();
     if (open_obj_mesh_dialog.HasSelected()) {
         // Load mesh
-        std::string path = open_obj_mesh_dialog.GetSelected().string();
-        Mesh tmp;
-        std::cout << "Load OBJ: " << path << "\n";
-        tmp.load_basic_obj(path);
-        if (tmp.vert.size()) {
-            tmp.update();
-            rend.meshes.push_back(std::move(tmp));
-            std::cout << "Load success\n";
-        } else {
-            std::cout << "Load failed\n";
+        auto sels = open_obj_mesh_dialog.GetMultiSelected();
+        for (auto& fpath : sels) {
+            const std::string path = fpath.string();
+            Mesh tmp;
+            std::cout << "Load OBJ: " << path << "\n";
+            tmp.load_basic_obj(path);
+            if (tmp.vert.size()) {
+                // Auto offset
+                std::ifstream ifs(path + ".offs");
+                if (ifs) {
+                    ifs >> tmp.translation.x >> tmp.translation.y >>
+                        tmp.translation.z;
+                }
+                tmp.update();
+                rend.meshes.push_back(std::move(tmp));
+                std::cout << "Load success\n";
+            } else {
+                std::cout << "Load failed\n";
+            }
         }
         open_obj_mesh_dialog.ClearSelected();
     }
@@ -530,7 +541,12 @@ int main(int argc, char* argv[]) {
     }
 #endif
 
-    N3Tree tree(args["file"].as<std::string>());
+    N3Tree tree;
+    bool init_loaded = false;
+    if (args.count("file")) {
+        init_loaded = true;
+        tree.open(args["file"].as<std::string>());
+    }
     int width = args["width"].as<int>(), height = args["height"].as<int>();
     float fx = args["fx"].as<float>();
     float fy = args["fy"].as<float>();
@@ -545,7 +561,7 @@ int main(int argc, char* argv[]) {
         }
 
         rend.options = internal::render_options_from_args(args);
-        if (tree.use_ndc) {
+        if (init_loaded && tree.use_ndc) {
             // Special inital coordinates for NDC
             // (pick average camera)
             rend.camera.center = glm::vec3(0);
@@ -570,13 +586,9 @@ int main(int argc, char* argv[]) {
         if (fy <= 0.f) {
             rend.camera.fy = rend.camera.fx;
         }
+        glfwGetFramebufferSize(window, &width, &height);
         rend.set(tree);
-
-        // Get initial width/height
-        {
-            glfwGetFramebufferSize(window, &width, &height);
-            rend.resize(width, height);
-        }
+        rend.resize(width, height);
 
         // Set user pointer and callbacks
         glfwSetWindowUserPointer(window, &rend);
@@ -590,8 +602,6 @@ int main(int argc, char* argv[]) {
 #ifdef VOLREND_CUDA
             glEnable(GL_DEPTH_TEST);
 #endif
-            // glEnable(GL_LINE_WIDTH);
-            // glLineWidth(2.0f);
             glfw_update_title(window);
 
             rend.render();
@@ -601,7 +611,6 @@ int main(int argc, char* argv[]) {
             glfwSwapBuffers(window);
             glFinish();
             glfwPollEvents();
-            // glfwWaitEvents();
         }
     }
 

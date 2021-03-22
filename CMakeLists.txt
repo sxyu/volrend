@@ -96,19 +96,19 @@ if(GIT_FOUND AND EXISTS "${PROJECT_SOURCE_DIR}/.git")
 endif()
 
 if(NOT EXISTS "${GLFW_DIR}/CMakeLists.txt")
-   message(FATAL_ERROR "A submodule as not downloaded! GIT_SUBMODULE was turned off or failed. Please update submodules and try again.")
+    message(FATAL_ERROR "A submodule as not downloaded! GIT_SUBMODULE was turned off or failed. Please update submodules and try again.")
 endif()
 
 file(GLOB IMGUI_SOURCES ${IMGUI_DIR}/*.cpp)
 set(IMGUI_HEADERS
-        ${IMGUI_DIR}/imconfig.h
-        ${IMGUI_DIR}/imgui.h
-        ${IMGUI_DIR}/imgui_impl_glfw.h
-        ${IMGUI_DIR}/imgui_impl_opengl3.h
-        ${IMGUI_DIR}/imgui_stdlib.h
-        ${IMGUI_DIR}/imstb_rectpack.h
-        ${IMGUI_DIR}/imstb_textedit.h
-        ${IMGUI_DIR}/imstb_truetype.h
+    ${IMGUI_DIR}/imconfig.h
+    ${IMGUI_DIR}/imgui.h
+    ${IMGUI_DIR}/imgui_impl_glfw.h
+    ${IMGUI_DIR}/imgui_impl_opengl3.h
+    ${IMGUI_DIR}/imgui_stdlib.h
+    ${IMGUI_DIR}/imstb_rectpack.h
+    ${IMGUI_DIR}/imstb_textedit.h
+    ${IMGUI_DIR}/imstb_truetype.h
     )
 
 file(GLOB VOLREND_SOURCES ${SRC_DIR}/*.cpp)
@@ -118,8 +118,8 @@ file(GLOB VOLREND_PRIVATE_HEADERS ${INCLUDE_DIR}/volrend/internal/*.hpp)
 if (_VOLREND_USE_CUDA)
     file(GLOB VOLREND_SOURCES_CUDA ${SRC_DIR}/cuda/*.cu)
     file(GLOB VOLREND_CUDA_HEADERS
-            ${INCLUDE_DIR}/volrend/cuda/*.cuh
-            ${INCLUDE_DIR}/volrend/cuda/*.hpp)
+        ${INCLUDE_DIR}/volrend/cuda/*.cuh
+        ${INCLUDE_DIR}/volrend/cuda/*.hpp)
 else (_VOLREND_USE_CUDA)
     set(VOLREND_SOURCES_CUDA )
     set(VOLREND_CUDA_HEADERS )
@@ -131,26 +131,26 @@ set(VOLREND_HEADERS ${VOLREND_PUBLIC_HEADERS} ${VOLREND_PRIVATE_HEADERS}
 
 set( VOLREND_VENDOR_SOURCES
     ${CNPY_DIR}/cnpy.cpp
-)
+    )
 if (NOT EMSCRIPTEN)
     set( VOLREND_VENDOR_SOURCES
         ${VOLREND_VENDOR_SOURCES}
         ${GLEW_DIR}/src/glew.c
-    )
+        )
 endif()
 
 source_group( "Header Files" FILES ${VOLREND_HEADERS} )
 source_group( "Source Files" FILES ${VOLREND_SOURCES} )
 
 set(
-  DEPENDENCIES
-)
+    DEPENDENCIES
+    )
 if (NOT EMSCRIPTEN AND NOT WIN32)
     set(
-      DEPENDENCIES
-      ${DEPENDENCIES}
-      stdc++fs
-    )
+        DEPENDENCIES
+        ${DEPENDENCIES}
+        stdc++fs
+        )
 endif()
 
 if (NOT EMSCRIPTEN)
@@ -187,7 +187,7 @@ include_directories(
     ${GLEW_DIR}/include
     ${GLM_DIR}
     ${VENDOR_DIR}/misc
-)
+    )
 if (_VOLREND_USE_CUDA)
     include_directories ( ${CMAKE_CUDA_TOOLKIT_INCLUDE_DIRECTORIES})
 endif()
@@ -240,7 +240,7 @@ endif()
 
 if (_VOLREND_USE_CUDA)
     set_target_properties( ${PROJ_LIB_NAME}
-                               PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
+        PROPERTIES CUDA_SEPARABLE_COMPILATION ON)
 else(_VOLREND_USE_CUDA)
     # Inline shader
     set( SHADER_FILE "${PROJECT_SOURCE_DIR}/shaders/rt.frag" )
@@ -248,10 +248,10 @@ else(_VOLREND_USE_CUDA)
     add_custom_command(
         OUTPUT ${SHADER_INLINED_FILE}
         COMMAND ${CMAKE_COMMAND}
-                -DSHADER_FILE=${SHADER_FILE}
-                -DSHADER_NAME=RT_FRAG
-                -DOUTPUT=${SHADER_INLINED_FILE}
-                -P ${CMAKE_MODULE_PATH}/shader_inl.cmake
+        -DSHADER_FILE=${SHADER_FILE}
+        -DSHADER_NAME=RT_FRAG
+        -DOUTPUT=${SHADER_INLINED_FILE}
+        -P ${CMAKE_MODULE_PATH}/shader_inl.cmake
         DEPENDS ${SHADER_FILE}
         COMMENT "Inlining fragment shader"
         VERBATIM )
@@ -264,16 +264,16 @@ target_include_directories(
     $<BUILD_INTERFACE:${INCLUDE_DIR}>
     $<BUILD_INTERFACE:${CMAKE_CURRENT_BINARY_DIR}/include>
     $<INSTALL_INTERFACE:${CMAKE_INSTALL_INCLUDEDIR}>
-)
+    )
 target_include_directories(
     ${PROJ_LIB_NAME} PUBLIC
     $<BUILD_INTERFACE:${IMGUI_DIR}>
-)
+    )
 target_link_libraries( ${PROJ_LIB_NAME} PUBLIC
     ${DEPENDENCIES}
     ${CMAKE_THREAD_LIBS_INIT}
     ${CMAKE_DL_LIBS}
-)
+    )
 
 if (EMSCRIPTEN)
     include_directories ( )
@@ -285,7 +285,7 @@ if (EMSCRIPTEN)
     # Not sure why this is needed in emscripten
     include_directories(
         ${PROJECT_BINARY_DIR}/3rdparty/zlib
-    )
+        )
 
     set(JS_SRC_DIR "${PROJECT_SOURCE_DIR}/web/js" )
     # Write a list of js files in order they should be loaded here
@@ -297,7 +297,7 @@ if (EMSCRIPTEN)
         guiComponents.js
         init.js
         emModule.js
-    )
+        )
     list(TRANSFORM JS_SOURCES PREPEND ${JS_SRC_DIR}/)
 
     # Concat JS files automatically
@@ -309,8 +309,8 @@ if (EMSCRIPTEN)
     add_custom_command(
         OUTPUT "${PROJECT_BINARY_DIR}/build/js/main.js"
         COMMAND ${CMAKE_COMMAND} -DFILELIST=${JSFILES},$<TARGET_FILE:volrend_web>
-                -DOUTPUT=${PROJECT_BINARY_DIR}/build/js/main.js
-                -P ${CMAKE_MODULE_PATH}/concat.cmake
+        -DOUTPUT=${PROJECT_BINARY_DIR}/build/js/main.js
+        -P ${CMAKE_MODULE_PATH}/concat.cmake
         DEPENDS ${JS_SOURCES} volrend_web
         COMMENT "Concatenating JS sources to build/js/main.js"
         VERBATIM )
@@ -319,27 +319,27 @@ if (EMSCRIPTEN)
     add_custom_command(
         OUTPUT "${PROJECT_BINARY_DIR}/build/css/main.css"
         COMMAND ${CMAKE_COMMAND} -E copy_directory
-                ${PROJECT_SOURCE_DIR}/web/css
-                ${PROJECT_BINARY_DIR}/build/css
+        ${PROJECT_SOURCE_DIR}/web/css
+        ${PROJECT_BINARY_DIR}/build/css
         DEPENDS ${PROJECT_SOURCE_DIR}/web/css/main.css
-    )
+        )
     add_custom_target(css_config ALL DEPENDS "${PROJECT_BINARY_DIR}/build/css/main.css")
 
     add_custom_command(
         TARGET volrend_web POST_BUILD
         COMMAND ${CMAKE_COMMAND} -E copy
-                ${PROJECT_BINARY_DIR}/volrend_web.wasm
-                ${PROJECT_BINARY_DIR}/build/js/volrend_web.wasm
-    )
+        ${PROJECT_BINARY_DIR}/volrend_web.wasm
+        ${PROJECT_BINARY_DIR}/build/js/volrend_web.wasm
+        )
 
     find_package(Python REQUIRED COMPONENTS Interpreter)
     add_custom_command(
         OUTPUT "${PROJECT_BINARY_DIR}/build/index.html"
         COMMAND ${CMAKE_COMMAND} -E copy
-                ${PROJECT_SOURCE_DIR}/web/index.html
-                ${PROJECT_BINARY_DIR}/build/
+        ${PROJECT_SOURCE_DIR}/web/index.html
+        ${PROJECT_BINARY_DIR}/build/
         DEPENDS ${PROJECT_SOURCE_DIR}/web/index.html
-    )
+        )
     add_custom_target(html_config ALL DEPENDS "${PROJECT_BINARY_DIR}/build/index.html")
 
     add_custom_target(serve
@@ -350,18 +350,18 @@ else (EMSCRIPTEN)
         if ( NOT WILL_USE_SYSTEM_GLFW )
             # Ugly hack
             export(TARGETS glfw
-                   NAMESPACE
-                   FILE "${CMAKE_CURRENT_BINARY_DIR}/3rdparty/glfwConfig.cmake")
+                NAMESPACE
+                FILE "${CMAKE_CURRENT_BINARY_DIR}/3rdparty/glfwConfig.cmake")
         endif()
         if (NOT ZLIB_FOUND)
             export(TARGETS zlibstatic
-                   FILE "${CMAKE_CURRENT_BINARY_DIR}/zlibConfig.cmake"
-            )
+                FILE "${CMAKE_CURRENT_BINARY_DIR}/zlibConfig.cmake"
+                )
         endif()
 
         set_target_properties( ${PROJ_LIB_NAME} PROPERTIES
             PUBLIC_HEADER "${VOLREND_PUBLIC_HEADERS}"
-        )
+            )
 
         set( INSTALL_TARGETS ${PROJ_LIB_NAME})
         if (NOT ZLIB_FOUND)
@@ -371,50 +371,50 @@ else (EMSCRIPTEN)
 
         include(GNUInstallDirs)
         install(TARGETS ${INSTALL_TARGETS}
-                EXPORT ${PROJ_LIB_NAME}Targets
-                ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
-                LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
-                PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/volrend
-        )
+            EXPORT ${PROJ_LIB_NAME}Targets
+            ARCHIVE DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            LIBRARY DESTINATION ${CMAKE_INSTALL_LIBDIR}
+            PUBLIC_HEADER DESTINATION ${CMAKE_INSTALL_INCLUDEDIR}/volrend
+            )
         export(TARGETS ${PROJ_LIB_NAME}
-               NAMESPACE volrend::
-               FILE "${CMAKE_CURRENT_BINARY_DIR}/${PROJ_LIB_NAME}Config.cmake")
+            NAMESPACE volrend::
+            FILE "${CMAKE_CURRENT_BINARY_DIR}/${PROJ_LIB_NAME}Config.cmake")
         install(EXPORT
-                    ${PROJ_LIB_NAME}Targets
-                    DESTINATION "${CMAKE_INSTALL_DATADIR}/volrend/cmake"
-                    NAMESPACE volrend::
-                )
+            ${PROJ_LIB_NAME}Targets
+            DESTINATION "${CMAKE_INSTALL_DATADIR}/volrend/cmake"
+            NAMESPACE volrend::
+            )
         install(FILES "${SRC_DIR}/cmake/volrendConfig.cmake"
             DESTINATION "${CMAKE_INSTALL_DATADIR}/volrend/cmake")
         install(FILES ${IMGUI_HEADERS}
             DESTINATION "${CMAKE_INSTALL_INCLUDEDIR}/volrend/imgui")
     endif(VOLREND_BUILD_INSTALL)
 
-    add_executable( volrend_exe main.cpp )
-    target_link_libraries( volrend_exe ${PROJ_LIB_NAME} )
-    set_target_properties( volrend_exe PROPERTIES OUTPUT_NAME "volrend" )
+    macro(VOLREND_ADD_EXECUTABLE target_name output_name main_file)
+        add_executable( ${target_name} ${main_file} )
+        target_link_libraries( ${target_name} ${PROJ_LIB_NAME} )
+        set_target_properties( ${target_name} PROPERTIES OUTPUT_NAME ${output_name} )
+        if(WIN32 AND _VOLREND_USE_CUDA)
+            set_target_properties( ${target_name}
+                PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+            if (MSVC)
+                set_property(TARGET ${target_name} APPEND PROPERTY LINK_FLAGS "/DEBUG /LTCG" )
+            endif (MSVC)
+        endif(WIN32 AND _VOLREND_USE_CUDA)
+    endmacro()
+
+    VOLREND_ADD_EXECUTABLE(volrend_exe volrend main.cpp)
 
     if (_VOLREND_USE_CUDA)
-        add_executable( volrend_headless_exe main_headless.cpp )
-        target_link_libraries( volrend_headless_exe ${PROJ_LIB_NAME} )
-        set_target_properties( volrend_headless_exe PROPERTIES OUTPUT_NAME "volrend_headless" )
+        VOLREND_ADD_EXECUTABLE(volrend_headless_exe volrend_headless main_headless.cpp)
+        VOLREND_ADD_EXECUTABLE(volrend_anim_exe volrend_anim main_anim.cpp)
         if(WIN32)
-		set_target_properties( ${PROJ_LIB_NAME}
-		    PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-            set_target_properties( volrend_exe
-		    PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-            set_target_properties( volrend_headless_exe
-		    PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
-	endif()
+            set_target_properties( ${PROJ_LIB_NAME}
+                PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
+        endif()
     endif(_VOLREND_USE_CUDA)
 
     if(WIN32)
         add_definitions(-DNOMINMAX -D_USE_MATH_DEFINES)
-        if (MSVC AND VOLREND_BUILD_EXAMPLE)
-            set_property(TARGET volrend_exe APPEND PROPERTY LINK_FLAGS "/DEBUG /LTCG" )
-            if (_VOLREND_USE_CUDA)
-                set_property(TARGET volrend_headless_exe APPEND PROPERTY LINK_FLAGS "/DEBUG /LTCG" )
-            endif()
-        endif ( MSVC AND VOLREND_BUILD_EXAMPLE )
     endif()
 endif (EMSCRIPTEN)

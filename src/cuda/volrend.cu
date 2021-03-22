@@ -92,7 +92,8 @@ __global__ static void render_kernel(
                 y, cudaBoundaryModeZero);
     }
 
-    bool enable_draw = true;
+    bool enable_draw = tree.N > 0;
+    out[0] = out[1] = out[2] = out[3] = 0.f;
     if (opt.enable_probe && y < opt.probe_disp_size + 5 &&
                             x >= cam.width - opt.probe_disp_size - 5) {
         // Draw probe circle
@@ -126,7 +127,6 @@ __global__ static void render_kernel(
             }
         } else {
             out[0] = out[1] = out[2] = 0.f;
-            out[3] = 0.f;
         }
     }
     if (enable_draw) {

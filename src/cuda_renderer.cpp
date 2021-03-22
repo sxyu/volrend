@@ -82,6 +82,7 @@ struct VolumeRenderer::Impl {
     }
 
     void render() {
+        start();
         GLfloat clear_color[] = {options.background_brightness,
                                  options.background_brightness,
                                  options.background_brightness, 1.f};
@@ -90,7 +91,6 @@ struct VolumeRenderer::Impl {
         glClearNamedFramebufferfv(fb[buf_index], GL_COLOR, 0, clear_color);
         glClearNamedFramebufferfv(fb[buf_index], GL_COLOR, 1, &depth_inf);
         glClearNamedFramebufferfv(fb[buf_index], GL_DEPTH, 0, &depth_inf);
-        if (tree == nullptr || !started_) return;
 
         probe_.visible = options.enable_probe;
         for (int i = 0; i < 3; ++i) probe_.translation[i] = options.probe[i];
@@ -112,10 +112,12 @@ struct VolumeRenderer::Impl {
         }
         glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
-        cuda(GraphicsMapResources(2, &cgr[buf_index * 2], stream));
-        launch_renderer(*tree, camera, options, ca[buf_index * 2],
-                        ca[buf_index * 2 + 1], stream);
-        cuda(GraphicsUnmapResources(2, &cgr[buf_index * 2], stream));
+        if (tree != nullptr) {
+            cuda(GraphicsMapResources(2, &cgr[buf_index * 2], stream));
+            launch_renderer(*tree, camera, options, ca[buf_index * 2],
+                            ca[buf_index * 2 + 1], stream);
+            cuda(GraphicsUnmapResources(2, &cgr[buf_index * 2], stream));
+        }
 
         glNamedFramebufferReadBuffer(fb[buf_index], GL_COLOR_ATTACHMENT0);
         glBlitNamedFramebuffer(fb[buf_index], 0, 0, 0, camera.width,
@@ -126,6 +128,7 @@ struct VolumeRenderer::Impl {
 
     void resize(const int width, const int height) {
         if (camera.width == width && camera.height == height) return;
+        start();
         // save new size
         camera.width = width;
         camera.height = height;
