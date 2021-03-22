@@ -233,7 +233,7 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
             }
         }
         ImGui::EndGroup();
-        if (ImGui::Button("Add Sphere")) {
+        if (ImGui::Button("Sphere")) {
             static int sphereid = 0;
             {
                 Mesh sph = Mesh::Sphere();
@@ -256,6 +256,24 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
                 if (cubeid) cube.name = cube.name + std::to_string(cubeid);
                 ++cubeid;
                 rend.meshes.push_back(std::move(cube));
+            }
+        }
+        ImGui::SameLine();
+        if (ImGui::Button("Latti")) {
+            static int lattid = 0;
+            {
+                Mesh latt = Mesh::Lattice();
+                if (tree.N > 0) {
+                    latt.scale = 1.f / tree.scale[0];
+                    for (int i = 0; i < 3; ++i) {
+                        latt.translation[i] =
+                            -1.f / tree.scale[0] * tree.offset[0];
+                    }
+                }
+                latt.update();
+                if (lattid) latt.name = latt.name + std::to_string(lattid);
+                ++lattid;
+                rend.meshes.push_back(std::move(latt));
             }
         }
         ImGui::SameLine();
@@ -602,6 +620,8 @@ int main(int argc, char* argv[]) {
 #ifdef VOLREND_CUDA
             glEnable(GL_DEPTH_TEST);
 #endif
+            glEnable(GL_PROGRAM_POINT_SIZE);
+            glPointSize(4.f);
             glfw_update_title(window);
 
             rend.render();

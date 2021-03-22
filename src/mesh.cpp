@@ -23,6 +23,8 @@ const int VERT_SZ = 9;
 
 GLenum get_gl_ele_type(int face_size) {
     switch (face_size) {
+        case 1:
+            return GL_POINTS;
         case 2:
             return GL_LINES;
         case 3:
@@ -222,7 +224,8 @@ void Mesh::draw(const glm::mat4x4& V, const glm::mat4x4& K) const {
     glUniform1i(u_unlit, unlit);
     glBindVertexArray(vao_);
     if (faces.empty()) {
-        glDrawArrays(get_gl_ele_type(face_size), 0, vert.size() / face_size);
+        glDrawArrays(get_gl_ele_type(face_size), 0,
+                     vert.size() / (VERT_SZ * face_size));
     } else {
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
         glDrawElements(get_gl_ele_type(face_size), faces.size(),
@@ -322,6 +325,35 @@ Mesh Mesh::Sphere(int rings, int sectors, glm::vec3 color) {
         }
     }
     m.name = "Sphere";
+    return m;
+}
+
+Mesh Mesh::Lattice(int reso, glm::vec3 color) {
+    Mesh m(reso * reso * reso, 0, 1);
+    float* vptr = m.vert.data();
+    for (int i = 0; i < reso; i++) {
+        const float x = (i + 0.5f) / reso;
+        for (int j = 0; j < reso; j++) {
+            const float y = (j + 0.5f) / reso;
+            for (int k = 0; k < reso; k++) {
+                const float z = (k + 0.5f) / reso;
+                vptr[0] = x;
+                vptr[1] = y;
+                vptr[2] = z;
+                // Color
+                vptr[3] = color[0];
+                vptr[4] = color[1];
+                vptr[5] = color[2];
+                // Normal
+                vptr[6] = 1;
+                vptr[7] = 0;
+                vptr[8] = 0;
+                vptr += VERT_SZ;
+            }
+        }
+    }
+    m.name = "Lattice";
+    m.unlit = true;
     return m;
 }
 

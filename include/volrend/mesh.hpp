@@ -43,6 +43,9 @@ struct Mesh {
     // Unit UV sphere centered at 0
     static Mesh Sphere(int rings = 30, int sectors = 30,
                        glm::vec3 color = glm::vec3(1.0f, 0.5f, 0.2f));
+    // Point lattice
+    static Mesh Lattice(int reso = 8,
+                        glm::vec3 color = glm::vec3(0.5f, 0.5f, 0.5f));
 
    private:
     unsigned int vao_, vbo_, ebo_;

@@ -48,6 +48,11 @@ glm::vec3 local_unsph(float u, float v, const glm::vec3& ax,
     return x * ax + y * ay + z * az;
 }
 
+template <class scalar_t>
+scalar_t lerp(scalar_t a, scalar_t b, float q) {
+    return (1 - q) * a + q * b;
+}
+
 glm::vec3 sphc_interp(const glm::vec3& vec_start, const glm::vec3& vec_end,
                       float q, const glm::vec3& ax, const glm::vec3& ay,
                       const glm::vec3& az, int loops = 0) {
@@ -77,9 +82,9 @@ glm::vec3 sphc_interp(const glm::vec3& vec_start, const glm::vec3& vec_end,
     }
     u_end += loops * 2 * M_PI;
 
-    float u_curr = (1.f - q) * u_start + q * u_end;
-    float v_curr = (1.f - q) * v_start + q * v_end;
-    float d_curr = (1.f - q) * d_start + q * d_end;
+    float u_curr = lerp(u_start, u_end, q);
+    float v_curr = lerp(v_start, v_end, q);
+    float d_curr = lerp(d_start, d_end, q);
     return local_unsph(u_curr, v_curr, ax, ay, az) * d_curr;
 }
 
@@ -233,7 +238,7 @@ struct AnimState {
             t += 1.f / fps;
         }
         float q = std::min(t / t_max, 1.f);
-        curr.origin = (1.f - q) * start.origin + q * end.origin;
+        curr.origin = lerp(start.origin, end.origin, q);
 
         glm::vec3 az = rend.camera.v_world_up;
         glm::vec3 ax, ay;
@@ -254,36 +259,48 @@ struct AnimState {
             curr.v_back =
                 sphc_interp(start.v_back, end.v_back, q, ax, ay, az, loops);
         } else {
-            curr.center = (1.f - q) * start.center + q * end.center;
-            curr.v_back = (1.f - q) * start.v_back + q * end.v_back;
+            curr.center = lerp(start.center, end.center, q);
+            curr.v_back = lerp(start.v_back, end.v_back, q);
         }
-        curr.fx = (1.f - q) * start.fx + q * end.fx;
-        curr.fy = (1.f - q) * start.fy + q * end.fy;
+        curr.fx = lerp(start.fx, end.fx, q);
+        curr.fy = lerp(start.fy, end.fy, q);
         curr.opt = end.opt;
-        curr.opt.background_brightness =
-            (1.f - q) * start.opt.background_brightness +
-            q * end.opt.background_brightness;
-        curr.opt.step_size =
-            (1.f - q) * start.opt.step_size + q * end.opt.step_size;
+        curr.opt.background_brightness = lerp(start.opt.background_brightness,
+                                              end.opt.background_brightness, q);
+        curr.opt.step_size = lerp(start.opt.step_size, end.opt.step_size, q);
         curr.opt.stop_thresh =
-            (1.f - q) * start.opt.stop_thresh + q * end.opt.stop_thresh;
+            lerp(start.opt.stop_thresh, end.opt.stop_thresh, q);
         curr.opt.sigma_thresh =
-            (1.f - q) * start.opt.sigma_thresh + q * end.opt.sigma_thresh;
+            lerp(start.opt.sigma_thresh, end.opt.sigma_thresh, q);
         if (start.opt.enable_probe) {
             for (int i = 0; i < 3; ++i) {
                 curr.opt.probe[i] =
-                    (1.f - q) * start.opt.probe[i] + q * end.opt.probe[i];
+                    lerp(start.opt.probe[i], end.opt.probe[i], q);
+            }
+        }
+        if (end.opt.show_grid) {
+            int start_depth =
+                start.opt.show_grid ? start.opt.grid_max_depth : 0;
+            if (start_depth != end.opt.grid_max_depth) {
+                curr.opt.grid_max_depth =
+                    lerp(start_depth, end.opt.grid_max_depth, q);
             }
         }
         for (int i = 0; i < 6; ++i) {
-            curr.opt.render_bbox[i] = (1.f - q) * start.opt.render_bbox[i] +
-                                      q * end.opt.render_bbox[i];
+            curr.opt.render_bbox[i] =
+                lerp(start.opt.render_bbox[i], end.opt.render_bbox[i], q);
         }
 
-        // FIXME interp rot dirs (axis-angle) properly
-        for (int i = 0; i < 3; ++i) {
-            curr.opt.rot_dirs[i] =
-                (1.f - q) * start.opt.rot_dirs[i] + q * end.opt.rot_dirs[i];
+        glm::vec3 start_rot_dirs(start.opt.rot_dirs[0], start.opt.rot_dirs[1],
+                                 start.opt.rot_dirs[2]);
+        glm::vec3 end_rot_dirs(start.opt.rot_dirs[0], start.opt.rot_dirs[1],
+                               start.opt.rot_dirs[2]);
+        if (start_rot_dirs != end_rot_dirs) {
+            glm::vec3 curr_rot_dirs =
+                sphc_interp(start_rot_dirs, end_rot_dirs, q, ax, ay, az);
+            for (int i = 0; i < 3; ++i) {
+                curr.opt.rot_dirs[i] = curr_rot_dirs[i];
+            }
         }
 
         curr.mesh_state = end.mesh_state;
@@ -295,10 +312,9 @@ struct AnimState {
                 MeshState& state = curr.mesh_state[name];
                 state.rotation = sphc_interp(start_state.rotation,
                                              end_state.rotation, q, ax, ay, az);
-                state.translation = (1.f - q) * start_state.translation +
-                                    q * end_state.translation;
-                state.scale =
-                    (1.f - q) * start_state.scale + q * end_state.scale;
+                state.translation =
+                    lerp(start_state.translation, end_state.translation, q);
+                state.scale = lerp(start_state.scale, end_state.scale, q);
             }
         }
 
@@ -689,7 +705,7 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
                 }
             }
             ImGui::EndGroup();
-            if (ImGui::Button("Add Sphere")) {
+            if (ImGui::Button("Sphere")) {
                 static int sphereid = 0;
                 {
                     Mesh sph = Mesh::Sphere();
@@ -713,6 +729,24 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
                     if (cubeid) cube.name = cube.name + std::to_string(cubeid);
                     ++cubeid;
                     rend.meshes.push_back(std::move(cube));
+                }
+            }
+            ImGui::SameLine();
+            if (ImGui::Button("Latti")) {
+                static int lattid = 0;
+                {
+                    Mesh latt = Mesh::Lattice();
+                    if (tree.N > 0) {
+                        latt.scale = 1.f / tree.scale[0];
+                        for (int i = 0; i < 3; ++i) {
+                            latt.translation[i] =
+                                -1.f / tree.scale[0] * tree.offset[0];
+                        }
+                    }
+                    latt.update();
+                    if (lattid) latt.name = latt.name + std::to_string(lattid);
+                    ++lattid;
+                    rend.meshes.push_back(std::move(latt));
                 }
             }
             ImGui::SameLine();
@@ -1064,6 +1098,8 @@ int main(int argc, char* argv[]) {
 #ifdef VOLREND_CUDA
             glEnable(GL_DEPTH_TEST);
 #endif
+            glEnable(GL_PROGRAM_POINT_SIZE);
+            glPointSize(4.f);
 
             rend.render();
             if (anim.animating) {
