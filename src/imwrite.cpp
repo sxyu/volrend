@@ -6,6 +6,7 @@
 
 #ifdef VOLREND_PNG
 #include <png.h>
+#include <zlib.h>
 #endif
 
 namespace volrend {
@@ -26,6 +27,9 @@ bool write_png_file(const std::string &filename, uint8_t *ptr, int width,
         std::cerr << "PNG write failed\n";
         return false;
     }
+    png_set_compression_level(png, 0);
+    png_set_compression_strategy(png, Z_HUFFMAN_ONLY);
+    png_set_filter_heuristics(png, PNG_FILTER_NONE, 0, 0, 0);
 
     png_infop info = png_create_info_struct(png);
     if (!info) {

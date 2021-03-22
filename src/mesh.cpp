@@ -224,8 +224,7 @@ void Mesh::draw(const glm::mat4x4& V, const glm::mat4x4& K) const {
     glUniform1i(u_unlit, unlit);
     glBindVertexArray(vao_);
     if (faces.empty()) {
-        glDrawArrays(get_gl_ele_type(face_size), 0,
-                     vert.size() / (VERT_SZ * face_size));
+        glDrawArrays(get_gl_ele_type(face_size), 0, vert.size() / VERT_SZ);
     } else {
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
         glDrawElements(get_gl_ele_type(face_size), faces.size(),
