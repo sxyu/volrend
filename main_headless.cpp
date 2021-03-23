@@ -36,14 +36,15 @@ std::string remove_ext(const std::string &str) {
     return str;
 }
 
-int read_transform_matrices(const std::string &path, std::vector<glm::mat4x3>& out) {
+int read_transform_matrices(const std::string &path,
+                            std::vector<glm::mat4x3> &out) {
     std::ifstream ifs(path);
     int cnt = 0;
     if (!ifs) {
         std::cerr << "ERROR: '" << path << "' does not exist\n";
         std::exit(1);
     }
-    while(ifs) {
+    while (ifs) {
         glm::mat4x3 tmp;
         float garb;
         // Recall GL is column major
@@ -88,6 +89,8 @@ int main(int argc, char *argv[]) {
                 cxxopts::value<std::string>()->default_value(""))
         ("r,reverse_yz", "use OpenCV camera space convention instead of NeRF",
                 cxxopts::value<bool>())
+        ("scale", "scaling to apply to image",
+                cxxopts::value<float>()->default_value("1.0"))
         ;
     // clang-format on
 
@@ -115,7 +118,7 @@ int main(int argc, char *argv[]) {
         } else {
             for (int i = 0; i < cnt; ++i) {
                 std::string tmp = std::to_string(i);
-                while(tmp.size() < 6) tmp = "0" + tmp;
+                while (tmp.size() < 6) tmp = "0" + tmp;
                 basenames.push_back(fname + "_" + tmp);
             }
         }
@@ -143,10 +146,23 @@ int main(int argc, char *argv[]) {
     std::string out_dir = args["write_images"].as<std::string>();
 
     N3Tree tree(args["file"].as<std::string>());
+
     int width = args["width"].as<int>(), height = args["height"].as<int>();
     float fx = args["fx"].as<float>();
     if (fx < 0) fx = 1111.11f;
     float fy = args["fy"].as<float>();
+    if (fy < 0) fy = fx;
+
+    {
+        float scale = args["scale"].as<float>();
+        if (scale != 1.f) {
+            int owidth = width, oheight = height;
+            width *= scale;
+            height *= scale;
+            fx *= (float)width / owidth;
+            fy *= (float)height / oheight;
+        }
+    }
 
     {
         // Load intrin matrix
