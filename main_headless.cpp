@@ -48,6 +48,7 @@ int read_transform_matrices(const std::string &path, std::vector<glm::mat4x3>& o
         float garb;
         // Recall GL is column major
         ifs >> tmp[0][0] >> tmp[1][0] >> tmp[2][0] >> tmp[3][0];
+        if (!ifs) break;
         ifs >> tmp[0][1] >> tmp[1][1] >> tmp[2][1] >> tmp[3][1];
         ifs >> tmp[0][2] >> tmp[1][2] >> tmp[2][2] >> tmp[3][2];
         if (ifs) {
