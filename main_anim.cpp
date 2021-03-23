@@ -786,6 +786,9 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
                     if (ifs) {
                         ifs >> tmp.translation.x >> tmp.translation.y >>
                             tmp.translation.z;
+                        if (ifs) {
+                            ifs >> tmp.scale;
+                        }
                     }
                     tmp.update();
                     rend.meshes.push_back(std::move(tmp));

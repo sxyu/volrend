@@ -311,6 +311,9 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
                 if (ifs) {
                     ifs >> tmp.translation.x >> tmp.translation.y >>
                         tmp.translation.z;
+                    if (ifs) {
+                        ifs >> tmp.scale;
+                    }
                 }
                 tmp.update();
                 rend.meshes.push_back(std::move(tmp));
@@ -362,6 +365,19 @@ void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action,
                                             ? -cam.v_back
                                             : -cam.v_up;
                 cam.move(vec * speed);
+            } break;
+
+            case GLFW_KEY_C: {
+                // Print C2W matrix
+                std::cout << "C2W:\n";
+                for (int i = 0; i < 3; ++i) {
+                    for (int j = 0; j < 4; ++j) {
+                        if (j) std::cout << " ";
+                        std::cout << cam.transform[j][i];
+                    }
+                    std::cout << "\n";
+                }
+                std::flush(std::cout);
             } break;
 
 #ifdef VOLREND_CUDA
