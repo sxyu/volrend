@@ -6,6 +6,8 @@
 #include <iomanip>
 #include <iostream>
 
+#include "volrend/internal/auto_filesystem.hpp"
+
 #include "volrend/common.hpp"
 #include "volrend/n3tree.hpp"
 
@@ -180,7 +182,10 @@ int main(int argc, char *argv[]) {
         cudaCreateChannelDesc(8, 8, 8, 8, cudaChannelFormatKindUnsigned);
 
     std::vector<uint8_t> buf;
-    if (out_dir.size()) buf.resize(4 * width * height);
+    if (out_dir.size()) {
+        std::filesystem::create_directories(out_dir);
+        buf.resize(4 * width * height);
+    }
 
     cuda(MallocArray(&array, &channelDesc, width, height));
     cuda(StreamCreateWithFlags(&stream, cudaStreamDefault));

@@ -203,9 +203,7 @@ struct AnimState {
         }
         anim_once(keyframes[0], keyframes[1], previewing, -1.f, 0);
         if (!previewing) {
-            if (!std::filesystem::exists(output_folder)) {
-                std::filesystem::create_directory(output_folder);
-            }
+            std::filesystem::create_directories(output_folder);
         }
         f_idx = 0;
     }
