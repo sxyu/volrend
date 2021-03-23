@@ -753,9 +753,9 @@ inline void ImGui::FileBrowser::SetPwdUncatched(
     for (auto &p : std::filesystem::directory_iterator(pwd)) {
         FileRecord rcd;
 
-        if (p.is_regular_file())
+        if (std::filesystem::is_directory(p))
             rcd.isDir = false;
-        else if (p.is_directory())
+        else if (std::filesystem::is_directory(p))
             rcd.isDir = true;
         else
             continue;

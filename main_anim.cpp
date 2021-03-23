@@ -8,6 +8,7 @@
 #include <string>
 #include <sstream>
 #include <fstream>
+#include <iomanip>
 
 #include "volrend/renderer.hpp"
 #include "volrend/n3tree.hpp"

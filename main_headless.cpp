@@ -36,18 +36,27 @@ std::string remove_ext(const std::string &str) {
     return str;
 }
 
-glm::mat4x3 read_transform_matrix(const std::string &path) {
-    glm::mat4x3 tmp;
+int read_transform_matrices(const std::string &path, std::vector<glm::mat4x3>& out) {
     std::ifstream ifs(path);
+    int cnt = 0;
     if (!ifs) {
         std::cerr << "ERROR: '" << path << "' does not exist\n";
         std::exit(1);
     }
-    // Recall GL is column major
-    ifs >> tmp[0][0] >> tmp[1][0] >> tmp[2][0] >> tmp[3][0];
-    ifs >> tmp[0][1] >> tmp[1][1] >> tmp[2][1] >> tmp[3][1];
-    ifs >> tmp[0][2] >> tmp[1][2] >> tmp[2][2] >> tmp[3][2];
-    return tmp;
+    while(ifs) {
+        glm::mat4x3 tmp;
+        float garb;
+        // Recall GL is column major
+        ifs >> tmp[0][0] >> tmp[1][0] >> tmp[2][0] >> tmp[3][0];
+        ifs >> tmp[0][1] >> tmp[1][1] >> tmp[2][1] >> tmp[3][1];
+        ifs >> tmp[0][2] >> tmp[1][2] >> tmp[2][2] >> tmp[3][2];
+        if (ifs) {
+            ifs >> garb >> garb >> garb >> garb;
+        }
+        ++cnt;
+        out.push_back(std::move(tmp));
+    }
+    return cnt;
 }
 
 void read_intrins(const std::string &path, float &fx, float &fy) {
@@ -98,8 +107,17 @@ int main(int argc, char *argv[]) {
     std::vector<glm::mat4x3> trans;
     std::vector<std::string> basenames;
     for (auto path : args.unmatched()) {
-        trans.push_back(read_transform_matrix(path));
-        basenames.push_back(remove_ext(path_basename(path)));
+        int cnt = read_transform_matrices(path, trans);
+        std::string fname = remove_ext(path_basename(path));
+        if (cnt == 1) {
+            basenames.push_back(fname);
+        } else {
+            for (int i = 0; i < cnt; ++i) {
+                std::string tmp = std::to_string(i);
+                while(tmp.size() < 6) tmp = "0" + tmp;
+                basenames.push_back(fname + "_" + tmp);
+            }
+        }
     }
 
     if (args["reverse_yz"].as<bool>()) {
