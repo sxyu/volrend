@@ -5,8 +5,8 @@
     <meta charset="utf-8">
     <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
-    <title>PlenOctree Viewer</title>
-    <meta name="description" content="NeRF online demo; requires a dedicated GPU">
+    <title>ORF Viewer</title>
+    <meta name="description" content="FastNeRF online demo">
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css" integrity="sha384-B0vP5xmATw1+K9KRQjQERJvTumQW0nPEzvF6L/Z6nronJ3oUOFUFpCjEUQouq2+l" crossorigin="anonymous">
     <link rel="stylesheet" href="css/main.css">
 </head>
@@ -22,17 +22,55 @@
     </div>
     <nav class="navbar navbar-expand-md navbar-light bg-light" id="header">
         <span class="navbar-brand">
-            <a href="..#demo-section" class="back-link">
-                <svg viewBox="0 0 24 24">
-                    <path fill="currentColor" d="M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z" />
-                </svg>
-            </a>
-            PlenOctree Viewer
+            ORF Viewer
         </span>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar-toggle" aria-controls="navbar-toggle" aria-expanded="false" aria-label="Toggle navigation">
+        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar-collapse" aria-controls="navbar-collapse" aria-expanded="false" aria-label="Toggle navigation">
             <span class="navbar-toggler-icon"></span>
         </button>
-        <!-- <div class="collapse navbar-collapse" id="navbar-toggle"> -->
+        <div class="collapse navbar-collapse" id="navbar-collapse">
+            <ul class="navbar-nav mr-auto">
+                <li class="nav-item">
+                    <a href="#" class="nav-link load-remote-scene" data="https://media.githubusercontent.com/media/Mseythillen/Mseythillen.github.io/master/data/chair.npz">
+                        Chair
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link load-remote-scene" data="https://media.githubusercontent.com/media/Mseythillen/Mseythillen.github.io/master/data/drums.npz">
+                        Drums
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link load-remote-scene" data="https://media.githubusercontent.com/media/Mseythillen/Mseythillen.github.io/master/data/ficus.npz">
+                        Ficus
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link load-remote-scene" data="https://media.githubusercontent.com/media/Mseythillen/Mseythillen.github.io/master/data/hotdog.npz">
+                        Hotdog
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link load-remote-scene" data="https://media.githubusercontent.com/media/Mseythillen/Mseythillen.github.io/master/data/lego.npz">
+                        Lego
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link load-remote-scene" data="https://media.githubusercontent.com/media/Mseythillen/Mseythillen.github.io/master/data/materials.npz">
+                        Materials
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link load-remote-scene" data="https://media.githubusercontent.com/media/Mseythillen/Mseythillen.github.io/master/data/mic.npz">
+                        Mic
+                    </a>
+                </li>
+                <li class="nav-item">
+                    <a href="#" class="nav-link load-remote-scene" data="https://media.githubusercontent.com/media/Mseythillen/Mseythillen.github.io/master/data/ship.npz">
+                        Ship
+                    </a>
+                </li>
+            </ul>
+        </div>
         <ul class="navbar-nav mr-auto">
             <li class="nav-item">
                 <a href="#" class="nav-link" id="options-btn" title="Options and Visualization">

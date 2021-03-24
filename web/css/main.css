@@ -51,7 +51,7 @@
     display: none;
     position: fixed;
     top: 5em;
-    left: 1em;
+    right: 1em;
     background: #f8f9fa;
     min-width: 350px;
     width: 28%;
