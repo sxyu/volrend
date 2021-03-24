@@ -93,6 +93,8 @@ int main(int argc, char *argv[]) {
                 cxxopts::value<bool>())
         ("scale", "scaling to apply to image",
                 cxxopts::value<float>()->default_value("1.0"))
+        ("max_imgs", "max images to render, default no limit",
+                cxxopts::value<int>()->default_value("0"))
         ;
     // clang-format on
 
@@ -156,6 +158,14 @@ int main(int argc, char *argv[]) {
     if (fy < 0) fy = fx;
 
     {
+        // Load intrin matrix
+        std::string intrin_path = args["intrin"].as<std::string>();
+        if (intrin_path.size()) {
+            read_intrins(intrin_path, fx, fy);
+        }
+    }
+
+    {
         float scale = args["scale"].as<float>();
         if (scale != 1.f) {
             int owidth = width, oheight = height;
@@ -167,10 +177,10 @@ int main(int argc, char *argv[]) {
     }
 
     {
-        // Load intrin matrix
-        std::string intrin_path = args["intrin"].as<std::string>();
-        if (intrin_path.size()) {
-            read_intrins(intrin_path, fx, fy);
+        int max_imgs = args["max_imgs"].as<int>();
+        if (max_imgs > 0 && trans.size() > (size_t) max_imgs) {
+            trans.resize(max_imgs);
+            basenames.resize(max_imgs);
         }
     }
 
