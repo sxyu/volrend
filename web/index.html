@@ -57,6 +57,23 @@
                 <div class="options-section">
                     <div class='input-group input-group-sm' id='slider-{name}'>
                         <div class='input-group-prepend'>
+                            render
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="qual-radio" id="qual-radio-0" value="0">
+                            <label class="form-check-label" for="qual-radio-0">high speed</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="qual-radio" id="qual-radio-1" value="1" checked>
+                            <label class="form-check-label" for="qual-radio-1">moderate</label>
+                        </div>
+                        <div class="form-check form-check-inline">
+                            <input class="form-check-input" type="radio" name="qual-radio" id="qual-radio-2" value="2">
+                            <label class="form-check-label" for="qual-radio-2">high quality</label>
+                        </div>
+                    </div>
+                    <div class='input-group input-group-sm' id='slider-{name}'>
+                        <div class='input-group-prepend'>
                             backlight
                         </div>
                         <input type="range" class="form-control custom-range slider" min="0" max="1" value="1" step="any" id="slider-bgbrightness">
@@ -68,18 +85,24 @@
                         Only render volume within normalized bounding box.</p>
                     <div class='input-group input-group-sm' id='slider-{name}'>
                         <div class='input-group-prepend'>
-                            min xyz
+                            min
                         </div>
+                        <div class="input-group-text">x</div>
                         <input type="range" class="form-control custom-range slider slider-min" min="0" max="1" value="0" step="any" id="slider-bbox-minx">
+                        <div class="input-group-text">y</div>
                         <input type="range" class="form-control custom-range slider slider-min" min="0" max="1" value="0" step="any" id="slider-bbox-miny">
+                        <div class="input-group-text">z</div>
                         <input type="range" class="form-control custom-range slider slider-min" min="0" max="1" value="0" step="any" id="slider-bbox-minz">
                     </div>
                     <div class='input-group input-group-sm' id='slider-{name}'>
                         <div class='input-group-prepend'>
-                            max xyz
+                            max
                         </div>
+                        <div class="input-group-text">x</div>
                         <input type="range" class="form-control custom-range slider slider-max" min="0" max="1" value="1" step="any" id="slider-bbox-maxx">
+                        <div class="input-group-text">y</div>
                         <input type="range" class="form-control custom-range slider slider-max" min="0" max="1" value="1" step="any" id="slider-bbox-maxy">
+                        <div class="input-group-text">z</div>
                         <input type="range" class="form-control custom-range slider slider-max" min="0" max="1" value="1" step="any" id="slider-bbox-maxz">
                     </div>
                 </div>

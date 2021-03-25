@@ -53,9 +53,9 @@
     top: 5em;
     left: 1em;
     background: #f8f9fa;
-    min-width: 350px;
     width: 28%;
-    max-width: 40%;
+    min-width: 500px;
+    max-width: 1000px;
 }
 
 #options-close {
@@ -124,6 +124,7 @@
     background: #fafafa;
     color: #444;
     font-size: 0.8em;
+    border: none;
 }
 
 #options .input-group-prepend {

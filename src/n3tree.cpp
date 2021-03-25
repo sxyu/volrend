@@ -226,6 +226,10 @@ void N3Tree::load_npz(cnpy::npz_t& npz) {
             throw std::runtime_error(
                 "codebook and map basis numbers does not match");
         }
+        int n_basis_retain =
+            npz.count("data_retained") ? npz["data_retained"].shape[0] : 0;
+        n_basis += n_basis_retain;
+
         data_.data_holder.clear();
         data_.reinit({(size_t)capacity, (size_t)N, (size_t)N, (size_t)N,
                       (size_t)data_dim},
@@ -237,11 +241,12 @@ void N3Tree::load_npz(cnpy::npz_t& npz) {
         const half* sigma_ptr = sigma_node.data<half>();
         const uint16_t* quant_map_ptr = quant_map_node.data<uint16_t>();
         const half* quant_colors_ptr = quant_colors_node.data<half>();
+
         const size_t n_child = (size_t)capacity * N * N * N;
         for (size_t i = 0; i < n_child; ++i) {
             int off = i * data_dim;
-            for (int j = 0; j < n_basis; ++j) {
-                int boff = off + j;
+            for (int j = 0; j < n_basis - n_basis_retain; ++j) {
+                int boff = off + j + n_basis_retain;
                 int id = quant_map_ptr[j * n_child + i];
                 const half* colors_ptr =
                     quant_colors_ptr + j * 65536 * 3 + id * 3;
@@ -252,6 +257,22 @@ void N3Tree::load_npz(cnpy::npz_t& npz) {
             }
 
             data_ptr[off + data_dim - 1] = sigma_ptr[i];
+        }
+        if (n_basis_retain) {
+            auto& retain_node = npz["data_retained"];
+            const half* retain_ptr = retain_node.data<half>();
+            for (size_t i = 0; i < n_child; ++i) {
+                int off = i * data_dim;
+                for (int j = 0; j < n_basis_retain; ++j) {
+                    int boff = off + j;
+                    const half* colors_ptr =
+                        retain_ptr + j * n_child * 3 + i * 3;
+                    for (int k = 0; k < 3; ++k) {
+                        data_ptr[boff] = colors_ptr[k];
+                        boff += n_basis;
+                    }
+                }
+            }
         }
     } else {
         auto& data_node = npz["data"];

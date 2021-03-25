@@ -77,6 +77,26 @@ let guiInit = function() {
         opt.rot_dirs[2] = 0.0;
         Volrend.set_options(opt);
     });
+
+    $('#qual-radio-1').attr('checked', 'checked');
+    $('input[name=qual-radio]').on('change', function() {
+        let checked_val = $('input[name=qual-radio]:checked').val()
+        let opt = Volrend.get_options();
+        if (checked_val == 0) {
+            opt.step_size = 2e-3;
+            opt.stop_thresh = 1e-1;
+            opt.sigma_thresh = 1e-1;
+        } else if (checked_val == 1) {
+            opt.step_size = 1e-3;
+            opt.stop_thresh = 2e-2;
+            opt.sigma_thresh = 2e-2;
+        } else {
+            opt.step_size = 1e-4;
+            opt.stop_thresh = 1e-2;
+            opt.sigma_thresh = 1e-2;
+        }
+        Volrend.set_options(opt);
+    });
 };
 
 let guiLoadTreeUpdate = function() {

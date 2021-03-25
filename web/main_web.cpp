@@ -204,8 +204,8 @@ bool init_gl() {
     glClear(GL_COLOR_BUFFER_BIT);
 
     glfwGetFramebufferSize(window, &width, &height);
-    renderer.options.step_size = 1e-3f;
-    renderer.options.stop_thresh = 2e-2f;
+    renderer.options.step_size = 1e-4f;
+    renderer.options.stop_thresh = 1e-2f;
     renderer.camera.movement_speed = 2.0f;
 
     renderer.set(tree);
