@@ -1,15 +1,18 @@
 # PlenOctree Volume Rendering
 
-This is a real-time volume renderer using OpenGL.
-Here, we use a octree (or more generally N^3 tree) to model volumetric emission and absorption at RGB frequencies
+This is a real-time PlenOctree volume renderer written in C++ using OpenGL,
+constituting part of the code release for:
 
-Each voxel cell contains `(k, sigma)`,
-where `k` are SH, SG, or ASG coefficients to model view-dependency, and
-alpha composition is applied via the rule `1 - exp(-length * sigma)`.
-The length within each grid cell is exactly computed.
+PlenOctrees for Real Time Rendering of Neural Radiance Fields<br>
+Alex Yu, Ruilong Li, Matthew Tancik, Hao Li, Ren Ng, Angjoo Kanazawa
 
-## Build
-Build using CMake as usual:
+https://alexyu.net/plenoctrees
+
+The project currently has several repositories spanning Jax, PyTorch, and C++ code.
+More will be released soon, we are taking a short break now.
+
+## Building
+Please install a recent version of CMake <cmake.org>
 
 ### Unix-like Systems
 ```sh
@@ -21,13 +24,15 @@ make -j12
 - If you do not have CUDA-capable GPU, pass `-DVOLREND_USE_CUDA=OFF` after `cmake ..` to use fragment shader backend, which is also used for the web demo.
   It is slower and does not support mesh-insertion and dependent features such as lumisphere probe.
 
-A real-time rendererer `volrend` and a headless version `volrend_headless` are built. The latter requires CUDA.
+The main real-time rendererer `volrend` and a headless version `volrend_headless` are built. The latter requires CUDA.
+There is also an animation maker `volrend_anim`, which I used to make some of the video animations; don't worry about it unless interested.
 
-On Ubuntu, to get the dependencies, try
+You should be able to build the project as long as you have GLFW.
+If it is not working, on Ubuntu, you can try
 `sudo apt-get install libgl1-mesa-dev libxi-dev libxinerama-dev libxcursor-dev libxrandr-dev libgl1-mesa-dev libglu1-mesa-dev`
 
 ### Windows 10
-Install Visual Studio 2019. Then
+Install Visual Studio (I am using 2019 here). Then
 ```sh
 mkdir build && cd build
 cmake .. -G"Visual Studio 16 2019"
@@ -36,7 +41,8 @@ cmake --build . --config Release
 - If you do not have CUDA-capable GPU, pass `-DVOLREND_USE_CUDA=OFF` after `cmake ..` to use fragment shader backend, which is also used for the web demo.
   It is slower and does not support mesh-insertion and dependent features such as lumisphere probe.
 
-A real-time rendererer `volrend` and a headless version `volrend_headless` are built. The latter requires CUDA.
+The main real-time rendererer `volrend` and a headless version `volrend_headless` are built. The latter requires CUDA.
+There is also an animation maker `volrend_anim`, which I used to make some of the video animations; don't worry about it unless interested.
 
 ### Dependencies
 - C++17
@@ -45,7 +51,7 @@ A real-time rendererer `volrend` and a headless version `volrend_headless` are b
 - libpng-dev (only for writing image in headless mode and saving screenshot)
 
 #### Optional
-- CUDA Toolkit, I use 11.0
+- CUDA Toolkit, I tried on both 11.0 and 10.2
     - Pass `-DVOLREND_USE_CUDA=OFF` to disable it.
 
 ## Run
@@ -72,7 +78,39 @@ In the same directory. This may be copied directly from the scene's `poses_bound
 Lumisphere probe:
 - IJKLUO: move the lumisphere probe; Hold shift to move faster
 
-## Building the Website
+
+### Offscreen Rendering
+
+The program `volrend_headless` allows you to perform offscreen rendering on a server.
+
+Usage: `./volrend_headless tree.npz -i intrinsics.txt pose1 pose2... [-o out_dir]`
+
+intrinsics.txt should be a 4x4 intrinsics matrix.
+pose1, pose2 ... should contain 3x4 or 4x4 c2w pose matrices,
+or multiple matrices in a 4Nx4 format.
+Add `-r` to use OpenCV camera space instead of NeRF.
+
+The following zip file contains intrinsics and pose files for each scene of NeRF-synthetic,
+<https://drive.google.com/file/d/1mI4xl9FXQDm_0TidISkKCp9eyTz40stE/view?usp=sharing>
+
+## Precomputed PlenOctree Files
+The full resolution tree files for NeRF-synthetic reported in the paper may be found at:
+<https://drive.google.com/drive/folders/1DIYj-iu3TOHProJVHPIQTjHnmYf80_vC?usp=sharing>
+
+The uncompressed NeRF-synthetic files used for the web demo are here:
+<https://drive.google.com/drive/folders/1vGXEjb3yhbClrZH1vLdl2iKtowfinWOg?usp=sharing>
+
+More to come soon.
+
+## PyTorch Extension: svox 
+
+You can find a (mostly) compatible PlenOctree library called `svox`, which we use to build the tree;
+`pip install svox`. Documentation:
+https://www.ocf.berkeley.edu/~sxyu/docs/svox/build/html/svox.html
+
+More information to be added soon.
+
+## Building the Web Demo
 
 The backend of the web demo is built from the shader version of the C++ source using emscripten.
 Install emscripten per instructions here:
@@ -92,3 +130,4 @@ To launch it locally for previewing, you can use the make target:
 make serve
 ```
 Which should launch a server at http://0.0.0.0:8000/
+
