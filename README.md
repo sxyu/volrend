@@ -8,7 +8,7 @@ Alex Yu, Ruilong Li, Matthew Tancik, Hao Li, Ren Ng, Angjoo Kanazawa
 
 https://alexyu.net/plenoctrees
 
-![Screenshot](https://raw.githubusercontent.com/sxyu/plenoctree_volrend/master/img/screenshot_slice.jpg)
+![Screenshot](https://raw.githubusercontent.com/sxyu/volrend/master/img/screenshot_slice.jpg)
 
 The project currently has several repositories spanning Jax, PyTorch, and C++ code.
 More will be released soon, we are taking a short break now.
@@ -61,11 +61,11 @@ There is also an animation maker `volrend_anim`, which I used to make some of th
 ./volrend <name>.npz
 ```
 See `--help` for flags.
-For LLFF scenes, we also expect
-```sh
-<name>_poses_bounds.npy
-```
-In the same directory. This may be copied directly from the scene's `poses_bounds.npy` in the LLFF dataset.
+
+There is an ImGui window which exposes rendering options as well as interactive features mentioned in the paper + video.
+For the mesh insertion, only very simple OBJ files (with triangles only) optionally with vertex coloring are supported. 
+Some example meshes are in `sample_obj`, and a program to generate SH meshes (just for fun) is in `sample_obj/sh/gen_sh.cpp`.
+Please use meshlab to triangulate other mesh.
 
 ### Keyboard + Mouse Controls
 - Left mouse btn + drag: rotate about camera position
