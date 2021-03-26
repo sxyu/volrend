@@ -1008,9 +1008,9 @@ void glfw_window_size_callback(GLFWwindow* window, int width, int height) {
 int main(int argc, char* argv[]) {
     using namespace volrend;
 
-    cxxopts::Options cxxoptions("volrend_anim",
-                                "OpenGL octree volume rendering animation "
-                                "engine (c) VOLREND contributors 2021");
+    cxxopts::Options cxxoptions(
+        "volrend_anim",
+        "PlenOctree animation engine (c) PlenOctree authors 2021");
 
     internal::add_common_opts(cxxoptions);
     // clang-format off
@@ -1053,7 +1053,7 @@ int main(int argc, char* argv[]) {
     float fy = args["fy"].as<float>();
 
     GLFWwindow* window = glfw_init(width, height);
-    glfwSetWindowTitle(window, "volrend animator");
+    glfwSetWindowTitle(window, "PlenOctree animator");
 
     {
         VolumeRenderer rend;

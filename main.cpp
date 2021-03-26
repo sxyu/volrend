@@ -46,7 +46,7 @@ void glfw_update_title(GLFWwindow* window) {
         const double fps = (double)frame_count / elapsed;
 
         char tmp[128];
-        sprintf(tmp, "volrend viewer - FPS: %.2f", fps);
+        sprintf(tmp, "plenoctree viewer - FPS: %.2f", fps);
         glfwSetWindowTitle(window, tmp);
         frame_count = 0;
     }
@@ -544,7 +544,7 @@ int main(int argc, char* argv[]) {
 
     cxxopts::Options cxxoptions(
         "volrend",
-        "OpenGL octree volume rendering (c) VOLREND contributors 2021");
+        "OpenGL PlenOctree volume rendering (c) PlenOctree authors 2021");
 
     internal::add_common_opts(cxxoptions);
     // clang-format off

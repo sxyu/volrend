@@ -8,7 +8,7 @@ Alex Yu, Ruilong Li, Matthew Tancik, Hao Li, Ren Ng, Angjoo Kanazawa
 
 https://alexyu.net/plenoctrees
 
-![Screenshot](https://raw.githubusercontent.com/sxyu/volrend/master/img/screenshot_slice.jpg)
+![Screenshot](https://raw.githubusercontent.com/sxyu/plenoctree_volrend/master/img/screenshot_slice.jpg)
 
 The project currently has several repositories spanning Jax, PyTorch, and C++ code.
 More will be released soon, we are taking a short break now.
@@ -26,7 +26,7 @@ make -j12
 - If you do not have CUDA-capable GPU, pass `-DVOLREND_USE_CUDA=OFF` after `cmake ..` to use fragment shader backend, which is also used for the web demo.
   It is slower and does not support mesh-insertion and dependent features such as lumisphere probe.
 
-The main real-time rendererer `volrend` and a headless version `volrend_headless` are built. The latter requires CUDA.
+The main real-time PlenOctree rendererer `volrend` and a headless version `volrend_headless` are built. The latter requires CUDA.
 There is also an animation maker `volrend_anim`, which I used to make some of the video animations; don't worry about it unless interested.
 
 You should be able to build the project as long as you have GLFW.
@@ -43,7 +43,7 @@ cmake --build . --config Release
 - If you do not have CUDA-capable GPU, pass `-DVOLREND_USE_CUDA=OFF` after `cmake ..` to use fragment shader backend, which is also used for the web demo.
   It is slower and does not support mesh-insertion and dependent features such as lumisphere probe.
 
-The main real-time rendererer `volrend` and a headless version `volrend_headless` are built. The latter requires CUDA.
+The main real-time PlenOctree rendererer `volrend` and a headless version `volrend_headless` are built. The latter requires CUDA.
 There is also an animation maker `volrend_anim`, which I used to make some of the video animations; don't worry about it unless interested.
 
 ### Dependencies

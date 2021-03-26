@@ -79,7 +79,7 @@ int main(int argc, char *argv[]) {
     using namespace volrend;
     cxxopts::Options cxxoptions(
         "volrend_headless",
-        "Headless octree volume rendering (c) VOLREND contributors 2021");
+        "Headless PlenOctree volume rendering (c) PlenOctree authors 2021");
     internal::add_common_opts(cxxoptions);
 
     // clang-format off
@@ -178,7 +178,7 @@ int main(int argc, char *argv[]) {
 
     {
         int max_imgs = args["max_imgs"].as<int>();
-        if (max_imgs > 0 && trans.size() > (size_t) max_imgs) {
+        if (max_imgs > 0 && trans.size() > (size_t)max_imgs) {
             trans.resize(max_imgs);
             basenames.resize(max_imgs);
         }
