@@ -31,7 +31,7 @@ def main():
             help='Use weighted median cut (seems quite useless)')
     parser.add_argument('--sigma_thresh', type=float, default=2.0,
             help='Kill voxels under this sigma')
-    parser.add_argument('--retain', type=int, default=0,
+    parser.add_argument('--retain', type=int, default=1,
             help='Do not compress first x SH coeffs, ' +
                  'needed for some scenes to keep good quality. For lego use --retain 4')
 

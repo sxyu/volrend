@@ -8,11 +8,13 @@ Alex Yu, Ruilong Li, Matthew Tancik, Hao Li, Ren Ng, Angjoo Kanazawa
 
 https://alexyu.net/plenoctrees
 
+![Screenshot](https://raw.githubusercontent.com/sxyu/volrend/master/img/screenshot_slice.jpg)
+
 The project currently has several repositories spanning Jax, PyTorch, and C++ code.
 More will be released soon, we are taking a short break now.
 
 ## Building
-Please install a recent version of CMake <cmake.org>
+Please install a recent version of CMake <https://cmake.org>
 
 ### Unix-like Systems
 ```sh
@@ -28,7 +30,7 @@ The main real-time rendererer `volrend` and a headless version `volrend_headless
 There is also an animation maker `volrend_anim`, which I used to make some of the video animations; don't worry about it unless interested.
 
 You should be able to build the project as long as you have GLFW.
-If it is not working, on Ubuntu, you can try
+On Ubuntu, you will need X-server; you can try
 `sudo apt-get install libgl1-mesa-dev libxi-dev libxinerama-dev libxcursor-dev libxrandr-dev libgl1-mesa-dev libglu1-mesa-dev`
 
 ### Windows 10
@@ -93,12 +95,21 @@ Add `-r` to use OpenCV camera space instead of NeRF.
 The following zip file contains intrinsics and pose files for each scene of NeRF-synthetic,
 <https://drive.google.com/file/d/1mI4xl9FXQDm_0TidISkKCp9eyTz40stE/view?usp=sharing>
 
+Example to render out images:
+`./volrend_headless drums/tree.npz -i data/nerf_synthetic/drums/intrinsics.txt data/nerf_synthetic/drums/pose/* -o tree_rend/drums`
+
+The PNG writing is a huge bottleneck. Example to compute the FPS:
+`./volrend_headless drums/tree.npz -i data/nerf_synthetic/drums/intrinsics.txt data/nerf_synthetic/drums/pose/*`
+
+See `./volrend_headless --help` for more options such as setting rendering options.
+
 ## Precomputed PlenOctree Files
 The full resolution tree files for NeRF-synthetic reported in the paper may be found at:
 <https://drive.google.com/drive/folders/1DIYj-iu3TOHProJVHPIQTjHnmYf80_vC?usp=sharing>
 
 The uncompressed NeRF-synthetic files used for the web demo are here:
 <https://drive.google.com/drive/folders/1vGXEjb3yhbClrZH1vLdl2iKtowfinWOg?usp=sharing>
+The compression script used to turn this in to the web version is in `scripts/compress_octree.py`.
 
 More to come soon.
 
