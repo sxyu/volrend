@@ -10,7 +10,11 @@ https://alexyu.net/plenoctrees
 
 ![Screenshot](https://raw.githubusercontent.com/sxyu/volrend/master/img/screenshot_slice.jpg)
 
-The project currently has several repositories spanning Jax, PyTorch, and C++ code.
+The project has several repositories:
+
+- NeRF-SH training and PlenOctree extraction <https://github.com/sxyu/plenoctree> (To be released soon)
+- PyTorch PlenOctree rendering CUDA extension <https://github.com/sxyu/svox>
+
 More will be released soon, we are taking a short break now.
 
 ## Building
@@ -116,8 +120,10 @@ More to come soon.
 ## PyTorch Extension: svox 
 
 You can find a (mostly) compatible PlenOctree library called `svox`, which we use to build the tree;
-`pip install svox`. Documentation:
-https://www.ocf.berkeley.edu/~sxyu/docs/svox/build/html/svox.html
+`pip install svox`.
+
+- Code: <https://github.com/sxyu/svox>
+- Documentation: <https://svox.readthedocs.io>
 
 More information to be added soon.
 
