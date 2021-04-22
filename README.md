@@ -12,7 +12,7 @@ https://alexyu.net/plenoctrees
 
 The project has several repositories:
 
-- NeRF-SH training and PlenOctree extraction <https://github.com/sxyu/plenoctree> (To be released soon)
+- NeRF-SH training and PlenOctree extraction <https://github.com/sxyu/plenoctree>
 - PyTorch PlenOctree rendering CUDA extension <https://github.com/sxyu/svox>
 
 More will be released soon, we are taking a short break now.
