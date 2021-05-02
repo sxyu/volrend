@@ -18,8 +18,8 @@ __host__ __device__ __inline__ static scalar_t _norm(
 template<typename scalar_t>
 __host__ __device__ __inline__ static void _normalize(
         scalar_t* __restrict__ dir) {
-    scalar_t norm = _norm(dir);
-    dir[0] /= norm; dir[1] /= norm; dir[2] /= norm;
+    scalar_t invnorm = 1.f / _norm(dir);
+    dir[0] *= invnorm; dir[1] *= invnorm; dir[2] *= invnorm;
 }
 
 template<typename scalar_t>

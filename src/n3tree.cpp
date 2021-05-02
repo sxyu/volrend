@@ -1,18 +1,18 @@
 #include "volrend/n3tree.hpp"
 #include "volrend/data_format.hpp"
+#include "volrend/internal/morton.hpp"
 
 #include <cassert>
 #include <cstring>
 #include <cstdlib>
+#include <cstdint>
 #include <fstream>
 #include <thread>
 #include <atomic>
 
 #include "glm/geometric.hpp"
 
-#ifndef VOLREND_CUDA
 #include "half.hpp"
-#endif
 
 namespace volrend {
 namespace {
@@ -165,6 +165,60 @@ void N3Tree::open_mem(const char* data, uint64_t size) {
     data_loaded_ = true;
 }
 
+// namespace {
+// int _calc_tree_maxdepth(const N3Tree& tree, size_t nodeid, size_t xi, size_t
+// yi,
+//                         size_t zi) {
+//     const int32_t* child =
+//         tree.child_.data<int32_t>() + nodeid * tree.N * tree.N * tree.N;
+//     int maxdep = 0, cnt = 0;
+//     // Use integer coords to avoid precision issues
+//     for (size_t i = xi * tree.N; i < (xi + 1) * tree.N; ++i) {
+//         for (size_t j = yi * tree.N; j < (yi + 1) * tree.N; ++j) {
+//             for (size_t k = zi * tree.N; k < (zi + 1) * tree.N; ++k) {
+//                 if (child[cnt] != 0) {
+//                     int subdep =
+//                         _calc_tree_maxdepth(tree, nodeid + child[cnt], i, j,
+//                         k);
+//                     maxdep = std::max(subdep + 1, maxdep);
+//                 }
+//                 ++cnt;
+//             }
+//         }
+//     }
+//     return maxdep;
+// }
+//
+// // Populate the occupancy + voxel size grid
+// void _calc_occu_lut(N3Tree& tree, size_t nodeid, uint32_t xi, uint32_t yi,
+//                     uint32_t zi, int depth) {
+//     const int32_t* child =
+//         tree.child_.data<int32_t>() + nodeid * tree.N * tree.N * tree.N;
+//     int cnt = 0;
+//     uint8_t depth_diff = tree.max_depth - depth;
+//     uint32_t scale = 1 << depth_diff;
+//     uint32_t scale3 = scale * scale * scale;
+//     // Use integer coords to avoid precision issues
+//     for (uint32_t i = xi * tree.N; i < (xi + 1) * tree.N; ++i) {
+//         for (uint32_t j = yi * tree.N; j < (yi + 1) * tree.N; ++j) {
+//             for (uint32_t k = zi * tree.N; k < (zi + 1) * tree.N; ++k) {
+//                 if (child[cnt] == 0) {
+//                     uint32_t start = internal::morton_code_3(
+//                         i * scale, j * scale, k * scale);
+//                     uint32_t end = start + scale3;
+//                     std::fill(tree.occu_lut_.begin() + start,
+//                               tree.occu_lut_.begin() + end, depth_diff);
+//                 } else {
+//                     _calc_occu_lut(tree, nodeid + child[cnt], i, j, k,
+//                                    depth + 1);
+//                 }
+//                 ++cnt;
+//             }
+//         }
+//     }
+// }
+// }  // namespace
+
 void N3Tree::load_npz(cnpy::npz_t& npz) {
     data_dim = (int)*npz["data_dim"].data<int64_t>();
     if (npz.count("data_format")) {
@@ -209,6 +263,9 @@ void N3Tree::load_npz(cnpy::npz_t& npz) {
     auto child_node = npz["child"];
     std::swap(child_, npz["child"]);
     N = child_node.shape[1];
+    if (N != 2) {
+        std::cerr << "WARNING: N != 2 probably doesn't work.\n";
+    }
     N2_ = N * N;
     N3_ = N * N * N;
 
@@ -288,6 +345,13 @@ void N3Tree::load_npz(cnpy::npz_t& npz) {
     } else {
         extra_.data_holder.clear();
     }
+
+    // max_depth = _calc_tree_maxdepth(*this, 0, 0, 0, 0);
+    // resolution = 1 << (max_depth + 1);
+    // resolution3_ = resolution * resolution * resolution;
+    //
+    // occu_lut_.resize(resolution3_);
+    // _calc_occu_lut(*this, 0, 0, 0, 0, 0);
 }
 
 namespace {

@@ -1,13 +1,14 @@
 #pragma once
-#include "volrend/cuda/n3tree_query.cuh"
+#include "volrend/internal/n3tree_query.hpp"
 #include <cmath>
 #include <cuda_fp16.h>
 #include "volrend/common.hpp"
 #include "volrend/data_format.hpp"
 #include "volrend/render_options.hpp"
 #include "volrend/cuda/common.cuh"
-#include "volrend/cuda/data_spec.cuh"
-#include "volrend/cuda/lumisphere.cuh"
+#include "volrend/internal/data_spec.hpp"
+#include "volrend/internal/lumisphere.hpp"
+#include "volrend/internal/morton.hpp"
 
 namespace volrend {
 namespace device {
@@ -25,26 +26,26 @@ __device__ __inline__ void _dda_world(
     *tmax = 1e4;
 #pragma unroll
     for (int i = 0; i < 3; ++i) {
-        t1 = (render_bbox[i] - cen[i]) * _invdir[i];
-        t2 = (render_bbox[i + 3] - cen[i]) * _invdir[i];
+        t1 = (render_bbox[i] + 1e-6 - cen[i]) * _invdir[i];
+        t2 = (render_bbox[i + 3] - 1e-6 - cen[i]) * _invdir[i];
         *tmin = max(*tmin, min(t1, t2));
         *tmax = min(*tmax, max(t1, t2));
     }
 }
 
 template<typename scalar_t>
-__device__ __inline__ void _dda_unit(
+__device__ __inline__ scalar_t _dda_unit(
         const scalar_t* __restrict__ cen,
-        const scalar_t* __restrict__ _invdir,
-        scalar_t* __restrict__ tmax) {
+        const scalar_t* __restrict__ _invdir) {
     scalar_t t1, t2;
-    *tmax = 1e4;
+    scalar_t tmax = 1e4;
 #pragma unroll
     for (int i = 0; i < 3; ++i) {
         t1 = - cen[i] * _invdir[i];
         t2 = t1 +  _invdir[i];
-        *tmax = min(*tmax, max(t1, t2));
+        tmax = min(tmax, max(t1, t2));
     }
+    return tmax;
 }
 
 template <typename scalar_t>
@@ -63,7 +64,7 @@ __device__ __inline__ scalar_t _get_delta_scale(
 
 template<typename scalar_t>
 __device__ __inline__ void trace_ray(
-        const TreeSpec& __restrict__ tree,
+        const internal::TreeSpec& __restrict__ tree,
         scalar_t* __restrict__ dir,
         const scalar_t* __restrict__ vdir,
         const scalar_t* __restrict__ cen,
@@ -93,7 +94,7 @@ __device__ __inline__ void trace_ray(
         scalar_t pos[3], tmp;
         const half* tree_val;
         scalar_t basis_fn[VOLREND_GLOBAL_BASIS_MAX];
-        maybe_precalc_basis(tree, vdir, basis_fn);
+        internal::maybe_precalc_basis(tree, vdir, basis_fn);
         for (int i = 0; i < opt.basis_minmax[0]; ++i) {
             basis_fn[i] = 0.f;
         }
@@ -105,43 +106,14 @@ __device__ __inline__ void trace_ray(
         scalar_t t = tmin;
         scalar_t cube_sz;
         while (t < tmax) {
-            for (int j = 0; j < 3; ++j) {
-                pos[j] = cen[j] + t * dir[j];
-            }
+            pos[0] = cen[0] + t * dir[0];
+            pos[1] = cen[1] + t * dir[1];
+            pos[2] = cen[2] + t * dir[2];
 
-            query_single_from_root(tree, pos, &tree_val, &cube_sz);
+            internal::query_single_from_root(tree, pos, &tree_val, &cube_sz);
 
             scalar_t att;
-            scalar_t subcube_tmax;
-            _dda_unit(pos, invdir, &subcube_tmax);
-            // if (opt.show_grid) {
-            //     float tmp_pos[3];
-            //     for (int j = 0; j < 3; ++j) {
-            //         tmp_pos[j] = cen[j] + t * dir[j];
-            //     }
-            //     const half* tmp_tree_val;
-            //     float tmp_cube_sz;
-            //     query_single_from_root(tree, tmp_pos, &tmp_tree_val, &tmp_cube_sz,
-            //             32);
-            //     scalar_t max3 = max(max(tmp_pos[0], tmp_pos[1]), tmp_pos[2]);
-            //     scalar_t min3 = min(min(tmp_pos[0], tmp_pos[1]), tmp_pos[2]);
-            //     scalar_t mid3 = tmp_pos[0] + tmp_pos[1] + tmp_pos[2] - min3 - max3;
-            //     const scalar_t edge_draw_thresh = 3e-2;
-            //     int n_edges = (abs(min3) < edge_draw_thresh) +
-            //                   ((1.f - abs(max3)) < edge_draw_thresh) +
-            //                   (abs(mid3) < edge_draw_thresh ||
-            //                    (1.f - abs(mid3)) < edge_draw_thresh);
-            //
-            //     if (n_edges >= 2) {
-            //         const float alpha = 0.8;// exp(-1.0 * max(t - 2.0, 0.));
-            //         const float weight = light_intensity * alpha;
-            //         out[0] += 0.5 * weight; out[1] += 0.5 * weight; out[2] += 0.5 * weight;
-            //         out[3] += weight;
-            //         light_intensity *= 1 - alpha;
-            //     }
-            // }
-
-            const scalar_t t_subcube = subcube_tmax / cube_sz;
+            const scalar_t t_subcube = _dda_unit(pos, invdir) /  cube_sz;
             const scalar_t delta_t = t_subcube + opt.step_size;
             if (__half2float(tree_val[tree.data_dim - 1]) > opt.sigma_thresh) {
                 att = expf(-delta_t * delta_scale * __half2float(tree_val[tree.data_dim - 1]));

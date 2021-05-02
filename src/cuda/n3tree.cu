@@ -1,14 +1,15 @@
 #include "volrend/n3tree.hpp"
+#include "volrend/cuda/common.cuh"
 
 #include <limits>
 #include <cstdio>
 #include <cassert>
-#include "volrend/cuda/n3tree_query.cuh"
 
 namespace volrend {
 void N3Tree::load_cuda() {
     if (device.data != nullptr) cuda(Free(device.data));
     if (device.child != nullptr) cuda(Free(device.child));
+    if (device.extra != nullptr) cuda(Free(device.extra));
     const size_t data_sz = (size_t) capacity * N3_ * data_dim * sizeof(half);
     const size_t child_sz = (size_t) capacity * N3_ * sizeof(int32_t);
     cuda(Malloc((void**)&device.data, data_sz));
@@ -29,9 +30,7 @@ void N3Tree::load_cuda() {
     cuda(MemcpyAsync(device.scale, scale.data(), 3 * sizeof(float),
                 cudaMemcpyHostToDevice));
     if (extra_.data_holder.size()) {
-        if (device.extra == nullptr) {
-            cuda(Malloc((void**)&device.extra, extra_.data_holder.size()));
-        }
+        cuda(Malloc((void**)&device.extra, extra_.data_holder.size()));
         cuda(MemcpyAsync(device.extra, extra_.data<float>(),
                     extra_.data_holder.size(),
                     cudaMemcpyHostToDevice));

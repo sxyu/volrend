@@ -12,7 +12,6 @@
 
 #include "volrend/cuda/common.cuh"
 #include "volrend/cuda/renderer_kernel.hpp"
-#include "volrend/cuda/lumisphere.cuh"
 #include "volrend/internal/imwrite.hpp"
 
 namespace volrend {

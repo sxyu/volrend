@@ -7,12 +7,15 @@
 #include "volrend/cuda/common.cuh"
 #include "volrend/cuda/rt_core.cuh"
 #include "volrend/render_options.hpp"
-#include "volrend/cuda/data_spec.cuh"
+#include "volrend/internal/data_spec.hpp"
 
 namespace volrend {
 
 #define MAX3(a, b, c) max(max(a, b), c)
 #define MIN3(a, b, c) min(min(a, b), c)
+
+using internal::TreeSpec;
+using internal::CameraSpec;
 
 namespace {
 template<typename scalar_t>
@@ -110,7 +113,7 @@ __global__ static void render_kernel(
                 cen[2] = -sqrtf(1 - c);
                 _mv3(cam.transform, cen, dir);
 
-                maybe_precalc_basis(tree, dir, basis_fn);
+                internal::maybe_precalc_basis(tree, dir, basis_fn);
                 for (int t = 0; t < 3; ++t) {
                     int off = t * tree.data_format.basis_dim;
                     float tmp = 0.f;
@@ -180,7 +183,7 @@ __global__ static void retrieve_cursor_lumisphere_kernel(
 
     float _cube_sz;
     const half* tree_val;
-    query_single_from_root(tree, cen, &tree_val, &_cube_sz);
+    internal::query_single_from_root(tree, cen, &tree_val, &_cube_sz);
 
     for (int i = 0; i < tree.data_dim - 1; ++i) {
         out[i] = __half2float(tree_val[i]);
