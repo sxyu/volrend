@@ -437,7 +437,6 @@ inline void ImGui::FileBrowser::Display() {
 
         for (auto &rsc : fileRecords_) {
             if (!rsc.isDir && !IsExtensionMatched(rsc.extension)) continue;
-
             if (!rsc.name.empty() && rsc.name.c_str()[0] == '$') continue;
 
             bool selected =
@@ -680,7 +679,7 @@ inline void ImGui::FileBrowser::SetPwdUncatched(
     for (auto &p : std::filesystem::directory_iterator(pwd)) {
         FileRecord rcd;
 
-        if (std::filesystem::is_directory(p))
+        if (std::filesystem::is_regular_file(p))
             rcd.isDir = false;
         else if (std::filesystem::is_directory(p))
             rcd.isDir = true;
