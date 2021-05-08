@@ -136,6 +136,8 @@ if (NOT EMSCRIPTEN)
     set( VOLREND_VENDOR_SOURCES
         ${VOLREND_VENDOR_SOURCES}
         ${GLEW_DIR}/src/glew.c
+        ${VENDOR_DIR}/misc/ImGuizmo.cpp
+        ${VENDOR_DIR}/misc/tiny_obj_loader.cpp
         )
 endif()
 

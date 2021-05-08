@@ -31,6 +31,9 @@ struct Mesh {
     glm::vec3 rotation, translation;
     float scale = 1.f;
 
+    // Computed transform
+    mutable glm::mat4 transform_;
+
     int face_size;
     bool visible = true;
     bool unlit = false;

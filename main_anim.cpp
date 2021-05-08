@@ -1,6 +1,7 @@
 #include <GL/glew.h>
 #include <GLFW/glfw3.h>
 #include <glm/gtc/type_ptr.hpp>
+#include <glm/gtc/matrix_inverse.hpp>
 
 #include <chrono>
 #include <cstdlib>
@@ -18,6 +19,8 @@
 
 #include "imgui_impl_opengl3.h"
 #include "imgui_impl_glfw.h"
+
+#include "ImGuizmo.h"
 
 #ifndef __EMSCRIPTEN__
 #include "imfilebrowser.h"
@@ -341,11 +344,34 @@ struct AnimState {
 #define GET_RENDERER(window) \
     (*((VolumeRenderer*)glfwGetWindowUserPointer(window)))
 
+int gizmo_mesh_op = ImGuizmo::TRANSLATE;
+int gizmo_mesh_space = ImGuizmo::LOCAL;
+
 void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
     auto& cam = rend.camera;
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
     ImGui::NewFrame();
+
+    // BEGIN gizmo handling
+    // clang-format off
+    static glm::mat4 camera_persp_prj(1.f, 0.f, 0.f, 0.f,
+                                         0.f, 1.f, 0.f, 0.f,
+                                         0.f, 0.f, -1.f, -1.f,
+                                         0.f, 0.f, -0.001f, 0.f);
+    // clang-format on
+    ImGuiIO& io = ImGui::GetIO();
+
+    camera_persp_prj[0][0] = cam.fx / cam.width * 2.0;
+    camera_persp_prj[1][1] = cam.fy / cam.height * 2.0;
+    ImGuizmo::SetOrthographic(false);
+    ImGuizmo::SetGizmoSizeClipSpace(0.05f);
+
+    ImGuizmo::BeginFrame();
+
+    ImGuizmo::SetRect(0, 0, io.DisplaySize.x, io.DisplaySize.y);
+    glm::mat4 w2c = glm::affineInverse(glm::mat4(cam.transform));
+    // END gizmo handling
 
     ImGui::SetNextWindowSize(ImVec2(400.f, 480.f), ImGuiCond_Once);
 
@@ -686,26 +712,92 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
 #ifdef VOLREND_CUDA
         ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
         if (ImGui::CollapsingHeader("Manipulation")) {
+            static std::vector<glm::mat4> gizmo_mesh_trans;
+            gizmo_mesh_trans.resize(rend.meshes.size());
+
+            ImGui::TextUnformatted("gizmo op");
+            ImGui::SameLine();
+            ImGui::RadioButton("trans##giztrans", &gizmo_mesh_op,
+                               ImGuizmo::TRANSLATE);
+            ImGui::SameLine();
+            ImGui::RadioButton("rot##gizrot", &gizmo_mesh_op, ImGuizmo::ROTATE);
+            ImGui::SameLine();
+            ImGui::RadioButton("scale##gizscale", &gizmo_mesh_op,
+                               ImGuizmo::SCALE_Z);
+
+            ImGui::TextUnformatted("gizmo space");
+            ImGui::SameLine();
+            ImGui::RadioButton("local##gizlocal", &gizmo_mesh_space,
+                               ImGuizmo::LOCAL);
+            ImGui::SameLine();
+            ImGui::RadioButton("world##gizworld", &gizmo_mesh_space,
+                               ImGuizmo::WORLD);
+
             ImGui::BeginGroup();
+            std::vector<int> meshes_to_del;
             for (int i = 0; i < (int)rend.meshes.size(); ++i) {
                 auto& mesh = rend.meshes[i];
                 if (ImGui::TreeNode(mesh.name.c_str())) {
+                    if (mesh.visible) {
+                        glm::mat4& gizmo_trans = gizmo_mesh_trans[i];
+                        gizmo_trans = mesh.transform_;
+                        if (gizmo_mesh_op == ImGuizmo::SCALE_Z) {
+                            glm::mat4 tmp(1);
+                            tmp[3] = gizmo_trans[3];
+                            gizmo_trans = tmp;
+                        }
+                        ImGuizmo::SetID(i + 1);
+                        if (ImGuizmo::Manipulate(
+                                glm::value_ptr(w2c),
+                                glm::value_ptr(camera_persp_prj),
+                                (ImGuizmo::OPERATION)gizmo_mesh_op,
+                                (ImGuizmo::MODE)gizmo_mesh_space,
+                                glm::value_ptr(gizmo_trans), NULL, NULL, NULL,
+                                NULL)) {
+                            if (gizmo_mesh_op == ImGuizmo::ROTATE) {
+                                glm::quat rot_q = glm::quat_cast(
+                                    glm::mat3(gizmo_trans) / mesh.scale);
+                                mesh.rotation =
+                                    glm::axis(rot_q) * glm::angle(rot_q);
+                            } else if (gizmo_mesh_op == ImGuizmo::SCALE_Z) {
+                                mesh.scale *=
+                                    gizmo_trans[2][2] /
+                                    mesh.transform_[2][2];  // max_scale;
+                            }
+                            mesh.translation = gizmo_trans[3];
+                        }
+                    }
                     ImGui::PushItemWidth(230);
-                    ImGui::SliderFloat3(
-                        "trans", glm::value_ptr(mesh.translation), -2.0f, 2.0f);
-                    ImGui::SliderFloat3("rot", glm::value_ptr(mesh.rotation),
-                                        -M_PI, M_PI);
-                    ImGui::SliderFloat("scale", &mesh.scale, 0.01f, 10.0f);
+                    ImGui::InputFloat3("trans",
+                                       glm::value_ptr(mesh.translation));
+                    ImGui::InputFloat3("rot", glm::value_ptr(mesh.rotation));
+                    ImGui::InputFloat("scale", &mesh.scale);
                     ImGui::PopItemWidth();
                     ImGui::Checkbox("visible", &mesh.visible);
                     ImGui::SameLine();
                     ImGui::Checkbox("unlit", &mesh.unlit);
+                    ImGui::SameLine();
+                    if (ImGui::Button("delete")) meshes_to_del.push_back(i);
 
                     ImGui::TreePop();
                 }
             }
+
+            if (meshes_to_del.size()) {
+                int j = 0;
+                std::vector<Mesh> tmp;
+                tmp.reserve(rend.meshes.size() - meshes_to_del.size());
+                for (int i = 0; i < rend.meshes.size(); ++i) {
+                    if (i == meshes_to_del[j]) {
+                        ++j;
+                        continue;
+                    }
+                    tmp.push_back(std::move(rend.meshes[i]));
+                }
+                rend.meshes.swap(tmp);
+            }
             ImGui::EndGroup();
-            if (ImGui::Button("Sphere")) {
+            if (ImGui::Button("Sphere##addsphere")) {
                 static int sphereid = 0;
                 {
                     Mesh sph = Mesh::Sphere();
@@ -719,7 +811,7 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
                 }
             }
             ImGui::SameLine();
-            if (ImGui::Button("Cube")) {
+            if (ImGui::Button("Cube##addcube")) {
                 static int cubeid = 0;
                 {
                     Mesh cube = Mesh::Cube();
@@ -732,7 +824,7 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
                 }
             }
             ImGui::SameLine();
-            if (ImGui::Button("Latti")) {
+            if (ImGui::Button("Latti##addlattice")) {
                 static int lattid = 0;
                 {
                     Mesh latt = Mesh::Lattice();
@@ -752,7 +844,7 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
                 }
             }
             ImGui::SameLine();
-            if (ImGui::Button("Load Tri OBJ")) {
+            if (ImGui::Button("Load OBJ")) {
                 open_obj_mesh_dialog.Open();
             }
             ImGui::SameLine();
@@ -760,15 +852,42 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
                 rend.meshes.clear();
             }
 
-            ImGui::BeginGroup();
-            ImGui::Checkbox("Enable Lumisphere Probe",
-                            &rend.options.enable_probe);
-            if (rend.options.enable_probe) {
-                ImGui::SliderFloat3("probe", rend.options.probe, -2.f, 2.f);
-                ImGui::SliderInt("probe_win_sz", &rend.options.probe_disp_size,
-                                 50, 800);
+            if (tree.capacity) {
+                ImGui::BeginGroup();
+                ImGui::Checkbox("Enable Lumisphere Probe",
+                                &rend.options.enable_probe);
+                if (rend.options.enable_probe) {
+                    ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
+                    if (ImGui::TreeNode("Probe")) {
+                        static glm::mat4 probe_trans;
+                        static bool show_probe_gizmo = true;
+                        float* probe = rend.options.probe;
+                        probe_trans = glm::translate(
+                            glm::mat4(1.f),
+                            glm::vec3(probe[0], probe[1], probe[2]));
+
+                        ImGui::Checkbox("Show gizmo", &show_probe_gizmo);
+                        if (show_probe_gizmo) {
+                            ImGuizmo::SetID(0);
+                            if (ImGuizmo::Manipulate(
+                                    glm::value_ptr(w2c),
+                                    glm::value_ptr(camera_persp_prj),
+                                    ImGuizmo::TRANSLATE, ImGuizmo::LOCAL,
+                                    glm::value_ptr(probe_trans), NULL, NULL,
+                                    NULL, NULL)) {
+                                for (int i = 0; i < 3; ++i)
+                                    probe[i] = probe_trans[3][i];
+                            }
+                        }
+                        ImGui::InputFloat3("probe", probe);
+                        ImGui::SliderInt("probe_win_sz",
+                                         &rend.options.probe_disp_size, 50,
+                                         800);
+                        ImGui::TreePop();
+                    }
+                }
+                ImGui::EndGroup();
             }
-            ImGui::EndGroup();
         }
         open_obj_mesh_dialog.Display();
         if (open_obj_mesh_dialog.HasSelected()) {
@@ -837,14 +956,30 @@ void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action,
                         key == GLFW_KEY_E)
                         speed = -speed;
                     const auto& vec =
-                        (key == GLFW_KEY_A || key == GLFW_KEY_D)
-                            ? cam.v_right
-                            : (key == GLFW_KEY_W || key == GLFW_KEY_S)
-                                  ? -cam.v_back
-                                  : -cam.v_up;
+                        (key == GLFW_KEY_A || key == GLFW_KEY_D)   ? cam.v_right
+                        : (key == GLFW_KEY_W || key == GLFW_KEY_S) ? -cam.v_back
+                                                                   : -cam.v_up;
                     cam.move(vec * speed);
                 }
                 break;
+
+            case GLFW_KEY_Z: {
+                // Cycle gizmo op
+                if (gizmo_mesh_op == ImGuizmo::TRANSLATE)
+                    gizmo_mesh_op = ImGuizmo::ROTATE;
+                else if (gizmo_mesh_op == ImGuizmo::ROTATE)
+                    gizmo_mesh_op = ImGuizmo::SCALE_Z;
+                else
+                    gizmo_mesh_op = ImGuizmo::TRANSLATE;
+            } break;
+
+            case GLFW_KEY_X: {
+                // Cycle gizmo space
+                if (gizmo_mesh_space == ImGuizmo::LOCAL)
+                    gizmo_mesh_space = ImGuizmo::WORLD;
+                else
+                    gizmo_mesh_space = ImGuizmo::LOCAL;
+            } break;
 
 #ifdef VOLREND_CUDA
             case GLFW_KEY_I:
@@ -860,10 +995,9 @@ void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action,
                     if (key == GLFW_KEY_J || key == GLFW_KEY_K ||
                         key == GLFW_KEY_U)
                         speed = -speed;
-                    int dim =
-                        (key == GLFW_KEY_J || key == GLFW_KEY_L)
-                            ? 0
-                            : (key == GLFW_KEY_I || key == GLFW_KEY_K) ? 1 : 2;
+                    int dim = (key == GLFW_KEY_J || key == GLFW_KEY_L)   ? 0
+                              : (key == GLFW_KEY_I || key == GLFW_KEY_K) ? 1
+                                                                         : 2;
                     rend.options.probe[dim] += speed;
                 }
                 break;

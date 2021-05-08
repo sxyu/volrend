@@ -16,6 +16,7 @@
 #include <fstream>
 
 #include <glm/gtc/type_ptr.hpp>
+#include <tiny_obj_loader.h>
 #include "volrend/internal/shader.hpp"
 
 namespace {
@@ -205,20 +206,19 @@ void Mesh::update() {
 void Mesh::draw(const glm::mat4x4& V, const glm::mat4x4& K) const {
     if (!visible) return;
     float norm = glm::length(rotation);
-    glm::mat4 transform;
     if (norm < 1e-3) {
-        transform = glm::mat4(1.0);
+        transform_ = glm::mat4(1.0);
     } else {
         glm::quat rot = glm::angleAxis(norm, rotation / norm);
-        transform = glm::mat4_cast(rot);
+        transform_ = glm::mat4_cast(rot);
     }
-    transform *= scale;
+    transform_ *= scale;
     glm::vec3 cam_pos = -glm::transpose(glm::mat3x3(V)) * glm::vec3(V[3]);
 
-    transform[3] = glm::vec4(translation, 1);
-    glm::mat4x4 MV = V * transform;
+    transform_[3] = glm::vec4(translation, 1);
+    glm::mat4x4 MV = V * transform_;
     glUniformMatrix4fv(u_MV, 1, GL_FALSE, glm::value_ptr(MV));
-    glUniformMatrix4fv(u_M, 1, GL_FALSE, glm::value_ptr(transform));
+    glUniformMatrix4fv(u_M, 1, GL_FALSE, glm::value_ptr(transform_));
     glUniformMatrix4fv(u_K, 1, GL_FALSE, glm::value_ptr(K));
     glUniform3fv(u_cam_pos, 1, glm::value_ptr(cam_pos));
     glUniform1i(u_unlit, unlit);
@@ -357,90 +357,69 @@ Mesh Mesh::Lattice(int reso, glm::vec3 color) {
 }
 
 void Mesh::load_basic_obj(const std::string& path) {
-    std::ifstream ifs(path);
-    std::string line;
-    std::vector<float> tmp_pos, tmp_rgb;
-    std::vector<unsigned int> tmp_faces;
-    size_t attrs_per_vert = 0;
-    while (std::getline(ifs, line)) {
-        if (line.size() < 2 || line[1] != ' ') continue;
-        if (line[0] == 'v') {
-            std::stringstream ss(line.substr(2));
-            double tmp;
-            size_t cnt = 0;
-            while (ss >> tmp) {
-                if (cnt >= 3) {
-                    tmp_rgb.push_back(tmp);
-                } else {
-                    tmp_pos.push_back(tmp);
-                }
-                ++cnt;
-            }
-            if (attrs_per_vert) {
-            } else {
-                attrs_per_vert = cnt;
-            }
-        } else if (line[0] == 'f') {
-            size_t i = 2, j = 0;
-            while (i < line.size() && std::isspace(i)) ++i;
-            std::string num;
-            for (; i < line.size(); ++i) {
-                if (line[i] == '/') {
-                    ++j;
-                } else if (std::isspace(line[i])) {
-                    tmp_faces.push_back((unsigned int)std::atoll(num.c_str()) -
-                                        1);
-                    j = 0;
-                    num.clear();
-                } else if (j == 0) {
-                    num.push_back(line[i]);
-                }
-            }
-            if (num.size()) {
-                tmp_faces.push_back((unsigned int)std::atoll(num.c_str()) - 1);
-            }
-        }
-    }
-    if (tmp_pos.size() % 3 != 0) {
-        std::cerr << "BAD or unsupported OBJ\n";
-        return;
-    }
-    size_t n_verts = tmp_pos.size() / 3;
-    vert.resize(n_verts * VERT_SZ);
+    tinyobj::ObjReaderConfig reader_config;
+    reader_config.mtl_search_path = "./";  // Path to material files
+    reader_config.triangulate = true;
+    reader_config.vertex_color = true;
+    tinyobj::ObjReader reader;
 
-    for (int i = 0; i < n_verts; ++i) {
-        const auto* vert_in_ptr = &tmp_pos[i * 3];
-        auto* vert_ptr = &vert[i * VERT_SZ];
+    if (!reader.ParseFromFile(path, reader_config)) {
+        if (!reader.Error().empty()) {
+            std::cerr << "Failed to load OBJ: " << reader.Error();
+        }
+        std::exit(1);
+    }
+    // if (!reader.Warning().empty()) {
+    //     std::cout << "TinyObjReader: " << reader.Warning();
+    // }
+
+    auto& attrib = reader.GetAttrib();
+    auto& shapes = reader.GetShapes();
+
+    const size_t n_verts = attrib.vertices.size() / 3;
+    vert.resize(VERT_SZ * n_verts);
+    for (size_t i = 0; i < n_verts; i++) {
+        auto* ptr = &vert[i * VERT_SZ];
         for (int j = 0; j < 3; ++j) {
-            vert_ptr[j] = vert_in_ptr[j];
+            ptr[j] = attrib.vertices[i * 3 + j];
         }
     }
-    if (tmp_rgb.size()) {
-        for (int i = 0; i < n_verts; ++i) {
-            const auto* color_in_ptr = &tmp_rgb[i * 3];
-            auto* color_ptr = &vert[i * VERT_SZ + 3];
-            for (int j = 0; j < 3; ++j) {
-                color_ptr[j] = color_in_ptr[j];
+    for (size_t s = 0; s < shapes.size(); s++) {
+        // Loop over faces(polygon)
+        size_t index_offset = 0;
+        for (size_t f = 0; f < shapes[s].mesh.num_face_vertices.size(); f++) {
+            size_t fv = size_t(shapes[s].mesh.num_face_vertices[f]);
+            if (fv == 3) {
+                for (size_t v = 0; v < fv; v++) {
+                    tinyobj::index_t idx =
+                        shapes[s].mesh.indices[index_offset + v];
+                    faces.push_back(idx.vertex_index);
+                }
             }
+            index_offset += fv;
         }
-    } else {
-        for (int i = 0; i < n_verts; ++i) {
-            auto* color_ptr = &vert[i * VERT_SZ + 3];
-            for (int j = 0; j < 3; ++j) {
-                color_ptr[j] = 0.8f;
-            }
-        }
-    }
-    if (tmp_faces.size()) {
-        std::swap(faces, tmp_faces);
-    } else {
-        faces.clear();
     }
 
-    // FIXME load normals from obj if available
-    estimate_normals(vert, faces);
+    if (attrib.colors.size() / 3 >= n_verts) {
+        for (int i = 0; i < n_verts; ++i) {
+            auto* color_ptr = &vert[i * VERT_SZ + 3];
+            for (int j = 0; j < 3; ++j) {
+                color_ptr[j] = attrib.colors[3 * i + j];
+            }
+        }
+    }
+    if (attrib.normals.size() / 3 >= n_verts) {
+        for (size_t i = 0; i < n_verts; i++) {
+            auto* normal_ptr = &vert[i * VERT_SZ + 6];
+            for (int j = 0; j < 3; ++j) {
+                normal_ptr[j] = attrib.normals[i * 3 + j];
+            }
+        }
+    } else {
+        estimate_normals(vert, faces);
+    }
+
     face_size = 3;
-
     name = path;
 }
 

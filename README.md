@@ -67,19 +67,22 @@ There is also an animation maker `volrend_anim`, which I used to make some of th
 See `--help` for flags.
 
 There is an ImGui window which exposes rendering options as well as interactive features mentioned in the paper + video.
-For the mesh insertion, only very simple OBJ files (with triangles only) optionally with vertex coloring are supported. 
+For the mesh insertion, only OBJ files optionally with vertex coloring are supported. Texturing mapping is not implemented right now.
 Some example meshes are in `sample_obj`, and a program to generate SH meshes (just for fun) is in `sample_obj/sh/gen_sh.cpp`.
 Please use meshlab to triangulate other mesh.
 
-### Keyboard + Mouse Controls
+### Keyboard + Mouse Controls (Desktop GUI)
 - Left mouse btn + drag: rotate about camera position
 - Right mouse btn + drag: rotate about origin point (can be moved)
-- Shift + Left mouse btn + drag: pan camera
-- Middle mouse btn + drag: pan camera AND move origin point simultaneously
+- Middle mouse btn + drag: pan camera
+- Shift + Left mouse btn + drag: pan camera (alt)
+- Shift + middle mouse btn + drag: pan camera AND move origin point simultaneously
 - Scroll with wheel: move forward/back in z
 - WASDQE: move; Shift + WASDQE to move faster
 - 123456: preset `world_up` directions, sweep through these keys if scene is using different coordinate system.
 - 0: reset the focal length to default, if you messed with it
+- Z: cycle gizmo operations translate/rotate/scale (only visible if mesh is opened in Manipulate section)
+- X: toggle gizmo space local/world (applies to mesh translation/rotation)
 
 Lumisphere probe:
 - IJKLUO: move the lumisphere probe; Hold shift to move faster
