@@ -616,10 +616,10 @@ GLFWwindow* glfw_init(const int width, const int height) {
     if (!glfwInit()) std::exit(EXIT_FAILURE);
 
     glfwWindowHint(GLFW_DEPTH_BITS, GL_TRUE);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
     GLFWwindow* window =
         glfwCreateWindow(width, height, "volrend viewer", NULL, NULL);

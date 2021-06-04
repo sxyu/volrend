@@ -621,26 +621,28 @@ bool    ImGui_ImplOpenGL3_CreateDeviceObjects()
     // Select shaders matching our GLSL versions
     const GLchar* vertex_shader = NULL;
     const GLchar* fragment_shader = NULL;
-    if (glsl_version < 130)
-    {
-        vertex_shader = vertex_shader_glsl_120;
-        fragment_shader = fragment_shader_glsl_120;
-    }
-    else if (glsl_version >= 410)
-    {
-        vertex_shader = vertex_shader_glsl_410_core;
-        fragment_shader = fragment_shader_glsl_410_core;
-    }
-    else if (glsl_version == 300)
-    {
-        vertex_shader = vertex_shader_glsl_300_es;
-        fragment_shader = fragment_shader_glsl_300_es;
-    }
-    else
-    {
-        vertex_shader = vertex_shader_glsl_130;
-        fragment_shader = fragment_shader_glsl_130;
-    }
+    // if (glsl_version < 130)
+    // {
+    //     vertex_shader = vertex_shader_glsl_120;
+    //     fragment_shader = fragment_shader_glsl_120;
+    // }
+    // else if (glsl_version >= 410)
+    // {
+    //     vertex_shader = vertex_shader_glsl_410_core;
+    //     fragment_shader = fragment_shader_glsl_410_core;
+    // }
+    // else if (glsl_version == 300)
+    // {
+    //     vertex_shader = vertex_shader_glsl_300_es;
+    //     fragment_shader = fragment_shader_glsl_300_es;
+    // }
+    // else
+    // {
+    //     vertex_shader = vertex_shader_glsl_130;
+    //     fragment_shader = fragment_shader_glsl_130;
+    // }
+    vertex_shader = vertex_shader_glsl_130;
+    fragment_shader = fragment_shader_glsl_130;
 
     // Create shaders
     const GLchar* vertex_shader_with_version[2] = { g_GlslVersionString, vertex_shader };

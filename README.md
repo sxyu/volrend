@@ -20,7 +20,7 @@ More will be released soon, we are taking a short break now.
 ## Building
 Please install a recent version of CMake <https://cmake.org>
 
-### Unix-like Systems
+### Linux
 ```sh
 mkdir build && cd build
 cmake ..
@@ -36,6 +36,15 @@ There is also an animation maker `volrend_anim`, which I used to make some of th
 You should be able to build the project as long as you have GLFW.
 On Ubuntu, you will need X-server; you can try
 `sudo apt-get install libgl1-mesa-dev libxi-dev libxinerama-dev libxcursor-dev libxrandr-dev libgl1-mesa-dev libglu1-mesa-dev`
+
+### macOS
+```sh
+brew install cmake
+brew install glfw
+mkdir build && cd build
+cmake .. -DVOLREND_USE_CUDA=OFF
+export LDFLAGS="-L/usr/local/Cellar/glfw/3.3.4/lib"; export CPLUS_INCLUDE_PATH="/usr/local/Cellar/glfw/3.3.4/include"; make -j8
+```
 
 ### Windows 10
 Install Visual Studio (I am using 2019 here). Then

@@ -151,7 +151,6 @@ if (NOT EMSCRIPTEN AND NOT WIN32)
     set(
         DEPENDENCIES
         ${DEPENDENCIES}
-        stdc++fs
         )
 endif()
 

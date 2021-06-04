@@ -48,6 +48,11 @@ GLuint create_shader_program(const char* vert_shader_src,
     GLuint program = glCreateProgram();
     glAttachShader(program, vert_shader);
     glAttachShader(program, frag_shader);
+    glBindAttribLocation(program, 0, "aPos");
+    glBindAttribLocation(program, 1, "aColor");
+    glBindAttribLocation(program, 2, "aNormal");
+    glBindAttribLocation(program, 0, "FragColor");
+    glBindAttribLocation(program, 1, "Depth");
     glLinkProgram(program);
     check_compile_errors(program, "PROGRAM");
 
