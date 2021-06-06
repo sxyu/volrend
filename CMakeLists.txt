@@ -147,10 +147,11 @@ source_group( "Source Files" FILES ${VOLREND_SOURCES} )
 set(
     DEPENDENCIES
     )
-if (NOT EMSCRIPTEN AND NOT WIN32)
+if (NOT EMSCRIPTEN AND NOT WIN32 AND NOT CMAKE_CXX_COMPILER_ID STREQUAL "AppleClang")
     set(
         DEPENDENCIES
         ${DEPENDENCIES}
+        stdc++fs
         )
 endif()
 
