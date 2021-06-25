@@ -91,14 +91,14 @@ void estimate_normals(std::vector<float>& verts,
 }
 
 const char* VERT_SHADER_SRC =
-    R"glsl(#version 300 es
+    R"glsl(#version 150
 uniform mat4x4 K;
 uniform mat4x4 MV;
 uniform mat4x4 M;
 
-layout (location = 0) in vec3 aPos;
-layout (location = 1) in vec3 aColor;
-layout (location = 2) in vec3 aNormal;
+in vec3 aPos;
+in vec3 aColor;
+in vec3 aNormal;
 
 out lowp vec3 VertColor;
 out highp vec4 FragPos;
@@ -114,7 +114,7 @@ void main()
 )glsl";
 
 const char* FRAG_SHADER_SRC =
-    R"glsl(#version 300 es
+    R"glsl(#version 150
 precision highp float;
 in lowp vec3 VertColor;
 in vec4 FragPos;
@@ -123,8 +123,8 @@ in vec3 Normal;
 uniform bool unlit;
 uniform vec3 camPos;
 
-layout(location = 0) out lowp vec4 FragColor;
-layout(location = 1) out float Depth;
+out lowp vec4 FragColor;
+out float Depth;
 
 void main()
 {

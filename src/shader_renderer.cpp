@@ -24,8 +24,8 @@ namespace volrend {
 namespace {
 
 const char* PASSTHRU_VERT_SHADER_SRC =
-    R"glsl(#version 300 es
-layout (location = 0) in vec3 aPos;
+    R"glsl(#version 150
+in vec3 aPos;
 
 void main()
 {
