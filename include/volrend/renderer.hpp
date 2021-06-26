@@ -4,10 +4,7 @@
 #include "volrend/camera.hpp"
 #include "volrend/n3tree.hpp"
 #include "volrend/render_options.hpp"
-
-#ifdef VOLREND_CUDA
 #include "volrend/mesh.hpp"
-#endif
 
 namespace volrend {
 // Volume renderer using CUDA or compute shader
@@ -36,10 +33,8 @@ struct VolumeRenderer {
     // Rendering options
     RenderOptions options;
 
-#ifdef VOLREND_CUDA
     // Meshes to draw, currently only supported on CUDA implementation
     std::vector<Mesh> meshes;
-#endif
 
    private:
     struct Impl;

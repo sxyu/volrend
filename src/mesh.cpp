@@ -2,8 +2,6 @@
 
 #include "volrend/common.hpp"
 
-#ifdef VOLREND_CUDA
-
 #ifdef __EMSCRIPTEN__
 // WebGL
 #include <GLES3/gl3.h>
@@ -201,6 +199,10 @@ void Mesh::update() {
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, faces.size() * sizeof(faces[0]),
                  faces.data(), GL_STATIC_DRAW);
     glBindVertexArray(0);
+}
+
+void Mesh::use_shader() {
+    glUseProgram(program);
 }
 
 void Mesh::draw(const glm::mat4x4& V, const glm::mat4x4& K) const {
@@ -429,5 +431,3 @@ void Mesh::auto_faces() {
 }
 
 }  // namespace volrend
-
-#endif

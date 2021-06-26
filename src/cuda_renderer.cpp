@@ -203,6 +203,7 @@ struct VolumeRenderer::Impl {
     std::array<cudaArray_t, 4> ca;
 
     Mesh probe_, wire_;
+    // The depth level of the octree wireframe; -1 = not yet generated
     int last_wire_depth_ = -1;
 
     std::vector<Mesh>& meshes;

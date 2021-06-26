@@ -13,7 +13,10 @@ struct Mesh {
     // Upload to GPU
     void update();
 
-    // Draw the mesh (unshaded)
+    // Use mesh shader program (for shader render purposes only)
+    static void use_shader();
+
+    // Draw the mesh
     void draw(const glm::mat4x4& V, const glm::mat4x4& K) const;
 
     // Load a basic OBJ file (triangles & optionally vertex colors)

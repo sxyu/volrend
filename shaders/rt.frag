@@ -63,6 +63,10 @@ uniform int tree_data_dim;
 uniform mediump sampler2D tree_data_tex;
 // uniform highp sampler2D tree_extra_tex;
 
+// Mesh rendering compositing
+uniform mediump sampler2D mesh_depth_tex;
+uniform mediump sampler2D mesh_color_tex;
+
 // Hacky ways to store octree in 2 textures
 float get_tree_data(int y, int x) {
     return texelFetch(tree_data_tex, ivec2(x, y), 0).r;
@@ -217,16 +221,17 @@ float _get_delta_scale(vec3 scaling, inout vec3 dir) {
     return delta_scale;
 }
 
-vec3 trace_ray(vec3 dir, vec3 vdir, vec3 cen) {
+vec3 trace_ray(vec3 dir, vec3 vdir, vec3 cen, float tmax_bg, vec3 bg_color) {
     float delta_scale = _get_delta_scale(tree.scale, dir);
     vec3 output_color;
     vec3 invdir = 1.f / (dir + 1e-9);
     float tmin, tmax;
     dda_world(cen, invdir, tmin, tmax);
+    tmax = min(tmax, tmax_bg / delta_scale);
 
     if (tmax < 0.f || tmin > tmax) {
         // Ray doesn't hit box
-        output_color = vec3(opt.background_brightness);
+        output_color = bg_color;
     } else {
         output_color = vec3(.0f);
         float basis_fn[VOLREND_GLOBAL_BASIS_MAX];
@@ -311,7 +316,7 @@ vec3 trace_ray(vec3 dir, vec3 vdir, vec3 cen) {
             }
             t += delta_t;
         }
-        output_color += light_intensity * opt.background_brightness;
+        output_color += light_intensity * bg_color;
         return output_color;
     }
     return output_color;
@@ -347,7 +352,14 @@ void main()
     }
     cen = tree.center + cen * tree.scale;
     rodrigues(opt.rot_dirs, vdir);
-    rgb = trace_ray(dir, vdir, cen);
+
+    // Get depth of drawn meshes
+    ivec2 screen_pt = ivec2(gl_FragCoord.x, cam.reso.y - gl_FragCoord.y);
+    float tmax_bg = texelFetch(mesh_depth_tex, screen_pt, 0).r;
+    vec4 mesh_color = texelFetch(mesh_color_tex, screen_pt, 0);
+    vec3 bg_color = vec3(mesh_color);
+
+    rgb = trace_ray(dir, vdir, cen, tmax_bg, bg_color);
     rgb = clamp(rgb, 0.0, 1.0);
     FragColor = vec4(rgb, 1.0);
 }

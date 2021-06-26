@@ -34,22 +34,22 @@ struct RenderOptions {
     // Rotation applied to viewdirs for all rays
     float rot_dirs[3] = {0.f, 0.f, 0.f};
 
-#ifdef VOLREND_CUDA
-    // * ADVANCED VISUALIZATION, requires mesh, currently in CUDA only
+    // * ADVANCED VISUALIZATION
 
     // Draw a (rather low-quality) grid to help visualize the octree
     bool show_grid = false;
     // Grid max depth
     int grid_max_depth = 4;
 
-    // Render depth instead of color
+#ifdef VOLREND_CUDA
+    // Render depth instead of color, currently CUDA only
     bool render_depth = false;
+#endif
 
     // * Probe for inspecting lumispheres
     bool enable_probe = false;
     float probe[3] = {0.f, 0.f, 1.f};
     int probe_disp_size = 100;
-#endif
 };
 
 }  // namespace volrend
