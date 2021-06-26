@@ -512,15 +512,15 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
                                 kf.opt.rot_dirs[i] = 0.f;
                         }
 
-#ifdef VOLREND_CUDA
                         ImGui::Checkbox("Show Grid", &kf.opt.show_grid);
+#ifdef VOLREND_CUDA
                         ImGui::SameLine();
                         ImGui::Checkbox("Render Depth", &kf.opt.render_depth);
+#endif
                         if (kf.opt.show_grid) {
                             ImGui::SliderInt("grid max depth",
                                              &kf.opt.grid_max_depth, 0, 7);
                         }
-#endif
 
                         ImGui::TreePop();
                     }
@@ -583,14 +583,12 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
         // Begin standard control window
         ImGui::Begin(title);
 #ifndef __EMSCRIPTEN__
-#ifdef VOLREND_CUDA
         static ImGui::FileBrowser open_obj_mesh_dialog(
             ImGuiFileBrowserFlags_MultipleSelection);
         if (open_obj_mesh_dialog.GetTitle().empty()) {
             open_obj_mesh_dialog.SetTypeFilters({".obj"});
             open_obj_mesh_dialog.SetTitle("Load basic triangle OBJ");
         }
-#endif
         static ImGui::FileBrowser open_tree_dialog,
             save_screenshot_dialog(ImGuiFileBrowserFlags_EnterNewFilename);
         if (open_tree_dialog.GetTitle().empty()) {
@@ -698,18 +696,17 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
                 for (int i = 0; i < 3; ++i) rend.options.rot_dirs[i] = 0.f;
             }
 
-#ifdef VOLREND_CUDA
             ImGui::Checkbox("Show Grid", &rend.options.show_grid);
+#ifdef VOLREND_CUDA
             ImGui::SameLine();
             ImGui::Checkbox("Render Depth", &rend.options.render_depth);
+#endif
             if (rend.options.show_grid) {
                 ImGui::SliderInt("grid max depth", &rend.options.grid_max_depth,
                                  0, 7);
             }
-#endif
         }
 
-#ifdef VOLREND_CUDA
         ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
         if (ImGui::CollapsingHeader("Manipulation")) {
             static std::vector<glm::mat4> gizmo_mesh_trans;
@@ -852,6 +849,7 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
                 rend.meshes.clear();
             }
 
+#ifdef VOLREND_CUDA
             if (tree.capacity) {
                 ImGui::BeginGroup();
                 ImGui::Checkbox("Enable Lumisphere Probe",
@@ -888,6 +886,7 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
                 }
                 ImGui::EndGroup();
             }
+#endif
         }
         open_obj_mesh_dialog.Display();
         if (open_obj_mesh_dialog.HasSelected()) {
@@ -918,7 +917,6 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
             open_obj_mesh_dialog.ClearSelected();
         }
 
-#endif
         ImGui::End();
     }
 
@@ -1084,10 +1082,16 @@ GLFWwindow* glfw_init(const int width, const int height) {
     if (!glfwInit()) std::exit(EXIT_FAILURE);
 
     glfwWindowHint(GLFW_DEPTH_BITS, GL_TRUE);
+#ifdef VOLREND_CUDA
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
+#else
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
+    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 2);
+#endif
 
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
+    glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
     GLFWwindow* window =
         glfwCreateWindow(width, height, "volrend viewer", NULL, NULL);

@@ -406,10 +406,10 @@ else (EMSCRIPTEN)
     endmacro()
 
     VOLREND_ADD_EXECUTABLE(volrend_exe volrend main.cpp)
+    VOLREND_ADD_EXECUTABLE(volrend_anim_exe volrend_anim main_anim.cpp)
 
     if (_VOLREND_USE_CUDA)
         VOLREND_ADD_EXECUTABLE(volrend_headless_exe volrend_headless main_headless.cpp)
-        VOLREND_ADD_EXECUTABLE(volrend_anim_exe volrend_anim main_anim.cpp)
         if(WIN32)
             set_target_properties( ${PROJ_LIB_NAME}
                 PROPERTIES CUDA_RESOLVE_DEVICE_SYMBOLS ON)
