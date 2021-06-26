@@ -373,6 +373,7 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
             rend.meshes.clear();
         }
 
+#ifdef VOLREND_CUDA
         if (tree.capacity) {
             ImGui::BeginGroup();
             ImGui::Checkbox("Enable Lumisphere Probe",
@@ -408,6 +409,7 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
             }
             ImGui::EndGroup();
         }
+#endif
     }
     open_obj_mesh_dialog.Display();
     if (open_obj_mesh_dialog.HasSelected()) {
