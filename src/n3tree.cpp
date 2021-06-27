@@ -119,6 +119,11 @@ void N3Tree::open(const std::string& path) {
 
     poses_bounds_path_ = path.substr(0, path.size() - 4) + "_poses_bounds.npy";
 
+    if (!std::ifstream(path)) {
+        std::cout << "Can't load because file does not exist: " << path << "\n";
+        return;
+    }
+
     cnpy::npz_t npz = cnpy::npz_load(path);
     load_npz(npz);
 

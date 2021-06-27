@@ -116,4 +116,35 @@ let onInit = function() {
     if (init_load_path !== null) {
         load_remote(init_load_path);
     }
+
+    $('#open-local-btn').click(function() {
+        var err_txt = $('#open-local-error');
+        err_txt.text('');
+        var files = $('#open-local-file')[0].files;
+        if (files.length === 0) return;
+
+        let loading_ele = $('#loading');
+        loading_ele.css('display', 'block');
+        setTimeout(function() {
+            loading_ele.css('opacity', '1');
+        }, 100);
+
+        console.log('Loading local file');
+        var reader = new FileReader();
+        reader.onload = function(event) {
+            // Transfer to Emscripten MEMFS
+            const data = new Uint8Array(reader.result);
+            console.log('Length: ' + data.length + ' bytes');
+            const filename = 'openlocaltmp.npz';
+            FS.writeFile(filename, data);
+            // Load the file
+            Volrend.load_local(filename);
+            // Clean up
+            FS.unlink(filename);
+
+            $('#open-local-file').siblings(".custom-file-label")
+                .html('Open npz success');
+        };
+        reader.readAsArrayBuffer(files[0]);
+    });
 };

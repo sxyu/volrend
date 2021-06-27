@@ -121,8 +121,8 @@ in vec3 Normal;
 uniform bool unlit;
 uniform vec3 camPos;
 
-out lowp vec4 FragColor;
-out float Depth;
+layout(location = 0) out lowp vec4 FragColor;
+layout(location = 1) out float Depth;
 
 void main()
 {

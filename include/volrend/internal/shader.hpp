@@ -43,7 +43,7 @@ GLuint create_shader_program(std::string vert_shader_src,
 #ifdef __EMSCRIPTEN__
     const std::string version_str = "#version 300 es\n";
 #else
-    const std::string version_str = "#version 150\n";
+    const std::string version_str = "#version 330\n";
 #endif
     vert_shader_src = version_str + vert_shader_src;
     frag_shader_src = version_str + frag_shader_src;

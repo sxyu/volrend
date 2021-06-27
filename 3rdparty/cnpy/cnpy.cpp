@@ -311,8 +311,10 @@ cnpy::npz_t cnpy::npz_load(const std::string& fname) {
     cnpy::npz_t arrays;
 
     while (1) {
+        std::flush(std::cout);
         std::vector<char> local_header(30);
         size_t headerres = fread(&local_header[0], sizeof(char), 30, fp);
+
         if (headerres != 30) throw std::runtime_error("npz_load: failed fread");
 
         // if we've reached the global header, stop reading

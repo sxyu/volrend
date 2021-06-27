@@ -135,6 +135,14 @@ void load_remote(const std::string& url) {
     emscripten_fetch(&attr, url.c_str());
 }
 
+// Load from emscripten MEMFS
+void load_local(const std::string& path) {
+    tree.open(path);
+    renderer->set(tree);
+    tree.clear_cpu_memory();
+    report_progress(101.0f);  // Report finished loading
+}
+
 volrend::RenderOptions get_options() { return renderer->options; }
 void set_options(const volrend::RenderOptions& opt) { renderer->options = opt; }
 float get_focal() { return renderer->camera.fx; }
@@ -152,6 +160,7 @@ EMSCRIPTEN_BINDINGS(Volrend) {
     function("on_resize", &on_resize);
     function("redraw", &redraw);
     function("load_remote", &load_remote);
+    function("load_local", &load_local);
     value_object<volrend::RenderOptions>("RenderOptions")
         .field("step_size", &volrend::RenderOptions::step_size)
         .field("sigma_thresh", &volrend::RenderOptions::sigma_thresh)

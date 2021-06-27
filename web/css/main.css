@@ -150,3 +150,17 @@
     font-size: 0.8em;
     color: #444;
 }
+
+/* open local */
+#open-local-file-dropdown {
+    min-width: 350px;
+    padding: 0.5em;
+}
+
+#open-local-file-dropdown .custom-file {
+    overflow: hidden;
+}
+
+#open-local-error {
+    color: #c88;
+}
