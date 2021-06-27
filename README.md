@@ -160,6 +160,6 @@ To launch it locally for previewing, you can use the make target:
 make serve
 ```
 Which should launch a server at http://0.0.0.0:8000/.
-You may load local files for now by placing npz files under `build/<xyz>.npz`,
-then going to http://0.0.0.0:8000/<xyz>.npz
+You may load local files for now by placing npz files under `embuild/build/<xyz>.npz`,
+then going to http://0.0.0.0:8000/?load=<xyz>.npz
 
