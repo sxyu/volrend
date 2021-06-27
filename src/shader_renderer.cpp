@@ -258,7 +258,8 @@ struct VolumeRenderer::Impl {
         height = (size - 1) / width + 1;
         if (height > tex_max_size || width > tex_max_size) {
             throw std::runtime_error(
-                "Octree data exceeds hardward 2D texture limit\n");
+                "Octree data exceeds your OpenGL driver's 2D texture limit.\n"
+                "Please try the CUDA renderer or another device.");
         }
     }
 
@@ -268,12 +269,24 @@ struct VolumeRenderer::Impl {
         size_t width, height;
         auto_size_2d(data_size, width, height, tree->data_dim);
         const size_t pad = width * height - data_size;
-        tree->data_.data_holder.resize((data_size + pad) * sizeof(half));
         glUniform1i(glGetUniformLocation(program, "tree_data_dim"), width);
 
+#ifdef __EMSCRIPTEN__
+        tree->data_.data_holder.resize((data_size + pad) * sizeof(half));
         glBindTexture(GL_TEXTURE_2D, tex_tree_data);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, width, height, 0, GL_RED,
                      GL_HALF_FLOAT, tree->data_.data<half>());
+#else
+        // FIXME: there seems to be some weird bug in the NVIDIA OpenGL
+        // implementation where GL_HALF_FLOAT is sometimes ignored, and we have
+        // to use float32 for uploads
+        std::vector<float> tmp(data_size + pad);
+        std::copy(tree->data_.data<half>(),
+                  tree->data_.data<half>() + data_size, tmp.begin());
+        glBindTexture(GL_TEXTURE_2D, tex_tree_data);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, width, height, 0, GL_RED,
+                     GL_FLOAT, (void*)tmp.data());
+#endif
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
