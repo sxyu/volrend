@@ -1238,9 +1238,7 @@ int main(int argc, char* argv[]) {
         glfwSetFramebufferSizeCallback(window, glfw_window_size_callback);
 
         while (!glfwWindowShouldClose(window)) {
-#ifdef VOLREND_CUDA
             glEnable(GL_DEPTH_TEST);
-#endif
             glEnable(GL_PROGRAM_POINT_SIZE);
             glPointSize(4.f);
 

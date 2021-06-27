@@ -1,6 +1,13 @@
 #include <string>
 #include <iostream>
 
+#ifdef __EMSCRIPTEN__
+// WebGL
+#include <GLES3/gl3.h>
+#else
+#include <GL/glew.h>
+#endif
+
 namespace {
 
 void check_compile_errors(GLuint shader, const std::string& type) {
@@ -30,18 +37,27 @@ void check_compile_errors(GLuint shader, const std::string& type) {
     }
 }
 
-GLuint create_shader_program(const char* vert_shader_src,
-                             const char* frag_shader_src) {
+GLuint create_shader_program(std::string vert_shader_src,
+                             std::string frag_shader_src) {
+    // Auto-prepend the version
+#ifdef __EMSCRIPTEN__
+    const std::string version_str = "#version 300 es\n";
+#else
+    const std::string version_str = "#version 150\n";
+#endif
+    vert_shader_src = version_str + vert_shader_src;
+    frag_shader_src = version_str + frag_shader_src;
     // Dummy vertex shader
     GLuint vert_shader = glCreateShader(GL_VERTEX_SHADER);
-    glShaderSource(vert_shader, 1, &vert_shader_src, NULL);
+    const GLchar* vert_shader_src_ptr = vert_shader_src.c_str();
+    glShaderSource(vert_shader, 1, &vert_shader_src_ptr, NULL);
     glCompileShader(vert_shader);
     check_compile_errors(vert_shader, "VERTEX");
 
     // Fragment shader
     GLuint frag_shader = glCreateShader(GL_FRAGMENT_SHADER);
-
-    glShaderSource(frag_shader, 1, &frag_shader_src, NULL);
+    const GLchar* frag_shader_src_ptr = frag_shader_src.c_str();
+    glShaderSource(frag_shader, 1, &frag_shader_src_ptr, NULL);
     glCompileShader(frag_shader);
     check_compile_errors(frag_shader, "FRAGMENT");
 

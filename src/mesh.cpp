@@ -89,7 +89,7 @@ void estimate_normals(std::vector<float>& verts,
 }
 
 const char* VERT_SHADER_SRC =
-    R"glsl(#version 150
+    R"glsl(
 uniform mat4x4 K;
 uniform mat4x4 MV;
 uniform mat4x4 M;
@@ -112,7 +112,7 @@ void main()
 )glsl";
 
 const char* FRAG_SHADER_SRC =
-    R"glsl(#version 150
+    R"glsl(
 precision highp float;
 in lowp vec3 VertColor;
 in vec4 FragPos;
@@ -201,9 +201,7 @@ void Mesh::update() {
     glBindVertexArray(0);
 }
 
-void Mesh::use_shader() {
-    glUseProgram(program);
-}
+void Mesh::use_shader() { glUseProgram(program); }
 
 void Mesh::draw(const glm::mat4x4& V, const glm::mat4x4& K) const {
     if (!visible) return;

@@ -1,6 +1,7 @@
 #include <cstdlib>
 #include <iostream>
 #include <chrono>
+#include <memory>
 
 #include <GLES3/gl3.h>
 #include <GLFW/glfw3.h>
@@ -31,7 +32,7 @@ EM_JS(void, update_fps, (double x), { cppUpdateFPS(x); });
 
 GLFWwindow* window;
 volrend::N3Tree tree;
-volrend::VolumeRenderer renderer;
+std::unique_ptr<volrend::VolumeRenderer> renderer;
 const int FPS_AVERAGE_FRAMES = 20;
 struct {
     bool measure_fps = true;
@@ -58,10 +59,10 @@ void redraw() {
             update_fps(gui.curr_fps);
             gui.tstart = std::chrono::high_resolution_clock::now();
         }
-        renderer.render();
+        renderer->render();
         ++gui.curr_fps_frame;
     } else {
-        renderer.render();
+        renderer->render();
     }
 
     glfwSwapBuffers(window);
@@ -83,22 +84,22 @@ void on_key(int key, bool ctrl, bool shift, bool alt) {
     }
 }
 void on_mousedown(int x, int y, bool middle) {
-    renderer.camera.begin_drag(x, y, middle, !middle);
+    renderer->camera.begin_drag(x, y, middle, !middle);
 }
 void on_mousemove(int x, int y) {
-    if (renderer.camera.is_dragging()) {
-        renderer.camera.drag_update(x, y);
+    if (renderer->camera.is_dragging()) {
+        renderer->camera.drag_update(x, y);
     }
 }
-void on_mouseup() { renderer.camera.end_drag(); }
-bool is_camera_moving() { return renderer.camera.is_dragging(); }
+void on_mouseup() { renderer->camera.end_drag(); }
+bool is_camera_moving() { return renderer->camera.is_dragging(); }
 void on_mousewheel(bool upwards, int distance, int x, int y) {
     const float speed_fact = 1e-1f;
-    renderer.camera.move(renderer.camera.v_back *
-                         (upwards ? -speed_fact : speed_fact));
+    renderer->camera.move(renderer->camera.v_back *
+                          (upwards ? -speed_fact : speed_fact));
 }
 
-void on_resize(int width, int height) { renderer.resize(width, height); }
+void on_resize(int width, int height) { renderer->resize(width, height); }
 
 // Remote octree file loading
 void load_remote(const std::string& url) {
@@ -106,7 +107,7 @@ void load_remote(const std::string& url) {
         // Decompress the tree in memory
         tree.open_mem(fetch->data, fetch->numBytes);
         emscripten_fetch_close(fetch);  // Free data associated with the fetch.
-        renderer.set(tree);
+        renderer->set(tree);
         tree.clear_cpu_memory();
         // redraw();
         report_progress(101.0f);  // Report finished loading
@@ -134,10 +135,10 @@ void load_remote(const std::string& url) {
     emscripten_fetch(&attr, url.c_str());
 }
 
-volrend::RenderOptions get_options() { return renderer.options; }
-void set_options(const volrend::RenderOptions& opt) { renderer.options = opt; }
-float get_focal() { return renderer.camera.fx; }
-void set_focal(float fx) { renderer.camera.fy = renderer.camera.fx = fx; }
+volrend::RenderOptions get_options() { return renderer->options; }
+void set_options(const volrend::RenderOptions& opt) { renderer->options = opt; }
+float get_focal() { return renderer->camera.fx; }
+void set_focal(float fx) { renderer->camera.fy = renderer->camera.fx = fx; }
 
 // JS function bindings
 EMSCRIPTEN_BINDINGS(Volrend) {
@@ -204,12 +205,13 @@ bool init_gl() {
     glClear(GL_COLOR_BUFFER_BIT);
 
     glfwGetFramebufferSize(window, &width, &height);
-    renderer.options.step_size = 1e-4f;
-    renderer.options.stop_thresh = 1e-2f;
-    renderer.camera.movement_speed = 2.0f;
+    renderer = std::make_unique<volrend::VolumeRenderer>();
+    renderer->options.step_size = 1e-4f;
+    renderer->options.stop_thresh = 1e-2f;
+    renderer->camera.movement_speed = 2.0f;
 
-    renderer.set(tree);
-    renderer.resize(width, height);
+    renderer->set(tree);
+    renderer->resize(width, height);
     emscripten_set_main_loop(redraw, 0, 1);
     return true;
 }

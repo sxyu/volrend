@@ -25,7 +25,7 @@ namespace volrend {
 namespace {
 
 const char* PASSTHRU_VERT_SHADER_SRC =
-    R"glsl(#version 150
+    R"glsl(
 in vec3 aPos;
 
 void main()
@@ -101,12 +101,12 @@ struct VolumeRenderer::Impl {
         resize(800, 800);
 
         glBindFramebuffer(GL_FRAMEBUFFER, fb);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
-                             tex_mesh_color, 0);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1,
-                             tex_mesh_depth, 0);
-        glFramebufferTexture(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
-                             tex_mesh_depth_buf, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT0,
+                               GL_TEXTURE_2D, tex_mesh_color, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_COLOR_ATTACHMENT1,
+                               GL_TEXTURE_2D, tex_mesh_depth, 0);
+        glFramebufferTexture2D(GL_FRAMEBUFFER, GL_DEPTH_ATTACHMENT,
+                               GL_TEXTURE_2D, tex_mesh_depth_buf, 0);
         const GLenum attach_buffers[]{GL_COLOR_ATTACHMENT0,
                                       GL_COLOR_ATTACHMENT1};
         glDrawBuffers(2, attach_buffers);
@@ -141,7 +141,12 @@ struct VolumeRenderer::Impl {
         glBindFramebuffer(GL_FRAMEBUFFER, fb);
         glDepthMask(GL_TRUE);
 
+#ifdef __EMSCRIPTEN__
+        // GLES 3
+        glClearDepthf(1.f);
+#else
         glClearDepth(1.f);
+#endif
         glClearBufferfv(GL_COLOR, 0, clear_color);
         glClearBufferfv(GL_COLOR, 1, &depth_inf);
         glClearBufferfv(GL_DEPTH, 0, &depth_inf);
