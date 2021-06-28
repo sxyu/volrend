@@ -342,10 +342,14 @@ if (EMSCRIPTEN)
         ${PROJECT_BINARY_DIR}/build/
         DEPENDS ${PROJECT_SOURCE_DIR}/web/index.html
         )
-    add_custom_target(html_config ALL DEPENDS "${PROJECT_BINARY_DIR}/build/index.html")
+    add_custom_target(html_config ALL DEPENDS "${PROJECT_BINARY_DIR}/build/index.html" js_config css_config)
 
     add_custom_target(serve
-        COMMAND python -m http.server --directory "${PROJECT_BINARY_DIR}/build/")
+        COMMAND ${Python_EXECUTABLE} -m http.server --directory "${PROJECT_BINARY_DIR}/build/")
+
+    add_custom_command(
+        TARGET html_config POST_BUILD
+        COMMAND ${Python_EXECUTABLE} ${PROJECT_SOURCE_DIR}/web/autoversion.py "${PROJECT_BINARY_DIR}/build/")
 
 else (EMSCRIPTEN)
     if (VOLREND_BUILD_INSTALL)
