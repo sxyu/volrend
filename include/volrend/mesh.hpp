@@ -17,7 +17,7 @@ struct Mesh {
     static void use_shader();
 
     // Draw the mesh
-    void draw(const glm::mat4x4& V, const glm::mat4x4& K) const;
+    void draw(const glm::mat4x4& V, glm::mat4x4 K, bool y_up = true) const;
 
     // Load a basic OBJ file (triangles & optionally vertex colors)
     void load_basic_obj(const std::string& path);
@@ -30,7 +30,7 @@ struct Mesh {
     // Triangle indices
     std::vector<unsigned int> faces;
 
-    // Model transform, rotatin is axis-angle
+    // Model transform, rotation is axis-angle
     glm::vec3 rotation, translation;
     float scale = 1.f;
 

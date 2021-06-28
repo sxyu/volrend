@@ -227,8 +227,8 @@ vec3 trace_ray(vec3 dir, vec3 vdir, vec3 cen, float tmax_bg, vec3 bg_color) {
     dda_world(cen, invdir, tmin, tmax);
     tmax = min(tmax, tmax_bg / delta_scale);
 
-    if (tmax < 0.f || tmin > tmax) {
-        // Ray doesn't hit box
+    if (tmax < 0.f || tmin > tmax || tree_data_dim == 0) {
+        // Ray doesn't hit box or tree not loaded
         output_color = bg_color;
     } else {
         output_color = vec3(.0f);
@@ -352,7 +352,7 @@ void main()
     rodrigues(opt.rot_dirs, vdir);
 
     // Get depth of drawn meshes
-    ivec2 screen_pt = ivec2(gl_FragCoord.x, cam.reso.y - gl_FragCoord.y);
+    ivec2 screen_pt = ivec2(gl_FragCoord.x, gl_FragCoord.y);
     float tmax_bg = texelFetch(mesh_depth_tex, screen_pt, 0).r;
     vec4 mesh_color = texelFetch(mesh_color_tex, screen_pt, 0);
     vec3 bg_color = vec3(mesh_color);

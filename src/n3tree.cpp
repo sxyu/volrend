@@ -437,8 +437,9 @@ bool N3Tree::is_cuda_loaded() { return cuda_loaded_; }
 #endif
 
 void N3Tree::clear_cpu_memory() {
-    child_.data_holder.clear();
-    child_.data_holder.shrink_to_fit();
+    // Keep child in order to generate grids
+    // child_.data_holder.clear();
+    // child_.data_holder.shrink_to_fit();
     data_.data_holder.clear();
     data_.data_holder.shrink_to_fit();
 }

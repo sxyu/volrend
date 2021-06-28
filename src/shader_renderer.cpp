@@ -126,7 +126,7 @@ struct VolumeRenderer::Impl {
 
     void render() {
         glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
-        if (tree == nullptr || !started_) return;
+        if (!started_) return;
 
         camera._update();
         if (options.show_grid) {
@@ -153,15 +153,16 @@ struct VolumeRenderer::Impl {
 
         Mesh::use_shader();
         for (const Mesh& mesh : meshes) {
-            mesh.draw(camera.w2c, camera.K);
+            mesh.draw(camera.w2c, camera.K, false);
         }
         probe_.draw(camera.w2c, camera.K);
         if (options.show_grid) {
-            wire_.draw(camera.w2c, camera.K);
+            wire_.draw(camera.w2c, camera.K, false);
         }
-        glBindFramebuffer(GL_FRAMEBUFFER, 0);
 
+        glBindFramebuffer(GL_FRAMEBUFFER, 0);
         glUseProgram(program);
+
         // FIXME reduce uniform transfers?
         glUniformMatrix4x3fv(u.cam_transform, 1, GL_FALSE,
                              glm::value_ptr(camera.transform));
@@ -190,7 +191,6 @@ struct VolumeRenderer::Impl {
 
         // glActiveTexture(GL_TEXTURE4);
         // glBindTexture(GL_TEXTURE_2D, tex_tree_extra);
-
         glBindVertexArray(vao_quad);
         glDrawArrays(GL_TRIANGLE_STRIP, 0, (GLsizei)4);
         glBindVertexArray(0);
@@ -211,6 +211,7 @@ struct VolumeRenderer::Impl {
     void maybe_gen_wire(int depth) {
         if (last_wire_depth_ != depth) {
             wire_.vert = tree->gen_wireframe(depth);
+            std::flush(std::cout);
             wire_.auto_faces();
             wire_.update();
             last_wire_depth_ = depth;
@@ -274,6 +275,8 @@ struct VolumeRenderer::Impl {
         size_t width, height;
         auto_size_2d(data_size, width, height, tree->data_dim);
         const size_t pad = width * height - data_size;
+
+        glUseProgram(program);
         glUniform1i(glGetUniformLocation(program, "tree_data_dim"), width);
 
 #ifdef __EMSCRIPTEN__
@@ -376,6 +379,7 @@ struct VolumeRenderer::Impl {
         glUniform1i(u.tree_data_tex, 1);
         glUniform1i(u.mesh_depth_tex, 2);
         glUniform1i(u.mesh_color_tex, 3);
+        glUniform1i(glGetUniformLocation(program, "tree_data_dim"), 0);
         // glUniform1i(u.tree_extra_tex, 4);
     }
 

@@ -203,7 +203,7 @@ void Mesh::update() {
 
 void Mesh::use_shader() { glUseProgram(program); }
 
-void Mesh::draw(const glm::mat4x4& V, const glm::mat4x4& K) const {
+void Mesh::draw(const glm::mat4x4& V, glm::mat4x4 K, bool y_up) const {
     if (!visible) return;
     float norm = glm::length(rotation);
     if (norm < 1e-3) {
@@ -214,6 +214,9 @@ void Mesh::draw(const glm::mat4x4& V, const glm::mat4x4& K) const {
     }
     transform_ *= scale;
     glm::vec3 cam_pos = -glm::transpose(glm::mat3x3(V)) * glm::vec3(V[3]);
+    if (!y_up) {
+        K[1][1] *= -1.0;
+    }
 
     transform_[3] = glm::vec4(translation, 1);
     glm::mat4x4 MV = V * transform_;

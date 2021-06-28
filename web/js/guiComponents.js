@@ -97,6 +97,31 @@ let guiInit = function() {
         }
         Volrend.set_options(opt);
     });
+
+    let checkbox_showgrid = $('#checkbox-showgrid');
+    checkbox_showgrid[0].checked = false;
+    checkbox_showgrid.on('change', function() {
+        let checked = $('#checkbox-showgrid')[0].checked == true;
+        let opt = Volrend.get_options();
+        opt.show_grid = checked;
+        Volrend.set_options(opt);
+    });
+
+    let sliders_grid_reso = $('#slider-grid-reso');
+    sliders_grid_reso.on("input", function() {
+        let value = parseInt(document.getElementById('slider-grid-reso').value);
+        let opt = Volrend.get_options();
+        opt.grid_max_depth = value;
+        Volrend.set_options(opt);
+        document.getElementById('grid-reso-disp').innerText = value;
+    });
+
+    $('#mesh-add-cube-btn').click(function() {
+        Volrend.mesh_add_cube([0.0, 0.0, 1.0], 0.2);
+    });
+    $('#mesh-add-sphere-btn').click(function() {
+        Volrend.mesh_add_sphere([0.4, 0.0, 1.0], 0.1);
+    });
 };
 
 let guiLoadTreeUpdate = function() {
