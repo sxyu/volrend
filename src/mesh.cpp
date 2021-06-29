@@ -919,7 +919,7 @@ std::vector<Mesh> _load_npz(const cnpy::npz_t& npz, bool default_visible) {
         me.name = mesh_name;
         me.scale = map_get_float(fields, "scale", 1.0f, errs);
         me.translation =
-            map_get_vec3(fields, "translation", glm::vec3{0.f, 0.f, 1.f}, errs);
+            map_get_vec3(fields, "translation", glm::vec3{0.f, 0.f, 0.f}, errs);
         me.rotation =
             map_get_vec3(fields, "rotation", glm::vec3{0.f, 0.f, 0.f}, errs);
         me.visible = map_get_int(fields, "visible", default_visible, errs) != 0;

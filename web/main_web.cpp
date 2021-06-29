@@ -28,6 +28,7 @@ namespace {
 // cppReportProgress is a JS function (emModule.js) which will be called if you
 // call report_progress in C++
 EM_JS(void, report_progress, (double x), { cppReportProgress(x); });
+EM_JS(void, populate_layers, (), { populateLayers(); });
 EM_JS(void, show_loading_screen, (), { showLoadingScreen(); });
 EM_JS(void, update_fps, (double x), { cppUpdateFPS(x); });
 
@@ -189,6 +190,7 @@ void load_obj_remote(const std::string& url) {
             tmp.update();
             renderer->meshes.push_back(std::move(tmp));
             printf("Load OBJ success\n");
+            populate_layers();
         } else {
             printf("Load OBJ failed\n");
         }
@@ -238,6 +240,7 @@ void load_drawlist_remote(const std::string& url) {
                                              fetch->data, fetch->numBytes,
                                              gui.mesh_default_visible));
         emscripten_fetch_close(fetch);  // Free data associated with the fetch.
+        populate_layers();
     };
 
     auto _load_remote_download_failed = [](emscripten_fetch_t* fetch) {
