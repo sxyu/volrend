@@ -339,7 +339,9 @@ struct VolumeRenderer::Impl {
         glUniform1i(glGetUniformLocation(program, "tree.format"),
                     (int)tree->data_format.format);
         glUniform1i(glGetUniformLocation(program, "tree.basis_dim"),
-                    tree->data_format.basis_dim);
+                    tree->data_format.format == DataFormat::RGBA
+                        ? 1
+                        : tree->data_format.basis_dim);
         glUniform3f(glGetUniformLocation(program, "tree.center"),
                     tree->offset[0], tree->offset[1], tree->offset[2]);
         glUniform3f(glGetUniformLocation(program, "tree.scale"), tree->scale[0],

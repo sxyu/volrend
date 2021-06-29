@@ -130,7 +130,7 @@ The compression script used to turn this in to the web version is in `scripts/co
 
 More to come soon.
 
-## PyTorch Extension: svox 
+## PyTorch Extension: svox
 
 You can find a (mostly) compatible PlenOctree library called `svox`, which we use to build the tree;
 `pip install svox`.
@@ -160,6 +160,5 @@ To launch it locally for previewing, you can use the make target:
 make serve
 ```
 Which should launch a server at http://0.0.0.0:8000/.
-You may load local files for now by placing npz files under `embuild/build/<xyz>.npz`,
-then going to http://0.0.0.0:8000/?load=<xyz>.npz
-
+NEW: You may load local files and OBJs by using `Load Local` in the navbar.
+Open `Layers` in the top right and click the camera layer to show cameras.

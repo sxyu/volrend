@@ -894,9 +894,8 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
             auto sels = open_obj_mesh_dialog.GetMultiSelected();
             for (auto& fpath : sels) {
                 const std::string path = fpath.string();
-                Mesh tmp;
                 std::cout << "Load OBJ: " << path << "\n";
-                tmp.load_basic_obj(path);
+                Mesh tmp = Mesh::load_basic_obj(path);
                 if (tmp.vert.size()) {
                     // Auto offset
                     std::ifstream ifs(path + ".offs");
@@ -1225,6 +1224,14 @@ int main(int argc, char* argv[]) {
         if (fy <= 0.f) {
             rend.camera.fy = rend.camera.fx;
         }
+
+        {
+            std::string drawlist_load_path = args["draw"].as<std::string>();
+            if (drawlist_load_path.size()) {
+                rend.meshes = Mesh::open_drawlist(drawlist_load_path);
+            }
+        }
+
         glfwGetFramebufferSize(window, &width, &height);
         rend.set(tree);
         rend.resize(width, height);

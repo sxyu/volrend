@@ -1,3 +1,11 @@
+var showLoadingScreen = function() {
+    let loading_ele = $('#loading');
+    loading_ele.css('display', 'block');
+    setTimeout(function() {
+        loading_ele.css('opacity', '1');
+    }, 10);
+};
+
 var cppReportProgress = function(x) {
     let prog_ele = $("#load-progress");
     prog_ele.css("width", x + "%");
@@ -11,6 +19,8 @@ var cppReportProgress = function(x) {
             }, 600);
         }, 50);
         guiLoadTreeUpdate();
+        Volrend.mesh_set_visible(i, false);
+        populateLayers();
     } else {
         prog_ele.text(x.toFixed(2));
     }
@@ -44,4 +54,8 @@ var Volrend = {
     totalDependencies: 0,
     monitorRunDependencies: function() {},
     onRuntimeInitialized: function() { $(document).ready(onInit); },
+    set_title: function(title) {
+        $('#navbar-title').text(title);
+        document.title = title + " - PlenOctree Viewer";
+    },
 };

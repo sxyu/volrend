@@ -7,6 +7,8 @@ void add_common_opts(cxxopts::Options& options) {
     // clang-format off
     options.add_options()
         ("file", "npz file storing octree data", cxxopts::value<std::string>())
+        ("draw", "npz drawlist file",
+         cxxopts::value<std::string>()->default_value(""))
         ("gpu", "CUDA device id (only if using cuda; defaults to first one)",
              cxxopts::value<int>()->default_value("-1"))
         ("w,width", "image width", cxxopts::value<int>()->default_value("800"))

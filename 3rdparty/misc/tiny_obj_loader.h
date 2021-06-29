@@ -165,8 +165,8 @@ struct texture_option_t {
     real_t scale[3];          // -s u [v [w]] (default 1 1 1)
     real_t turbulence[3];     // -t u [v [w]] (default 0 0 0)
     int texture_resolution;   // -texres resolution (No default value in the
-                              // spec. We'll use -1)
-    bool clamp;               // -clamp (default false)
+                             // spec. We'll use -1)
+    bool clamp;  // -clamp (default false)
     char
         imfchan;  // -imfchan (the default for bump is 'l' and for decal is 'm')
     bool blendu;  // -blendu (default on)
@@ -361,7 +361,7 @@ struct mesh_t {
     std::vector<unsigned int> smoothing_group_ids;  // per-face smoothing group
                                                     // ID(0 = off. positive
                                                     // value = group id)
-    std::vector<tag_t> tags;                        // SubD tag
+    std::vector<tag_t> tags;  // SubD tag
 };
 
 // struct path_t {
@@ -1039,7 +1039,7 @@ static inline bool parseVertexWithColor(real_t *x, real_t *y, real_t *z,
         parseReal(token, r) && parseReal(token, g) && parseReal(token, b);
 
     if (!found_color) {
-        (*r) = (*g) = (*b) = 0.8;
+        (*r) = (*g) = (*b) = 1.0;
     }
 
     return found_color;
@@ -2023,7 +2023,7 @@ void LoadMtl(std::map<std::string, int> *material_map,
                 warn_ss << "Both `d` and `Tr` parameters defined for \""
                         << material.name
                         << "\". Use the value of `d` for dissolve (line "
-                        << line_no << " in .mtl.)" << std::endl;
+                        << line_no << " in .mtl.)\n";
             }
             has_d = true;
             continue;
@@ -2035,7 +2035,7 @@ void LoadMtl(std::map<std::string, int> *material_map,
                 warn_ss << "Both `d` and `Tr` parameters defined for \""
                         << material.name
                         << "\". Use the value of `d` for dissolve (line "
-                        << line_no << " in .mtl.)" << std::endl;
+                        << line_no << " in .mtl.)\n";
             } else {
                 // We invert value of Tr(assume Tr is in range [0, 1])
                 // NOTE: Interpretation of Tr is application(exporter)
@@ -2284,7 +2284,7 @@ bool MaterialFileReader::operator()(const std::string &matId,
 
         std::stringstream ss;
         ss << "Material file [ " << matId
-           << " ] not found in a path : " << m_mtlBaseDir << std::endl;
+           << " ] not found in a path : " << m_mtlBaseDir << "\n";
         if (warn) {
             (*warn) += ss.str();
         }
@@ -2301,7 +2301,7 @@ bool MaterialFileReader::operator()(const std::string &matId,
 
         std::stringstream ss;
         ss << "Material file [ " << filepath
-           << " ] not found in a path : " << m_mtlBaseDir << std::endl;
+           << " ] not found in a path : " << m_mtlBaseDir << "\n";
         if (warn) {
             (*warn) += ss.str();
         }
@@ -2318,7 +2318,7 @@ bool MaterialStreamReader::operator()(const std::string &matId,
     (void)matId;
     if (!m_inStream) {
         std::stringstream ss;
-        ss << "Material stream in error state. " << std::endl;
+        ss << "Material stream in error state. \n";
         if (warn) {
             (*warn) += ss.str();
         }
@@ -2344,7 +2344,7 @@ bool LoadObj(attrib_t *attrib, std::vector<shape_t> *shapes,
 
     std::ifstream ifs(filename);
     if (!ifs) {
-        errss << "Cannot open file [" << filename << "]" << std::endl;
+        errss << "Cannot open file [" << filename << "]\n";
         if (err) {
             (*err) = errss.str();
         }
@@ -2494,7 +2494,7 @@ bool LoadObj(attrib_t *attrib, std::vector<shape_t> *shapes,
                 // TODO(syoyo): # of elements check
                 parseReal2(&j, &w, &token, -1.0);
 
-                if (j < 0.0) {
+                if (j < static_cast<real_t>(0)) {
                     if (err) {
                         std::stringstream ss;
                         ss << "Failed parse `vw' line. joint_id is negative. "
@@ -2886,8 +2886,7 @@ bool LoadObj(attrib_t *attrib, std::vector<shape_t> *shapes,
     if (greatest_v_idx >= static_cast<int>(v.size() / 3)) {
         if (warn) {
             std::stringstream ss;
-            ss << "Vertex indices out of bounds (line " << line_num << ".)\n"
-               << std::endl;
+            ss << "Vertex indices out of bounds (line " << line_num << ".)\n\n";
             (*warn) += ss.str();
         }
     }
@@ -2895,8 +2894,7 @@ bool LoadObj(attrib_t *attrib, std::vector<shape_t> *shapes,
         if (warn) {
             std::stringstream ss;
             ss << "Vertex normal indices out of bounds (line " << line_num
-               << ".)\n"
-               << std::endl;
+               << ".)\n\n";
             (*warn) += ss.str();
         }
     }
@@ -2904,8 +2902,7 @@ bool LoadObj(attrib_t *attrib, std::vector<shape_t> *shapes,
         if (warn) {
             std::stringstream ss;
             ss << "Vertex texcoord indices out of bounds (line " << line_num
-               << ".)\n"
-               << std::endl;
+               << ".)\n\n";
             (*warn) += ss.str();
         }
     }

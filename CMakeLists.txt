@@ -137,9 +137,13 @@ if (NOT EMSCRIPTEN)
         ${VOLREND_VENDOR_SOURCES}
         ${GLEW_DIR}/src/glew.c
         ${VENDOR_DIR}/misc/ImGuizmo.cpp
-        ${VENDOR_DIR}/misc/tiny_obj_loader.cpp
         )
 endif()
+
+set( VOLREND_VENDOR_SOURCES
+    ${VOLREND_VENDOR_SOURCES}
+    ${VENDOR_DIR}/misc/tiny_obj_loader.cpp
+)
 
 source_group( "Header Files" FILES ${VOLREND_HEADERS} )
 source_group( "Source Files" FILES ${VOLREND_SOURCES} )
@@ -345,7 +349,8 @@ if (EMSCRIPTEN)
     add_custom_target(html_config ALL DEPENDS "${PROJECT_BINARY_DIR}/build/index.html" js_config css_config)
 
     add_custom_target(serve
-        COMMAND ${Python_EXECUTABLE} -m http.server --directory "${PROJECT_BINARY_DIR}/build/")
+        COMMAND ${Python_EXECUTABLE} -m http.server --directory "${PROJECT_BINARY_DIR}/build/"
+        DEPENDS html_config)
 
     add_custom_command(
         TARGET html_config POST_BUILD

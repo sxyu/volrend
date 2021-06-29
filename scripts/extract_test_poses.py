@@ -1,11 +1,17 @@
-# Put this under nerf_synthetic
+"""
+This script extracts 4x4 matrix poses for the headless renderer from the 
+nerf_synthetic json files.
+
+Usage: python extract_test_poses.py <nerf_synthetic_root>
+"""
 from glob import glob
 import json
 import os.path as osp
 import os
 import numpy as np
+import sys
 
-transforms = glob('*/transforms_test.json')
+transforms = glob(osp.join(sys.argv[1], '*', 'transforms_test.json'))
 for transform_path in transforms:
     print(transform_path)
     root_dir = osp.dirname(transform_path)

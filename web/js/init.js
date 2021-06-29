@@ -91,14 +91,9 @@ let setupHandlers = function() {
         event.preventDefault();
     });
 };
-var load_remote = function(remote_path) {
+let load_remote = function(remote_path) {
     console.log('Downloading', remote_path);
     Volrend.load_remote(remote_path);
-    let loading_ele = $('#loading');
-    loading_ele.css('display', 'block');
-    setTimeout(function() {
-        loading_ele.css('opacity', '1');
-    }, 100);
 };
 
 let onInit = function() {
@@ -112,9 +107,17 @@ let onInit = function() {
         load_remote(remote_path);
     });
 
-    let init_load_path = Util.findGetParameter('load');
-    if (init_load_path !== null) {
-        load_remote(init_load_path);
+    let hide_layers = Util.findGetParameter('hide_layers');
+    if (hide_layers !== null && hide_layers === "1") {
+        Volrend.mesh_set_default_visible(false);
+    }
+
+    let init_load_paths = Util.findGetParameter('load');
+    if (init_load_paths !== null) {
+        init_load_paths = init_load_paths.split(';');
+        for (var i = 0; i < init_load_paths.length; i++) {
+            load_remote(init_load_paths[i]);
+        }
     }
 
     $('#open-local-btn').click(function() {
@@ -127,24 +130,28 @@ let onInit = function() {
         loading_ele.css('display', 'block');
         setTimeout(function() {
             loading_ele.css('opacity', '1');
-        }, 100);
+        }, 10);
 
         console.log('Loading local file');
+        showLoadingScreen();
         var reader = new FileReader();
-        reader.onload = function(event) {
-            // Transfer to Emscripten MEMFS
-            const data = new Uint8Array(reader.result);
-            console.log('Length: ' + data.length + ' bytes');
-            const filename = 'openlocaltmp.npz';
-            FS.writeFile(filename, data);
-            // Load the file
-            Volrend.load_local(filename);
-            // Clean up
-            FS.unlink(filename);
+        reader.onload = (function(file) {
+            return function(event) {
+                // Transfer to Emscripten MEMFS
+                const data = new Uint8Array(event.target.result);
+                const fname = file.name;
+                console.log('Length: ' + data.length + ' bytes');
+                const filename = 'tmp' + fname;
+                FS.writeFile(filename, data);
+                // Load the file
+                Volrend.load_local(filename);
+                // Clean up
+                FS.unlink(filename);
 
-            $('#open-local-file').siblings(".custom-file-label")
-                .html('Open npz success');
-        };
+                $('#open-local-file').siblings(".custom-file-label")
+                    .html('Open ' + fname + ' success');
+            };
+        })(files[0]);
         reader.readAsArrayBuffer(files[0]);
     });
 };

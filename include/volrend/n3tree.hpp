@@ -16,7 +16,6 @@
 #include <cuda_fp16.h>
 #else
 #include <half.hpp>
-using half_float::half;
 #endif
 
 namespace volrend {
@@ -88,6 +87,7 @@ struct N3Tree {
     cnpy::NpyArray extra_;
 
    private:
+    // Load data from npz (destructive since it moves some data)
     void load_npz(cnpy::npz_t& npz);
 
     // Paths
