@@ -64,6 +64,9 @@ void estimate_normals(std::vector<float>& verts,
     const int n_faces =
         faces.size() ? faces.size() / 3 : verts.size() / VERT_SZ / 3;
     float a[3], b[3], cross[3], off[3];
+    for (int i = 0; i < verts.size() / VERT_SZ; ++i) {
+        for (int j = 0; j < 3; ++j) verts[i * VERT_SZ + 6 + j] = 0.f;
+    }
     for (int i = 0; i < n_faces; ++i) {
         if (faces.size()) {
             off[0] = faces[3 * i] * VERT_SZ;
