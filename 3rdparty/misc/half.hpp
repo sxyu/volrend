@@ -28,7 +28,7 @@
 #ifndef HALF_HALF_HPP
 #define HALF_HALF_HPP
 
-#ifdef __CUDACC__
+#ifdef VOLREND_CUDA
 #include <cuda_fp16.h>
 #else
 
@@ -178,7 +178,6 @@
 #endif
 
 #include <algorithm>
-#include <iostream>
 #include <limits>
 #include <climits>
 #include <cmath>

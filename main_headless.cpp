@@ -4,7 +4,6 @@
 #include <vector>
 #include <fstream>
 #include <iomanip>
-#include <iostream>
 
 #include "volrend/internal/auto_filesystem.hpp"
 
@@ -43,7 +42,7 @@ int read_transform_matrices(const std::string &path,
     std::ifstream ifs(path);
     int cnt = 0;
     if (!ifs) {
-        std::cerr << "ERROR: '" << path << "' does not exist\n";
+        fprintf(stderr, "ERROR: '%s' does not exist\n", path.c_str());
         std::exit(1);
     }
     while (ifs) {
@@ -66,7 +65,7 @@ int read_transform_matrices(const std::string &path,
 void read_intrins(const std::string &path, float &fx, float &fy) {
     std::ifstream ifs(path);
     if (!ifs) {
-        std::cerr << "ERROR: intrin '" << path << "' does not exist\n";
+        fprintf(stderr, "ERROR: intrin '%s' does not exist\n", path.c_str());
         std::exit(1);
     }
     float _;  // garbage
@@ -129,7 +128,7 @@ int main(int argc, char *argv[]) {
     }
 
     if (args["reverse_yz"].as<bool>()) {
-        std::cout << "INFO: Use OpenCV camera convention\n";
+        puts("INFO: Use OpenCV camera convention\n");
         // clang-format off
         glm::mat4x4 cam_trans(1, 0, 0, 0,
                               0, -1, 0, 0,
@@ -140,11 +139,11 @@ int main(int argc, char *argv[]) {
             transform = transform * cam_trans;
         }
     } else {
-        std::cout << "INFO: Use NeRF camera convention\n";
+        puts("INFO: Use NeRF camera convention\n");
     }
 
     if (trans.size() == 0) {
-        std::cerr << "WARNING: No camera poses specified, quitting\n";
+        fputs("WARNING: No camera poses specified, quitting\n", stderr);
         return 1;
     }
     std::string out_dir = args["write_images"].as<std::string>();
@@ -228,9 +227,8 @@ int main(int argc, char *argv[]) {
     cudaEventElapsedTime(&milliseconds, start, stop);
     milliseconds = milliseconds / trans.size();
 
-    std::cout << std::fixed << std::setprecision(10);
-    std::cout << milliseconds << " ms per frame\n";
-    std::cout << 1000.f / milliseconds << " fps\n";
+    printf("%.10f ms per frame\n", milliseconds);
+    printf("%.10f fps\n", 1000.f / milliseconds);
 
     cuda(FreeArray(array));
     cuda(StreamDestroy(stream));

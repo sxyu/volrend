@@ -297,7 +297,6 @@ if (EMSCRIPTEN)
     # Write a list of js files in order they should be loaded here
     # index.html should only include main.js
     set(JS_SOURCES
-        vendor/jquery-3.5.1.min.js
         util.js
         glfwPatch.js
         guiComponents.js

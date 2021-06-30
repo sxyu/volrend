@@ -13,6 +13,7 @@
 #include <sstream>
 #include <fstream>
 #include <cstdint>
+#include <cstdio>
 #include <map>
 #include <cnpy.h>
 #include "half.hpp"
@@ -568,8 +569,7 @@ Mesh Mesh::Line(glm::vec3 a, glm::vec3 b, glm::vec3 color) {
 
 Mesh Mesh::Lines(std::vector<float> points, glm::vec3 color) {
     if (points.size() % 3 != 0) {
-        std::cerr
-            << "Lines: Number of elements in points must be divisible by 3\n";
+        printf("Lines: Number of elements in points must be divisible by 3\n");
     }
     const int n_points = (int)points.size() / 3;
     volrend::Mesh m(n_points, n_points - 1, 2);
@@ -601,8 +601,7 @@ Mesh Mesh::Lines(std::vector<float> points, glm::vec3 color) {
 
 Mesh Mesh::Points(std::vector<float> points, glm::vec3 color) {
     if (points.size() % 3 != 0) {
-        std::cerr
-            << "Points: Number of elements in points must be divisible by 3\n";
+        printf("Points: Number of elements in points must be divisible by 3\n");
     }
     const int n_points = (int)points.size() / 3;
     volrend::Mesh m(n_points, 0, 1);
@@ -627,7 +626,7 @@ Mesh Mesh::Points(std::vector<float> points, glm::vec3 color) {
 }
 
 void Mesh::auto_faces() {
-    faces.resize(vert.size());
+    faces.resize(vert.size() / VERT_SZ);
     std::iota(faces.begin(), faces.end(), 0);
 }
 
@@ -696,12 +695,12 @@ Mesh _load_basic_obj(const std::string& path_or_string, bool from_string) {
         read_success = reader.ParseFromFile(path_or_string, reader_config);
     if (!read_success) {
         if (!reader.Error().empty()) {
-            std::cerr << "ERROR Failed to load OBJ: " << reader.Error();
+            printf("ERROR Failed to load OBJ: %s", reader.Error().c_str());
         }
         return mesh;
     }
     // if (!reader.Warning().empty()) {
-    //     std::cout << "TinyObjReader: " << reader.Warning();
+    //     printf("TinyObjReader: %s\n", reader.Warning().c_str());
     // }
 
     auto& attrib = reader.GetAttrib();
@@ -769,7 +768,7 @@ Mesh Mesh::load_mem_basic_obj(const std::string& str) {
 
 namespace {
 std::vector<Mesh> _load_npz(const cnpy::npz_t& npz, bool default_visible) {
-    std::cout << "INFO: Loading drawlist npz\n";
+    printf("INFO: Loading drawlist npz\n");
     std::map<std::string,
              std::pair<std::string /*type*/,
                        std::map<std::string, cnpy::NpyArray> /*fields*/>>
@@ -790,9 +789,11 @@ std::vector<Mesh> _load_npz(const cnpy::npz_t& npz, bool default_visible) {
             // Field
             mesh_parse_map[spl[0]].second[spl[1]] = kv.second;
         } else
-            std::cerr << "Mesh load_npz warning: invalid field '" << fullname
-                      << "', must be of the form <name>=mesh_type or "
-                         "<name>__<field>=val\n";
+            printf(
+                "Mesh load_npz warning: invalid field '%s"
+                "', must be of the form <name>=mesh_type or "
+                "<name>__<field>=val\n",
+                fullname.c_str());
         continue;
     }
 
@@ -929,8 +930,8 @@ std::vector<Mesh> _load_npz(const cnpy::npz_t& npz, bool default_visible) {
     }
     std::string errstr = errs.str();
     if (errstr.size()) {
-        std::cerr << "Mesh load_npz encountered errors while parsing:\n";
-        std::cerr << errstr;
+        printf("Mesh load_npz encountered errors while parsing:\n%s",
+               errstr.c_str());
     }
 
     return meshes;

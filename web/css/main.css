@@ -2,6 +2,10 @@
     user-select: none;
 }
 
+#main-wrapper {
+    position: relative
+}
+
 #loading {
     display: none;
     opacity: 0;
@@ -168,6 +172,22 @@
 }
 
 /* Layers */
+#layers {
+    max-height: 100%;
+    overflow: hidden;
+}
+
+#layers-container {
+    max-height: 100vh;
+    position: relative;
+    padding-bottom: 6em;
+}
+
+#layers-items {
+    max-height: 100%;
+    overflow-y: auto;
+}
+
 #layers-btn {
     display: none;
 }

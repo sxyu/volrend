@@ -31,7 +31,6 @@
 #else
 #include <malloc.h>
 #endif
-#include <iostream>
 
 // includes patches for multiview from
 // https://github.com/CedricGuillemet/ImGuizmo/issues/15

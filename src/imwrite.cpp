@@ -1,6 +1,5 @@
 #include "volrend/common.hpp"
 #include "volrend/internal/imwrite.hpp"
-#include <iostream>
 #include <cstdint>
 #include <vector>
 
@@ -17,14 +16,14 @@ bool write_png_file(const std::string &filename, uint8_t *ptr, int width,
 #ifdef VOLREND_PNG
     FILE *fp = fopen(filename.c_str(), "wb");
     if (!fp) {
-        std::cerr << "PNG destination could not be opened\n";
+        fprintf(stderr, "PNG destination could not be opened\n");
         return false;
     }
 
     png_structp png =
         png_create_write_struct(PNG_LIBPNG_VER_STRING, NULL, NULL, NULL);
     if (!png) {
-        std::cerr << "PNG write failed\n";
+        fprintf(stderr, "PNG write failed\n");
         return false;
     }
     png_set_compression_level(png, 0);
@@ -33,12 +32,12 @@ bool write_png_file(const std::string &filename, uint8_t *ptr, int width,
 
     png_infop info = png_create_info_struct(png);
     if (!info) {
-        std::cerr << "PNG write failed\n";
+        fprintf(stderr, "PNG write failed\n");
         return false;
     }
 
     if (setjmp(png_jmpbuf(png))) {
-        std::cerr << "PNG write failed\n";
+        fprintf(stderr, "PNG write failed\n");
         return false;
     }
 
@@ -55,7 +54,7 @@ bool write_png_file(const std::string &filename, uint8_t *ptr, int width,
     // png_set_filler(png, 0, PNG_FILLER_AFTER);
 
     if (!ptr) {
-        std::cerr << "PNG write failed\n";
+        fprintf(stderr, "PNG write failed\n");
         return false;
     }
 
@@ -72,9 +71,9 @@ bool write_png_file(const std::string &filename, uint8_t *ptr, int width,
     png_destroy_write_struct(&png, &info);
     return true;
 #else
-    std::cerr
-        << "WARNING: Not writing image because volrend was not built with "
-           "libpng\n";
+    fprintf(stderr,
+            "WARNING: Not writing image because volrend was not built with "
+            "libpng\n");
     return false;
 #endif
 }

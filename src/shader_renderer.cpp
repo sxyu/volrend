@@ -7,6 +7,7 @@
 #include <glm/gtc/type_ptr.hpp>
 
 #include <fstream>
+#include <cstdio>
 #include <cstdint>
 #include <string>
 
@@ -86,8 +87,6 @@ struct VolumeRenderer::Impl {
         glGetIntegerv(GL_MAX_TEXTURE_SIZE, &tex_max_size);
         // int tex_3d_max_size;
         // glGetIntegerv(GL_MAX_3D_TEXTURE_SIZE, &tex_3d_max_size);
-        // std::cout << " texture dim limit: " << tex_max_size << "\n";
-        // std::cout << " texture 3D dim limit: " << tex_3d_max_size << "\n";
 
         glGenTextures(1, &tex_tree_data);
         glGenTextures(1, &tex_tree_child);
@@ -97,6 +96,19 @@ struct VolumeRenderer::Impl {
         glGenTextures(1, &tex_mesh_depth);
         glGenTextures(1, &tex_mesh_depth_buf);
         glGenFramebuffers(1, &fb);
+
+        // Put some dummy information to suppress browser warnings
+        glBindTexture(GL_TEXTURE_2D, tex_tree_data);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, 1, 1, 0, GL_RED, GL_HALF_FLOAT,
+                     nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glBindTexture(GL_TEXTURE_2D, tex_tree_child);
+        glTexImage2D(GL_TEXTURE_2D, 0, GL_R32I, 1, 1, 0, GL_RED_INTEGER, GL_INT,
+                     nullptr);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
+        glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
+        glBindTexture(GL_TEXTURE_2D, 0);
 
         resize(800, 800);
 
@@ -113,7 +125,7 @@ struct VolumeRenderer::Impl {
 
         if (glCheckFramebufferStatus(GL_FRAMEBUFFER) !=
             GL_FRAMEBUFFER_COMPLETE) {
-            std::cerr << "Framebuffer not complete\n";
+            fprintf(stderr, "Framebuffer not complete\n");
             std::exit(1);
         }
 
@@ -211,8 +223,6 @@ struct VolumeRenderer::Impl {
     void maybe_gen_wire(int depth) {
         if (last_wire_depth_ != depth) {
             wire_.vert = tree->gen_wireframe(depth);
-            std::flush(std::cout);
-            wire_.auto_faces();
             wire_.update();
             last_wire_depth_ = depth;
         }
@@ -222,10 +232,9 @@ struct VolumeRenderer::Impl {
 
     void resize(const int width, const int height) {
         if (camera.width == width && camera.height == height) return;
-        if (width > 0) {
-            camera.width = width;
-            camera.height = height;
-        }
+        if (width <= 0 || height <= 0) return;
+        camera.width = width;
+        camera.height = height;
 
         // Re-allocate memory for textures used in mesh-volume compositing
         // process

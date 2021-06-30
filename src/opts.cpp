@@ -1,4 +1,5 @@
 #include "volrend/internal/opts.hpp"
+#include <cstdio>
 
 namespace volrend {
 namespace internal {
@@ -34,7 +35,7 @@ cxxopts::ParseResult parse_options(cxxopts::Options& options, int argc,
     options.parse_positional({"file"});
     cxxopts::ParseResult args = options.parse(argc, argv);
     if (args.count("help")) {
-        std::cout << options.help() << std::endl;
+        printf("%s\n", options.help().c_str());
         std::exit(0);
     }
     return args;
@@ -52,7 +53,7 @@ RenderOptions render_options_from_args(cxxopts::ParseResult& args) {
         options.enable_probe = true;
         auto probe = args["probe"].as<std::vector<float>>();
         if (probe.size() < 3) {
-            std::cerr << "ERROR: --probe must be of format 'x,y,z'\n";
+            fprintf(stderr, "ERROR: --probe must be of format 'x,y,z'\n");
         } else {
             for (int i = 0; i < 3; ++i) options.probe[i] = probe[i];
         }

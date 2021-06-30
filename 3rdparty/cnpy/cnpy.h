@@ -16,7 +16,6 @@
 #include <vector>
 #include <cstdio>
 #include <typeinfo>
-#include <iostream>
 #include <cassert>
 #include <zlib.h>
 #include <map>
@@ -125,23 +124,26 @@ void npy_save(const std::string& fname, const T* data,
         assert(!fortran_order);
 
         if (word_size != sizeof(T)) {
-            std::cout << "libnpy error: " << fname << " has word size "
-                      << word_size << " but npy_save appending data sized "
-                      << sizeof(T) << "\n";
+            printf(
+                "libnpy error: %s has word size %llu word_size "
+                "but npy_save appending data sized %llu\n",
+                fname, word_size, sizeof(T));
             assert(word_size == sizeof(T));
         }
         if (true_data_shape.size() != shape.size()) {
-            std::cout << "libnpy error: npy_save attempting to append "
-                         "misdimensioned data to "
-                      << fname << "\n";
+            printf(
+                "libnpy error: npy_save attempting to append "
+                "misdimensioned data to %s\n",
+                fname);
             assert(true_data_shape.size() != shape.size());
         }
 
         for (size_t i = 1; i < shape.size(); i++) {
             if (shape[i] != true_data_shape[i]) {
-                std::cout << "libnpy error: npy_save attempting to append "
-                             "misshaped data to "
-                          << fname << "\n";
+                printf(
+                    "libnpy error: npy_save attempting to append "
+                    "misshaped data to %s\n",
+                    fname);
                 assert(shape[i] == true_data_shape[i]);
             }
         }
@@ -247,12 +249,12 @@ void npz_save(const std::string& zipname, std::string fname, const T* data,
     footer += (uint16_t)(nrecs + 1);           // number of records on this disk
     footer += (uint16_t)(nrecs + 1);           // total number of records
     footer += (uint32_t)global_header.size();  // nbytes of global headers
-    footer += (uint32_t)(
-        global_header_offset + nbytes +
-        local_header
-            .size());  // offset of start of global headers, since global header
-                       // now starts after newly written array
-    footer += (uint16_t)0;  // zip file comment length
+    footer +=
+        (uint32_t)(global_header_offset + nbytes +
+                   local_header.size());  // offset of start of global headers,
+                                          // since global header now starts
+                                          // after newly written array
+    footer += (uint16_t)0;                // zip file comment length
 
     // write everything
     fwrite(&local_header[0], sizeof(char), local_header.size(), fp);

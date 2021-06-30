@@ -27,7 +27,7 @@ THE SOFTWARE.
 #include <cctype>
 #include <cstring>
 #include <exception>
-#include <iostream>
+#include <cstdio>
 #include <limits>
 #include <list>
 #include <map>
@@ -359,7 +359,7 @@ void throw_or_mimic(const std::string& text) {
     // Otherwise manually instantiate the exception, print what() to stderr,
     // and exit
     T exception{text};
-    std::cerr << exception.what() << std::endl;
+    puts(exception.what());
     std::exit(EXIT_FAILURE);
 #endif
 }

@@ -1,6 +1,5 @@
 #include "volrend/camera.hpp"
 #include <cmath>
-#include <iostream>
 
 #include <glm/gtx/string_cast.hpp>
 #include <glm/geometric.hpp>

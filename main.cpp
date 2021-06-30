@@ -126,7 +126,7 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
     if (open_tree_dialog.HasSelected()) {
         // Load octree
         std::string path = open_tree_dialog.GetSelected().string();
-        std::cout << "Load N3Tree npz: " << path << "\n";
+        printf("Load N3Tree npz: %s\n", path.c_str());
         tree.open(path);
         rend.set(tree);
         open_tree_dialog.ClearSelected();
@@ -153,9 +153,9 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
         }
         if (internal::write_png_file(path, flippedPixels.data(), width,
                                      height)) {
-            std::cout << "Wrote " << path << "\n";
+            printf("Wrote %s", path.c_str());
         } else {
-            std::cout << "Failed to save screenshot\n";
+            printf("Failed to save screenshot\n");
         }
     }
 #endif
@@ -417,7 +417,7 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
         auto sels = open_obj_mesh_dialog.GetMultiSelected();
         for (auto& fpath : sels) {
             const std::string path = fpath.string();
-            std::cout << "Load OBJ: " << path << "\n";
+            printf("Load OBJ: %s\n", path.c_str());
             Mesh tmp = Mesh::load_basic_obj(path);
             if (tmp.vert.size()) {
                 // Auto offset
@@ -431,9 +431,9 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
                 }
                 tmp.update();
                 rend.meshes.push_back(std::move(tmp));
-                std::cout << "Load success\n";
+                puts("Load success\n");
             } else {
-                std::cout << "Load failed\n";
+                puts("Load failed\n");
             }
         }
         open_obj_mesh_dialog.ClearSelected();
@@ -481,15 +481,15 @@ void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action,
 
             case GLFW_KEY_C: {
                 // Print C2W matrix
-                std::cout << "C2W:\n";
+                puts("C2W:\n");
                 for (int i = 0; i < 3; ++i) {
                     for (int j = 0; j < 4; ++j) {
-                        if (j) std::cout << " ";
-                        std::cout << cam.transform[j][i];
+                        if (j) puts(" ");
+                        printf("%.10f", cam.transform[j][i]);
                     }
-                    std::cout << "\n";
+                    puts("\n");
                 }
-                std::flush(std::cout);
+                fflush(stdout);
             } break;
 
             case GLFW_KEY_Z: {

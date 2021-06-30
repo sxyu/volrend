@@ -103,9 +103,9 @@ void save_screenshot(int width, int height, const std::string& path) {
                &windowPixels[(height - row - 1) * width * 4], 4 * width);
 
     if (internal::write_png_file(path, flippedPixels.data(), width, height)) {
-        std::cout << "Wrote " << path << "\n";
+        printf("Wrote %s", path.c_str());
     } else {
-        std::cout << "Failed to save screenshot\n";
+        printf("Failed to save screenshot\n");
     }
 }
 
@@ -201,7 +201,7 @@ struct AnimState {
 
     void anim_from_start(bool previewing = true) {
         if (keyframes.size() < 2) {
-            std::cerr << "WARNING: cannot animate with < 2 keyframes\n";
+            fprintf(stderr, "WARNING: cannot animate with < 2 keyframes\n");
             return;
         }
         anim_once(keyframes[0], keyframes[1], previewing, -1.f, 0);
@@ -417,7 +417,7 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
     if (select_output_folder_dialog.HasSelected()) {
         std::string path = select_output_folder_dialog.GetSelected().string();
         if (!path.empty() && path.back() != '/') path.push_back('/');
-        std::cout << "Animation output folder set to " << path << "\n";
+        printf("Animation output folder set to %s\n", path.c_str());
         anim.output_folder = path;
         select_output_folder_dialog.ClearSelected();
     }
@@ -612,7 +612,7 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
         if (open_tree_dialog.HasSelected()) {
             // Load octree
             std::string path = open_tree_dialog.GetSelected().string();
-            std::cout << "Load N3Tree npz: " << path << "\n";
+            printf("Load N3Tree npz: %s\n", path.c_str());
             tree.open(path);
             rend.set(tree);
             open_tree_dialog.ClearSelected();
@@ -894,7 +894,7 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
             auto sels = open_obj_mesh_dialog.GetMultiSelected();
             for (auto& fpath : sels) {
                 const std::string path = fpath.string();
-                std::cout << "Load OBJ: " << path << "\n";
+                printf("Load OBJ: %s\n", path.c_str());
                 Mesh tmp = Mesh::load_basic_obj(path);
                 if (tmp.vert.size()) {
                     // Auto offset
@@ -908,9 +908,9 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
                     }
                     tmp.update();
                     rend.meshes.push_back(std::move(tmp));
-                    std::cout << "Load success\n";
+                    puts("Load success\n");
                 } else {
-                    std::cout << "Load failed\n";
+                    puts("Load failed\n");
                 }
             }
             open_obj_mesh_dialog.ClearSelected();

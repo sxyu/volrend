@@ -182,7 +182,6 @@ struct VolumeRenderer::Impl {
     void maybe_gen_wire(int depth) {
         if (last_wire_depth_ != depth) {
             wire_.vert = tree->gen_wireframe(depth);
-            wire_.auto_faces();
             wire_.update();
             last_wire_depth_ = depth;
         }

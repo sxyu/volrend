@@ -12,6 +12,10 @@ let populateLayers = function() {
     let mesh_cnt = Volrend.mesh_count();
     for (let i = 0; i < mesh_cnt; i++) {
         let mesh_name = Volrend.mesh_get_name(i);
+        if (mesh_name.length == 0 || mesh_name[0] == '_') {
+            // Hide from legend
+            continue;
+        }
         let mesh_color = Volrend.mesh_get_color(i);
         let mesh_is_visible = Volrend.mesh_get_visible(i);
         let mesh_color_str = "rgba(" + mesh_color[0] * 255.0 + ","
@@ -165,6 +169,7 @@ let guiInit = function() {
     });
 
     let sliders_grid_reso = $('#slider-grid-reso');
+    sliders_grid_reso.val(4);
     sliders_grid_reso.on("input", function() {
         let value = parseInt(document.getElementById('slider-grid-reso').value);
         let opt = Volrend.get_options();
@@ -186,9 +191,10 @@ let guiInit = function() {
 
 let guiLoadTreeUpdate = function() {
     let sliders_decomp = $('.slider-decomp');
-    sliders_decomp.attr('max', Volrend.get_basis_dim() - 1);
+    let max_basis = Math.max(Volrend.get_basis_dim() - 1, 0);
+    sliders_decomp.attr('max', max_basis);
     $('#slider-decomp-min').val(0);
-    $('#slider-decomp-max').val(Volrend.get_basis_dim() - 1);
+    $('#slider-decomp-max').val(max_basis);
     document.getElementById('decomp-min-disp').innerText = '0';
-    document.getElementById('decomp-max-disp').innerText = Volrend.get_basis_dim() - 1;
+    document.getElementById('decomp-max-disp').innerText = max_basis;
 };

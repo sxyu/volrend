@@ -3,6 +3,7 @@
 #include "volrend/internal/morton.hpp"
 
 #include <cassert>
+#include <cstdio>
 #include <cstring>
 #include <cstdlib>
 #include <cstdint>
@@ -120,7 +121,7 @@ void N3Tree::open(const std::string& path) {
     poses_bounds_path_ = path.substr(0, path.size() - 4) + "_poses_bounds.npy";
 
     if (!std::ifstream(path)) {
-        std::cout << "Can't load because file does not exist: " << path << "\n";
+        printf("Can't load because file does not exist: %s\n", path.c_str());
         return;
     }
 
@@ -129,8 +130,8 @@ void N3Tree::open(const std::string& path) {
 
     use_ndc = bool(std::ifstream(poses_bounds_path_));
     if (use_ndc) {
-        std::cerr << "INFO: Found poses_bounds.npy for NDC: "
-                  << poses_bounds_path_ << "\n";
+        fprintf(stderr, "INFO: Found poses_bounds.npy for NDC: %s\n",
+                poses_bounds_path_.c_str());
         cnpy::NpyArray poses_bounds = cnpy::npy_load(poses_bounds_path_);
 
         if (poses_bounds.word_size == 4) {
@@ -240,16 +241,18 @@ void N3Tree::load_npz(cnpy::npz_t& npz) {
         // Old style auto-infer SH dims
         if (data_dim == 4) {
             data_format.format = DataFormat::RGBA;
-            std::cerr << "INFO: Legacy file with no format specifier; "
-                         "spherical basis disabled\n";
+            fprintf(stderr,
+                    "INFO: Legacy file with no format specifier; "
+                    "spherical basis disabled\n");
         } else {
             data_format.format = DataFormat::SH;
             data_format.basis_dim = (data_dim - 1) / 3;
-            std::cerr << "INFO: Legacy file with no format specifier; "
-                         "autodetect spherical harmonics order\n";
+            fprintf(stderr,
+                    "INFO: Legacy file with no format specifier; "
+                    "autodetect spherical harmonics order\n");
         }
     }
-    std::cerr << "INFO: Data format " << data_format.to_string() << "\n";
+    fprintf(stderr, "INFO: Data format %s\n", data_format.to_string().c_str());
 
     if (npz.count("invradius3")) {
         const float* scale_data = npz["invradius3"].data<float>();
@@ -258,8 +261,7 @@ void N3Tree::load_npz(cnpy::npz_t& npz) {
         scale[0] = scale[1] = scale[2] =
             (float)*npz["invradius"].data<double>();
     }
-    std::cerr << "INFO: Scale " << scale[0] << " " << scale[1] << " "
-              << scale[2] << "\n";
+    printf("INFO: Scale %f %f %f", scale[0], scale[1], scale[2]);
     {
         const float* offset_data = npz["offset"].data<float>();
         for (int i = 0; i < 3; ++i) offset[i] = offset_data[i];
@@ -269,13 +271,13 @@ void N3Tree::load_npz(cnpy::npz_t& npz) {
     std::swap(child_, npz["child"]);
     N = child_node.shape[1];
     if (N != 2) {
-        std::cerr << "WARNING: N != 2 probably doesn't work.\n";
+        fprintf(stderr, "WARNING: N != 2 probably doesn't work.\n");
     }
     N2_ = N * N;
     N3_ = N * N * N;
 
     if (npz.count("quant_colors")) {
-        std::cerr << "INFO: Decoding quantized colors\n";
+        fprintf(stderr, "INFO: Decoding quantized colors\n");
         auto& quant_colors_node = npz["quant_colors"];
         if (quant_colors_node.word_size != 2) {
             throw std::runtime_error(
@@ -423,7 +425,7 @@ void _gen_wireframe_impl(const N3Tree& tree, size_t nodeid, size_t xi,
 std::vector<float> N3Tree::gen_wireframe(int max_depth) const {
     std::vector<float> verts;
     if (!data_loaded_) {
-        std::cerr << "ERROR: Please load data before gen_wireframe!\n";
+        fprintf(stderr, "ERROR: Please load data before gen_wireframe!\n");
         return verts;
     }
     _gen_wireframe_impl(*this, 0, 0, 0, 0,

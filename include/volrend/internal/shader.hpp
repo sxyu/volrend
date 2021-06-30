@@ -1,5 +1,5 @@
 #include <string>
-#include <iostream>
+#include <cstdio>
 
 #ifdef __EMSCRIPTEN__
 // WebGL
@@ -17,22 +17,21 @@ void check_compile_errors(GLuint shader, const std::string& type) {
         glGetShaderiv(shader, GL_COMPILE_STATUS, &success);
         if (!success) {
             glGetShaderInfoLog(shader, 1024, NULL, infoLog);
-            std::cout
-                << "ERROR::SHADER_COMPILATION_ERROR of type: " << type << "\n"
-                << infoLog
-                << "\n -- ---------------------------------------------------  "
-                << std::endl;
+            printf(
+                "ERROR::SHADER_COMPILATION_ERROR of type: %s\n%s\n"
+                "-- --------------------------------------------------- --\n",
+                type.c_str(), infoLog);
+            fflush(stdout);
         }
     } else {
         glGetProgramiv(shader, GL_LINK_STATUS, &success);
         if (!success) {
             glGetProgramInfoLog(shader, 1024, NULL, infoLog);
-            std::cout
-                << "ERROR::PROGRAM_LINKING_ERROR of type: " << type << "\n"
-                << infoLog
-                << "\n -- --------------------------------------------------- "
-                   "-- "
-                << std::endl;
+            printf(
+                "ERROR::PROGRAM_LINKING_ERROR of type: %s\n%s\n"
+                "-- --------------------------------------------------- --\n",
+                type.c_str(), infoLog);
+            fflush(stdout);
         }
     }
 }
