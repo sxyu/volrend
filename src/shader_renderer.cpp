@@ -288,12 +288,13 @@ struct VolumeRenderer::Impl {
         glUseProgram(program);
         glUniform1i(glGetUniformLocation(program, "tree_data_dim"), width);
 
-#ifdef __EMSCRIPTEN__
-        tree->data_.data_holder.resize((data_size + pad) * sizeof(half));
-        glBindTexture(GL_TEXTURE_2D, tex_tree_data);
-        glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, width, height, 0, GL_RED,
-                     GL_HALF_FLOAT, tree->data_.data<half>());
-#else
+        // #ifdef __EMSCRIPTEN__
+        //         tree->data_.data_holder.resize((data_size + pad) *
+        //         sizeof(half)); glBindTexture(GL_TEXTURE_2D, tex_tree_data);
+        //         glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, width, height, 0,
+        //         GL_RED,
+        //                      GL_HALF_FLOAT, tree->data_.data<half>());
+        // #else
         // FIXME: there seems to be some weird bug in the NVIDIA OpenGL
         // implementation where GL_HALF_FLOAT is sometimes ignored, and we have
         // to use float32 for uploads
@@ -303,7 +304,7 @@ struct VolumeRenderer::Impl {
         glBindTexture(GL_TEXTURE_2D, tex_tree_data);
         glTexImage2D(GL_TEXTURE_2D, 0, GL_R16F, width, height, 0, GL_RED,
                      GL_FLOAT, (void*)tmp.data());
-#endif
+        // #endif
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_NEAREST);
         glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_NEAREST);
 
