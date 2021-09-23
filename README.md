@@ -8,6 +8,15 @@ Alex Yu, Ruilong Li, Matthew Tancik, Hao Li, Ren Ng, Angjoo Kanazawa
 
 https://alexyu.net/plenoctrees
 
+```
+@inproceedings{yu2021plenoctrees,
+      title={{PlenOctrees} for Real-time Rendering of Neural Radiance Fields},
+      author={Alex Yu and Ruilong Li and Matthew Tancik and Hao Li and Ren Ng and Angjoo Kanazawa},
+      year={2021},
+      booktitle={ICCV},
+}
+```
+
 ![Screenshot](https://raw.githubusercontent.com/sxyu/volrend/master/img/screenshot_slice.jpg)
 
 The project has several repositories:
