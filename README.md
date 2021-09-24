@@ -23,6 +23,7 @@ The project has several repositories:
 
 - NeRF-SH training and PlenOctree extraction <https://github.com/sxyu/plenoctree>
 - PyTorch PlenOctree rendering CUDA extension <https://github.com/sxyu/svox>
+- General NeRF visualization library <https://github.com/sxyu/nerfvis>
 
 More will be released soon, we are taking a short break now.
 
