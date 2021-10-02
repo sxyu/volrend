@@ -36,6 +36,9 @@ struct VolumeRenderer {
     // Meshes to draw, currently only supported on CUDA implementation
     std::vector<Mesh> meshes;
 
+    // Time
+    int time = 0;
+
    private:
     struct Impl;
     std::unique_ptr<Impl> impl_;

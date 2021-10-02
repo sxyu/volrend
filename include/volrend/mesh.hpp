@@ -17,7 +17,8 @@ struct Mesh {
     static void use_shader();
 
     // Draw the mesh
-    void draw(const glm::mat4x4& V, glm::mat4x4 K, bool y_up = true) const;
+    void draw(const glm::mat4x4& V, glm::mat4x4 K, bool y_up = true,
+              int time = 0) const;
 
     // Create faces by grouping consecutive vertices (only for triangle mesh)
     void auto_faces();
@@ -38,6 +39,9 @@ struct Mesh {
     // Model transform, rotation is axis-angle
     glm::vec3 rotation, translation;
     float scale = 1.f;
+
+    // Time stamp to show the mesh; if time = 0 then mesh is always shown
+    int time = 0;
 
     // Computed transform
     mutable glm::mat4 transform_;

@@ -84,6 +84,16 @@ void toggle_fps_counter() {
 std::string get_basis_format() { return tree.data_format.to_string(); }
 int get_basis_dim() { return tree.data_format.basis_dim; }
 
+void set_time(int time) { renderer->time = time; }
+int get_time() { return renderer->time; }
+int mesh_max_time() {
+    int time = 0;
+    for (auto& mesh : renderer->meshes) {
+        time = std::max<int>(mesh.time, time);
+    }
+    return time;
+}
+
 void on_key(int key, bool ctrl, bool shift, bool alt) {
     auto& cam = renderer->camera;
     switch (key) {
@@ -542,6 +552,10 @@ EMSCRIPTEN_BINDINGS(Volrend) {
     function("get_fps", &get_fps);
     function("get_basis_dim", &get_basis_dim);
     function("get_basis_format", &get_basis_format);
+
+    function("get_time", &get_time);
+    function("mesh_max_time", &mesh_max_time);
+    function("set_time", &set_time);
 }
 
 bool init_gl() {

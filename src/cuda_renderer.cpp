@@ -20,8 +20,13 @@ namespace volrend {
 // https://gist.github.com/allanmac/4ff11985c3562830989f
 
 struct VolumeRenderer::Impl {
-    Impl(Camera& camera, RenderOptions& options, std::vector<Mesh>& meshes)
-        : camera(camera), options(options), meshes(meshes), buf_index(0) {
+    Impl(Camera& camera, RenderOptions& options, std::vector<Mesh>& meshes,
+         int& time)
+        : camera(camera),
+          options(options),
+          buf_index(0),
+          time(time),
+          meshes(meshes) {
         probe_ = Mesh::Cube(glm::vec3(0.0));
         probe_.name = "_probe_cube";
         probe_.visible = false;
@@ -103,7 +108,7 @@ struct VolumeRenderer::Impl {
         glDepthMask(GL_TRUE);
         glBindFramebuffer(GL_FRAMEBUFFER, fb[buf_index]);
         for (const Mesh& mesh : meshes) {
-            mesh.draw(camera.w2c, camera.K);
+            mesh.draw(camera.w2c, camera.K, true, time);
         }
         probe_.draw(camera.w2c, camera.K);
         if (options.show_grid) {
@@ -193,6 +198,7 @@ struct VolumeRenderer::Impl {
     Camera& camera;
     RenderOptions& options;
     int buf_index;
+    int& time;
 
     // GL buffers
     std::array<GLuint, 2> fb, rb, depth_rb, depth_buf_rb;
@@ -211,7 +217,7 @@ struct VolumeRenderer::Impl {
 };
 
 VolumeRenderer::VolumeRenderer()
-    : impl_(std::make_unique<Impl>(camera, options, meshes)) {}
+    : impl_(std::make_unique<Impl>(camera, options, meshes, time)) {}
 
 VolumeRenderer::~VolumeRenderer() {}
 

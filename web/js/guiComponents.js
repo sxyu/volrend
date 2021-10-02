@@ -48,6 +48,22 @@ let populateLayers = function() {
             color_ele.css("background-color", "#fff");
         }
     });
+
+    // Update time
+    let slider_time = $('#slider-time');
+    let slider_time_label_curr = $('#slider-time-label-curr');
+    let slider_time_label_max = $('#slider-time-label-max');
+    let curr_time = Volrend.get_time();
+    let max_time = Volrend.mesh_max_time();
+    slider_time_label_curr.text(curr_time);
+    slider_time_label_max.text(max_time);
+    slider_time.attr("max", max_time);
+    slider_time.val(curr_time);
+    slider_time.on("input", function() {
+        let val = $('#slider-time').val();
+        Volrend.set_time(parseInt(val));
+         $('#slider-time-label-curr').text(val)
+    });
 };
 
 let guiInit = function() {

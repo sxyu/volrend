@@ -160,6 +160,19 @@
     box-shadow: none
 }
 
+#slider-time {
+    padding-left: 1em;
+    padding-right: 1em;
+    border: none;
+    background: transparent;
+    outline: none;
+    box-shadow: none
+}
+
+#slider-time-label {
+    margin: 0
+}
+
 #options .options-section {
     padding-bottom: 1em;
 }

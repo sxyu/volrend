@@ -51,8 +51,8 @@ struct _RenderUniforms {
 
 struct VolumeRenderer::Impl {
     Impl(Camera& camera, RenderOptions& options, std::vector<Mesh>& meshes,
-         int max_tries = 4)
-        : camera(camera), options(options), meshes(meshes) {
+         int& time, int max_tries = 4)
+        : camera(camera), options(options), time(time), meshes(meshes) {
         probe_ = Mesh::Cube(glm::vec3(0.0));
         probe_.name = "_probe_cube";
         probe_.visible = false;
@@ -165,7 +165,7 @@ struct VolumeRenderer::Impl {
 
         Mesh::use_shader();
         for (const Mesh& mesh : meshes) {
-            mesh.draw(camera.w2c, camera.K, false);
+            mesh.draw(camera.w2c, camera.K, false, time);
         }
         probe_.draw(camera.w2c, camera.K);
         if (options.show_grid) {
@@ -412,6 +412,8 @@ struct VolumeRenderer::Impl {
     Camera& camera;
     RenderOptions& options;
 
+    int& time;
+
     N3Tree* tree;
 
     GLuint program = -1;
@@ -434,7 +436,7 @@ struct VolumeRenderer::Impl {
 };
 
 VolumeRenderer::VolumeRenderer()
-    : impl_(std::make_unique<Impl>(camera, options, meshes)) {}
+    : impl_(std::make_unique<Impl>(camera, options, meshes, time)) {}
 
 VolumeRenderer::~VolumeRenderer() {}
 

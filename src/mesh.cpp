@@ -363,8 +363,10 @@ void Mesh::update() {
 
 void Mesh::use_shader() { glUseProgram(program); }
 
-void Mesh::draw(const glm::mat4x4& V, glm::mat4x4 K, bool y_up) const {
+void Mesh::draw(const glm::mat4x4& V, glm::mat4x4 K, bool y_up,
+                int time) const {
     if (!visible) return;
+    if (this->time != 0 && time != this->time) return;
     float norm = glm::length(rotation);
     if (norm < 1e-3) {
         transform_ = glm::mat4(1.0);
@@ -918,6 +920,7 @@ std::vector<Mesh> _load_npz(const cnpy::npz_t& npz, bool default_visible) {
             }
         }
         me.name = mesh_name;
+        me.time = map_get_int(fields, "time", 0, errs);
         me.scale = map_get_float(fields, "scale", 1.0f, errs);
         me.translation =
             map_get_vec3(fields, "translation", glm::vec3{0.f, 0.f, 0.f}, errs);
