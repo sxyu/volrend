@@ -49,6 +49,8 @@ struct Mesh {
     int face_size;
     bool visible = true;
     bool unlit = false;
+    // Only for points
+    float point_size = 1.f;
 
     std::string name = "Mesh";
 

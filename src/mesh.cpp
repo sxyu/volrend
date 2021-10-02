@@ -101,6 +101,7 @@ const char* VERT_SHADER_SRC =
 uniform mat4x4 K;
 uniform mat4x4 MV;
 uniform mat4x4 M;
+uniform float point_size;
 
 in vec3 aPos;
 in vec3 aColor;
@@ -112,6 +113,7 @@ out highp vec3 Normal;
 
 void main()
 {
+    gl_PointSize = point_size;
     FragPos = MV * vec4(aPos.x, aPos.y, aPos.z, 1.0);
     gl_Position = K * FragPos;
     VertColor = aColor;
@@ -161,7 +163,7 @@ void main()
 )glsl";
 
 unsigned int program = -1;
-unsigned int u_K, u_MV, u_M, u_cam_pos, u_unlit;
+unsigned int u_K, u_MV, u_M, u_cam_pos, u_unlit, u_point_size;
 
 // Split a string by '__'
 std::vector<std::string> split_by_2underscore(const std::string& s) {
@@ -331,6 +333,7 @@ Mesh::Mesh(int n_verts, int n_faces, int face_size, bool unlit)
         u_MV = glGetUniformLocation(program, "MV");
         u_M = glGetUniformLocation(program, "M");
         u_K = glGetUniformLocation(program, "K");
+        u_point_size = glGetUniformLocation(program, "point_size");
         u_cam_pos = glGetUniformLocation(program, "camPos");
         u_unlit = glGetUniformLocation(program, "unlit");
     }
@@ -386,6 +389,7 @@ void Mesh::draw(const glm::mat4x4& V, glm::mat4x4 K, bool y_up,
     glUniformMatrix4fv(u_M, 1, GL_FALSE, glm::value_ptr(transform_));
     glUniformMatrix4fv(u_K, 1, GL_FALSE, glm::value_ptr(K));
     glUniform3fv(u_cam_pos, 1, glm::value_ptr(cam_pos));
+    glUniform1f(u_point_size, point_size);
     glUniform1i(u_unlit, unlit);
     glBindVertexArray(vao_);
     if (faces.empty()) {
@@ -874,6 +878,7 @@ std::vector<Mesh> _load_npz(const cnpy::npz_t& npz, bool default_visible) {
             // Point cloud
             auto data = map_get_floatarr(fields, "points", errs);
             me = volrend::Mesh::Points(data, color);
+            me.point_size = map_get_float(fields, "point_size", 1.f, errs);
         } else if (mesh_type == "mesh") {
             // Most generic mesh
             auto data = map_get_floatarr(fields, "points", errs);
