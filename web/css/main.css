@@ -205,7 +205,8 @@
     display: none;
 }
 
-.layers-item {
+.layers-item,
+.layers-collection {
     cursor: pointer;
     font-size: 0.9em;
     user-select: none;
@@ -228,6 +229,28 @@
     padding: 0 0 0 0.3em;
     display: inline-block;
     user-select: none;
+}
+
+.layers-collection-name {
+    padding: 0 1em 0 0.3em;
+    display: inline-block;
+    user-select: none;
+}
+
+.layers-collection-action {
+    padding: 0 0.3em;
+}
+
+.layers-collection-collapse {
+    text-decoration: none
+}
+
+.layers-collection-collapse:hover {
+    text-decoration: none
+}
+
+.layers-collection-collapse[aria-expanded="true"] svg {
+    transform: rotate(90deg);
 }
 
 /* Open local */

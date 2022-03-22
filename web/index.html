@@ -233,9 +233,27 @@
     <script type="text/javascript" src="js/main.js?v={{ver}}"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-Piv4xVNRyMGpqkS2by6br4gNJ7DXjqk09RmUpJ8jgGtD7zP9yug3goQfGII0yAns" crossorigin="anonymous"></script>
 
+
+    <script type="text/template" id="layers-collection-template">
+        <div class="layers-collection{classes}" collection="{name}" style="margin-left:{mleft}"
+             collection-id="{full_name}">
+            <a class="layers-collection-collapse" data-toggle="collapse"
+                    href="#collapse-{id}" role="button" aria-expanded="false" aria-controls="collapse-{id}">
+                <svg style="width:24px;height:24px" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M8.59,16.58L13.17,12L8.59,7.41L10,6L16,12L10,18L8.59,16.58Z" />
+                </svg>
+            </a>
+            <span class="layers-collection-name">{name}</span>
+            <a class="layers-collection-action layers-collection-action-all">all</a>
+            <a class="layers-collection-action layers-collection-action-none">none</a>
+        </div>
+        <div class="layers-collection-subitems collapse" collection="{name}" id="collapse-{id}"
+            style="margin-left:{mleft}">
+    </script>
     <script type="text/template" id="layers-item-template">
-        <div class="layers-item{classes}" layer="{id}">
-            <span class="layers-item-color" layer-color="{border_color}"
+        <div class="layers-item{classes}" layer="{id}"
+            full-name="{full_name}" style="margin-left:{mleft}" id="layer-item-{id}">
+            <span class="layers-item-color" layer-color="{border_color}" id="layer-item-color-{id}"
                   style="background:{bg_color};border:2px solid {border_color}"></span>
             <span class="layers-item-name">{name}</span>
         </div>

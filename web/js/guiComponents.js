@@ -2,14 +2,18 @@ let populateLayers = function() {
     let layers_list = $('#layers-items');
     let html = "";
     let template = $('#layers-item-template').html();
+    let template_collection = $('#layers-collection-template').html();
     let re_name = new RegExp('{name}', 'g');
+    let re_full_name = new RegExp('{full_name}', 'g');
     let re_classes = new RegExp('{classes}', 'g');
     let re_bg_color = new RegExp('{bg_color}', 'g');
     let re_border_color = new RegExp('{border_color}', 'g');
+    let re_mleft = new RegExp('{mleft}', 'g');
     let re_id = new RegExp('{id}', 'g');
     const invis_class = "layers-item-invisible";
 
     let mesh_cnt = Volrend.mesh_count();
+    layer_tree = {__leaf : false};
     for (let i = 0; i < mesh_cnt; i++) {
         let mesh_name = Volrend.mesh_get_name(i);
         if (mesh_name.length == 0 || mesh_name[0] == '_') {
@@ -23,12 +27,86 @@ let populateLayers = function() {
                                      + mesh_color[2] * 255.0 + ")";
         let mesh_bg_color_str = mesh_is_visible ? mesh_color_str : "#fff";
         let classes_str = mesh_is_visible ? "" : " " + invis_class;
-        html += template.replace(re_name, mesh_name)
-                                   .replace(re_id, i)
-                                   .replace(re_bg_color, mesh_bg_color_str)
-                                   .replace(re_border_color, mesh_color_str)
-                                   .replace(re_classes, classes_str);
+
+        let mesh_name_tree = mesh_name.split('/');
+        
+        let it = layer_tree;
+
+        for (let i = 0; i < mesh_name_tree.length - 1; i++) {
+            let name_part = mesh_name_tree[i];
+            if (!(name_part in it)) {
+                it[name_part] = {
+                    __leaf : false,
+                    __name : name_part
+                };
+            }
+            it = it[name_part];
+        }
+        let last_name = mesh_name_tree[mesh_name_tree.length-1];
+        it[last_name] = {
+            __leaf : true,
+            __name : last_name,
+            __full_name : mesh_name,
+            color : mesh_color,
+            is_visible : mesh_is_visible,
+            color_str : mesh_color_str,
+            bg_color_str : mesh_bg_color_str,
+            classes_str : classes_str,
+            mesh_id : i
+        };
+
     }
+
+    let dfs_populate_html = function(obj, full_name, depth) {
+        if (obj.__leaf) {
+            html += template.replace(re_name, obj.__name)
+                .replace(re_full_name, obj.full_name)
+                .replace(re_id, obj.mesh_id)
+                .replace(re_bg_color, obj.bg_color_str)
+                .replace(re_border_color, obj.color_str)
+                .replace(re_classes, obj.classes_str)
+                .replace(re_mleft, (depth - 1) + 'em');
+        } else {
+            if ('__name' in obj) {
+                html += template_collection.replace(re_name, obj.__name)
+                    .replace(re_id, obj.mesh_id)
+                    .replace(re_full_name, full_name)
+                    .replace(re_classes, "")
+                    .replace(re_mleft, (depth - 1) + 'em');
+            }
+            for (var key in obj) {
+                if (!key.startsWith('__')) {
+                    dfs_populate_html(obj[key], full_name + '__' + key, depth + 1);
+                }
+            }
+            if ('__name' in obj) {
+                html += "\n</div>\n";
+            }
+         }
+    };
+
+    let dfs_visible_all = function(obj, new_visible) {
+        if (obj.__leaf) {
+            Volrend.mesh_set_visible(obj.mesh_id, new_visible);
+            let base_ele = $("#layer-item-" + obj.mesh_id);
+            let color_ele = $("#layer-item-color-" + obj.mesh_id);
+            if (new_visible) {
+                base_ele.removeClass(invis_class);
+                color_ele.css("background-color", color_ele.attr("layer-color"));
+            } else {
+                base_ele.addClass(invis_class);
+                color_ele.css("background-color", "#fff");
+            }
+        } else {
+            for (var key in obj) {
+                if (!key.startsWith('__')) {
+                    dfs_visible_all(obj[key], new_visible);
+                }
+            }
+         }
+    };
+
+    dfs_populate_html(layer_tree, "", 0);
     if (mesh_cnt > 0) {
         $('#layers-btn').show();
     }
@@ -47,6 +125,17 @@ let populateLayers = function() {
             $this.addClass(invis_class);
             color_ele.css("background-color", "#fff");
         }
+    });
+
+    $('.layers-collection-action').click(function() {
+        let $this = $(this);
+        let collid = $this.parent().attr("collection-id");
+        let collid_path = collid.slice(2).split('__')
+        let curr = layer_tree;
+        for (var i = 0; i < collid_path.length; i++) {
+            curr = curr[collid_path[i]];
+        }
+        dfs_visible_all(curr, $this.hasClass('layers-collection-action-all'));
     });
 
     // Update time
@@ -142,7 +231,7 @@ let guiInit = function() {
     });
 
     $('#layers-btn').click(function() {
-        populateLayers();
+        // populateLayers();
         $('#layers').css('display', 'block');
     });
 
