@@ -4,6 +4,7 @@ let populateLayers = function() {
     let template = $('#layers-item-template').html();
     let template_collection = $('#layers-collection-template').html();
     let re_name = new RegExp('{name}', 'g');
+    let re_space = new RegExp(' ', 'g');
     let re_full_name = new RegExp('{full_name}', 'g');
     let re_classes = new RegExp('{classes}', 'g');
     let re_bg_color = new RegExp('{bg_color}', 'g');
@@ -69,7 +70,7 @@ let populateLayers = function() {
         } else {
             if ('__name' in obj) {
                 html += template_collection.replace(re_name, obj.__name)
-                    .replace(re_id, obj.mesh_id)
+                    .replace(re_id, obj.__name.replace(re_space, '-'))
                     .replace(re_full_name, full_name)
                     .replace(re_classes, "")
                     .replace(re_mleft, (depth - 1) + 'em');
