@@ -64,7 +64,8 @@ void estimate_normals(std::vector<float>& verts,
                       const std::vector<unsigned int>& faces) {
     const int n_faces =
         faces.size() ? faces.size() / 3 : verts.size() / VERT_SZ / 3;
-    float a[3], b[3], cross[3], off[3];
+    float a[3], b[3], cross[3];
+    unsigned off[3];
     for (int i = 0; i < verts.size() / VERT_SZ; ++i) {
         for (int j = 0; j < 3; ++j) verts[i * VERT_SZ + 6 + j] = 0.f;
     }
@@ -275,7 +276,10 @@ std::vector<float> map_get_floatarr(
     } while (0)
 
     result.resize(it->second.num_vals);
-    if (it->second.word_size == 2) {
+    if (it->second.word_size == 1) {
+        _ASSN_PTR_ARR(uint8_t);
+        for (float& v : result) v /= 255.0f;
+    } else if (it->second.word_size == 2) {
         _ASSN_PTR_ARR(half);
     } else if (it->second.word_size == 4) {
         _ASSN_PTR_ARR(float);
@@ -397,6 +401,7 @@ void Mesh::draw(const glm::mat4x4& V, glm::mat4x4 K, bool y_up,
     } else {
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
         glDrawElements(get_gl_ele_type(face_size), faces.size(),
+                //3665000 * 3,
                        GL_UNSIGNED_INT, (void*)0);
     }
     glBindVertexArray(0);
@@ -626,6 +631,7 @@ Mesh Mesh::Points(std::vector<float> points, glm::vec3 color) {
         vptr += VERT_SZ;
         pptr += 3;
     }
+
     m.name = "Points";
     m.unlit = true;
     return m;
