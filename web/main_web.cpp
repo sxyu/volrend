@@ -43,11 +43,18 @@ struct {
     int curr_fps_frame = -1;
     double curr_fps = 0.0;
     std::chrono::high_resolution_clock::time_point tstart;
+
+    int update_frames = FPS_AVERAGE_FRAMES * 2;
+    void require_update() {
+        update_frames = FPS_AVERAGE_FRAMES * 2;
+    }
 } gui;
 
 // ---------
 // Events
 void redraw() {
+    if (gui.update_frames <= 0) return;
+    --gui.update_frames;
     glEnable(GL_DEPTH_TEST);
     glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
 
@@ -84,7 +91,10 @@ void toggle_fps_counter() {
 std::string get_basis_format() { return tree.data_format.to_string(); }
 int get_basis_dim() { return tree.data_format.basis_dim; }
 
-void set_time(int time) { renderer->time = time; }
+void set_time(int time) {
+    renderer->time = time;
+    gui.require_update();
+}
 int get_time() { return renderer->time; }
 int mesh_max_time() {
     int time = 0;
@@ -132,17 +142,24 @@ void on_mousedown(int x, int y, bool middle) {
 void on_mousemove(int x, int y) {
     if (renderer->camera.is_dragging()) {
         renderer->camera.drag_update(x, y);
+        gui.require_update();
     }
 }
 void on_mouseup() { renderer->camera.end_drag(); }
 bool is_camera_moving() { return renderer->camera.is_dragging(); }
 void on_mousewheel(bool upwards, int distance, int x, int y) {
-    const float speed_fact = 1e-1f;
+    float speed_fact = 1e-1f;
+    float radius = fmaxf(glm::length(renderer->camera.center), 1.f);
+    speed_fact *= radius;
     renderer->camera.move(renderer->camera.v_back *
                           (upwards ? -speed_fact : speed_fact));
+    gui.require_update();
 }
 
-void on_resize(int width, int height) { renderer->resize(width, height); }
+void on_resize(int width, int height) {
+    renderer->resize(width, height);
+    gui.require_update();
+}
 
 // ** Data Loading
 // Remote octree file loading from a url
@@ -155,6 +172,7 @@ void load_tree_remote(const std::string& url) {
         renderer->set(tree);
         tree.clear_cpu_memory();
         report_progress(101.0f);  // Report finished loading
+        gui.require_update();
     };
 
     auto _load_remote_download_failed = [](emscripten_fetch_t* fetch) {
@@ -186,6 +204,7 @@ void load_tree_local(const std::string& path) {
     renderer->set(tree);
     tree.clear_cpu_memory();
     report_progress(101.0f);  // Report finished loading
+    gui.require_update();
 }
 
 // Load OBJ mesh from URL (weirdly slow on firefox after refreshing..)
@@ -204,6 +223,7 @@ void load_obj_remote(const std::string& url) {
         } else {
             printf("Load OBJ failed\n");
         }
+        gui.require_update();
     };
 
     auto _load_remote_download_failed = [](emscripten_fetch_t* fetch) {
@@ -233,6 +253,7 @@ void load_obj_local(const std::string& path) {
         printf("Load OBJ failed\n");
     }
     report_progress(101.0f);  // Report finished loading
+    gui.require_update();
 }
 
 void _append_meshes(std::vector<volrend::Mesh>& mesh_list,
@@ -251,6 +272,7 @@ void load_drawlist_remote(const std::string& url) {
                                              gui.mesh_default_visible));
         emscripten_fetch_close(fetch);  // Free data associated with the fetch.
         populate_layers();
+        gui.require_update();
     };
 
     auto _load_remote_download_failed = [](emscripten_fetch_t* fetch) {
@@ -273,6 +295,7 @@ void load_drawlist_remote(const std::string& url) {
 void load_drawlist_local(const std::string& path) {
     _append_meshes(renderer->meshes, volrend::Mesh::open_drawlist(path));
     report_progress(101.0f);  // Report finished loading
+    gui.require_update();
 }
 
 // Minor util to check if string ends with another
@@ -316,30 +339,37 @@ std::array<float, 3> vec32arr(const glm::vec3& v) {
 }
 //
 float get_focal() { return renderer->camera.fx; }
-void set_focal(float fx) { renderer->camera.fy = renderer->camera.fx = fx; }
+void set_focal(float fx) {
+    renderer->camera.fy = renderer->camera.fx = fx;
+    gui.require_update();
+}
 std::array<float, 3> get_world_up() {
     return vec32arr(renderer->camera.v_world_up);
 }
 void set_world_up(std::array<float, 3> xyz) {
     renderer->camera.v_world_up = glm::normalize(arr2vec3(xyz));
+    gui.require_update();
 }
 std::array<float, 3> get_cam_origin() {
     return vec32arr(renderer->camera.origin);
 }
 void set_cam_origin(std::array<float, 3> xyz) {
     renderer->camera.origin = arr2vec3(xyz);
+    gui.require_update();
 }
 std::array<float, 3> get_cam_back() {
     return vec32arr(renderer->camera.v_back);
 }
 void set_cam_back(std::array<float, 3> xyz) {
     renderer->camera.v_back = glm::normalize(arr2vec3(xyz));
+    gui.require_update();
 }
 std::array<float, 3> get_cam_center() {
     return vec32arr(renderer->camera.center);
 }
 void set_cam_center(std::array<float, 3> xyz) {
     renderer->camera.center = arr2vec3(xyz);
+    gui.require_update();
 }
 
 // ** Mesh utilities
@@ -354,6 +384,7 @@ void mesh_add_cube(std::array<float, 3> xyz, float scale,
         if (cubeid) cube.name = cube.name + std::to_string(cubeid);
         ++cubeid;
         renderer->meshes.push_back(std::move(cube));
+        gui.require_update();
     }
 }
 
@@ -368,6 +399,7 @@ void mesh_add_sphere(std::array<float, 3> xyz, float scale,
         if (sphereid) sph.name = sph.name + std::to_string(sphereid);
         ++sphereid;
         renderer->meshes.push_back(std::move(sph));
+        gui.require_update();
     }
 }
 
@@ -382,6 +414,7 @@ void mesh_add_lattice(std::array<float, 3> xyz, float scale,
         if (lattid) latt.name = latt.name + std::to_string(lattid);
         ++lattid;
         renderer->meshes.push_back(std::move(latt));
+        gui.require_update();
     }
 }
 
@@ -396,6 +429,7 @@ void mesh_add_camera_frustum(float focal_length, float image_width,
         if (camfrusid) camfrus.name = camfrus.name + std::to_string(camfrusid);
         ++camfrusid;
         renderer->meshes.push_back(std::move(camfrus));
+        gui.require_update();
     }
 }
 
@@ -409,6 +443,7 @@ void mesh_add_line(std::array<float, 3> a, std::array<float, 3> b,
         if (lineid) line.name = line.name + std::to_string(lineid);
         ++lineid;
         renderer->meshes.push_back(std::move(line));
+        gui.require_update();
     }
 }
 
@@ -433,33 +468,43 @@ bool mesh_get_visible(int mesh_id) {
 void mesh_set_translation(int mesh_id, std::array<float, 3> xyz) {
     if (_check_mesh_id(mesh_id)) return;
     renderer->meshes[mesh_id].translation = arr2vec3(xyz);
+    gui.require_update();
 }
 void mesh_set_rotation(int mesh_id, std::array<float, 3> aa) {
     if (_check_mesh_id(mesh_id)) return;
     renderer->meshes[mesh_id].rotation = arr2vec3(aa);
+    gui.require_update();
 }
 void mesh_set_scale(int mesh_id, float scale) {
     if (_check_mesh_id(mesh_id)) return;
     renderer->meshes[mesh_id].scale = scale;
+    gui.require_update();
 }
 void mesh_set_visible(int mesh_id, bool visible) {
     if (_check_mesh_id(mesh_id)) return;
     renderer->meshes[mesh_id].visible = visible;
+    gui.require_update();
 }
 // Default visibility of meshes loaded thru remote drawlists
 void mesh_set_default_visible(bool visible) {
     gui.mesh_default_visible = visible;
+    gui.require_update();
 }
 void mesh_set_unlit(int mesh_id, bool unlit) {
     if (_check_mesh_id(mesh_id)) return;
     renderer->meshes[mesh_id].unlit = unlit;
+    gui.require_update();
 }
 void mesh_delete(int mesh_id) {
     if (_check_mesh_id(mesh_id)) return;
     renderer->meshes.erase(renderer->meshes.begin() + mesh_id);
+    gui.require_update();
 }
 int mesh_count() { return (int)renderer->meshes.size(); }
-void mesh_clear_all() { renderer->meshes.clear(); }
+void mesh_clear_all() {
+    renderer->meshes.clear();
+    gui.require_update();
+}
 
 // JS function bindings
 EMSCRIPTEN_BINDINGS(Volrend) {

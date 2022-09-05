@@ -36,15 +36,9 @@ Camera::Camera(int width, int height, float fx, float fy)
     _update();
 }
 
-Camera::~Camera() {
-#ifdef VOLREND_CUDA
-    if (device.transform != nullptr) {
-        cuda(Free(device.transform));
-    }
-#endif
-}
+Camera::~Camera() { }
 
-void Camera::_update(bool transform_from_vecs, bool copy_cuda) {
+void Camera::_update(bool transform_from_vecs) {
     if (transform_from_vecs) {
         v_back = glm::normalize(v_back);
         v_right = glm::normalize(glm::cross(v_world_up, v_back));
@@ -63,16 +57,6 @@ void Camera::_update(bool transform_from_vecs, bool copy_cuda) {
                   0, 0, -2 * CLIP_NEAR, 0);
     // clang-format on
     w2c = glm::affineInverse(glm::mat4x4(transform));
-
-#ifdef VOLREND_CUDA
-    if (copy_cuda) {
-        if (device.transform == nullptr) {
-            cuda(Malloc((void**)&device.transform, 12 * sizeof(transform[0])));
-        }
-        cuda(MemcpyAsync(device.transform, glm::value_ptr(transform),
-                         12 * sizeof(transform[0]), cudaMemcpyHostToDevice));
-    }
-#endif
 }
 
 void Camera::begin_drag(float x, float y, bool is_pan, bool about_origin) {
@@ -125,7 +109,7 @@ void Camera::drag_update(float x, float y) {
                                         1.f)) +
                 origin;
         }
-        _update(true, false);
+        _update(true);
     }
 }
 bool Camera::is_dragging() const { return drag_state_->is_dragging; }

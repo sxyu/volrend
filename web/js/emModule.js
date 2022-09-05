@@ -56,6 +56,6 @@ var Volrend = {
     onRuntimeInitialized: function() { $(document).ready(onInit); },
     set_title: function(title) {
         $('#navbar-title').text(title);
-        document.title = title + " - PlenOctree Viewer";
+        document.title = title;
     },
 };

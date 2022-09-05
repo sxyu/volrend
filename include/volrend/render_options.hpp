@@ -11,7 +11,7 @@ namespace volrend {
 struct RenderOptions {
     // * BASIC RENDERING
     // Epsilon added to steps to prevent hitting current box again
-    float step_size = 1e-4f;
+    float step_size = 1e-3f;
 
     // If a point has sigma < this amount, considers sigma = 0
     float sigma_thresh = 1e-2f;

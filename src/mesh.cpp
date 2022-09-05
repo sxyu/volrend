@@ -20,7 +20,9 @@
 
 #include <glm/gtc/type_ptr.hpp>
 #include <tiny_obj_loader.h>
-#include "volrend/internal/shader.hpp"
+
+#include "volrend/internal/glutil.hpp"
+#include "volrend/internal/basic_mesh.shader"
 
 namespace {
 const int VERT_SZ = 9;
@@ -97,74 +99,7 @@ void estimate_normals(std::vector<float>& verts,
     }
 }
 
-const char* VERT_SHADER_SRC =
-    R"glsl(
-uniform mat4x4 K;
-uniform mat4x4 MV;
-uniform mat4x4 M;
-uniform float point_size;
-
-in vec3 aPos;
-in vec3 aColor;
-in vec3 aNormal;
-
-out lowp vec3 VertColor;
-out highp vec4 FragPos;
-out highp vec3 Normal;
-
-void main()
-{
-    gl_PointSize = point_size;
-    FragPos = MV * vec4(aPos.x, aPos.y, aPos.z, 1.0);
-    gl_Position = K * FragPos;
-    VertColor = aColor;
-    Normal = normalize(mat3x3(M) * aNormal);
-}
-)glsl";
-
-const char* FRAG_SHADER_SRC =
-    R"glsl(
-precision highp float;
-in lowp vec3 VertColor;
-in vec4 FragPos;
-in vec3 Normal;
-
-uniform bool unlit;
-uniform vec3 camPos;
-
-layout(location = 0) out lowp vec4 FragColor;
-layout(location = 1) out float Depth;
-
-void main()
-{
-    if (unlit) {
-        FragColor = vec4(VertColor, 1);
-    } else {
-        // FIXME make these uniforms, whatever for now
-        float ambient = 0.3;
-        float specularStrength = 0.6;
-        float diffuseStrength = 0.7;
-        float diffuse2Strength = 0.2;
-        vec3 lightDir = normalize(vec3(0.5, 0.2, 1));
-        vec3 lightDir2 = normalize(vec3(-0.5, -1.0, -0.5));
-
-        float diffuse = diffuseStrength * max(dot(lightDir, Normal), 0.0);
-        float diffuse2 = diffuse2Strength * max(dot(lightDir2, Normal), 0.0);
-
-        vec3 viewDir = normalize(camPos - vec3(FragPos));
-        vec3 reflectDir = reflect(-lightDir, Normal);
-        float spec = pow(max(dot(viewDir, reflectDir), 0.0), 32.0);
-        float specular = specularStrength * spec;
-
-        FragColor = (ambient + diffuse + diffuse2 + specular) * vec4(VertColor, 1);
-    }
-
-    Depth = length(FragPos.xyz);
-}
-)glsl";
-
-unsigned int program = -1;
-unsigned int u_K, u_MV, u_M, u_cam_pos, u_unlit, u_point_size;
+volrend::GLShader g_mesh_program;
 
 // Split a string by '__'
 std::vector<std::string> split_by_2underscore(const std::string& s) {
@@ -332,14 +267,8 @@ Mesh::Mesh(int n_verts, int n_faces, int face_size, bool unlit)
       translation(0),
       face_size(face_size),
       unlit(unlit) {
-    if (program == -1) {
-        program = create_shader_program(VERT_SHADER_SRC, FRAG_SHADER_SRC);
-        u_MV = glGetUniformLocation(program, "MV");
-        u_M = glGetUniformLocation(program, "M");
-        u_K = glGetUniformLocation(program, "K");
-        u_point_size = glGetUniformLocation(program, "point_size");
-        u_cam_pos = glGetUniformLocation(program, "camPos");
-        u_unlit = glGetUniformLocation(program, "unlit");
+    if (!g_mesh_program) {
+        g_mesh_program = GLShader(BASIC_MESH_SHADER_SRC, "BASIC_MESH");
     }
 }
 
@@ -368,12 +297,13 @@ void Mesh::update() {
     glBindVertexArray(0);
 }
 
-void Mesh::use_shader() { glUseProgram(program); }
+void Mesh::use_shader() { g_mesh_program.use(); }
 
 void Mesh::draw(const glm::mat4x4& V, glm::mat4x4 K, bool y_up,
                 int time) const {
     if (!visible) return;
-    if (this->time != 0 && time != this->time) return;
+    if (this->time != -1 && time != this->time) return;
+
     float norm = glm::length(rotation);
     if (norm < 1e-3) {
         transform_ = glm::mat4(1.0);
@@ -387,14 +317,15 @@ void Mesh::draw(const glm::mat4x4& V, glm::mat4x4 K, bool y_up,
         K[1][1] *= -1.0;
     }
 
+    g_mesh_program.use();
     transform_[3] = glm::vec4(translation, 1);
     glm::mat4x4 MV = V * transform_;
-    glUniformMatrix4fv(u_MV, 1, GL_FALSE, glm::value_ptr(MV));
-    glUniformMatrix4fv(u_M, 1, GL_FALSE, glm::value_ptr(transform_));
-    glUniformMatrix4fv(u_K, 1, GL_FALSE, glm::value_ptr(K));
-    glUniform3fv(u_cam_pos, 1, glm::value_ptr(cam_pos));
-    glUniform1f(u_point_size, point_size);
-    glUniform1i(u_unlit, unlit);
+    glUniformMatrix4fv(g_mesh_program["MV"], 1, GL_FALSE, glm::value_ptr(MV));
+    glUniformMatrix4fv(g_mesh_program["M"], 1, GL_FALSE, glm::value_ptr(transform_));
+    glUniformMatrix4fv(g_mesh_program["K"], 1, GL_FALSE, glm::value_ptr(K));
+    glUniform3fv(g_mesh_program["cam_pos"], 1, glm::value_ptr(cam_pos));
+    glUniform1f(g_mesh_program["point_size"], point_size);
+    glUniform1i(g_mesh_program["unlit"], unlit);
     glBindVertexArray(vao_);
     if (faces.empty()) {
         glDrawArrays(get_gl_ele_type(face_size), 0, vert.size() / VERT_SZ);
@@ -931,7 +862,7 @@ std::vector<Mesh> _load_npz(const cnpy::npz_t& npz, bool default_visible) {
             }
         }
         me.name = mesh_name;
-        me.time = map_get_int(fields, "time", 0, errs);
+        me.time = map_get_int(fields, "time", -1, errs);
         me.scale = map_get_float(fields, "scale", 1.0f, errs);
         me.translation =
             map_get_vec3(fields, "translation", glm::vec3{0.f, 0.f, 0.f}, errs);

@@ -1,3 +1,18 @@
+// The PlenOctree shader, kind of crappy performance
+
+// VERTEX SHADER
+#if defined(VERTEX)
+
+in vec3 aPos;
+
+void main()
+{
+    gl_Position = vec4(aPos.x, aPos.y, aPos.z, 1.0);
+}
+
+// FRAGMENT SHADER
+#elif defined(FRAGMENT)
+
 precision highp float;
 precision highp int;
 
@@ -22,6 +37,7 @@ struct Camera {
 struct N3TreeSpec {
     int N;
     int data_dim;
+    int data_dim_rgba;
     int format;
     int basis_dim;
     float ndc_width;
@@ -55,9 +71,9 @@ uniform Camera cam;
 uniform RenderOptions opt;
 uniform N3TreeSpec tree;
 
-uniform int tree_child_dim;
+uniform int tree_child_stride;
 uniform highp isampler2D tree_child_tex;
-uniform int tree_data_dim;
+uniform int tree_data_stride;
 uniform mediump sampler2D tree_data_tex;
 // uniform highp sampler2D tree_extra_tex;
 
@@ -66,18 +82,14 @@ uniform mediump sampler2D mesh_depth_tex;
 uniform mediump sampler2D mesh_color_tex;
 
 // Hacky ways to store octree in 2 textures
-float get_tree_data(int y, int x) {
-    return texelFetch(tree_data_tex, ivec2(x, y), 0).r;
+vec4 get_tree_data(int y, int x) {
+    return texelFetch(tree_data_tex, ivec2(x, y), 0);
 }
 int index_tree_child(int i) {
-    int y = i / tree_child_dim;
-    int x = i % tree_child_dim;
+    int y = i / tree_child_stride;
+    int x = i % tree_child_stride;
     return texelFetch(tree_child_tex, ivec2(x, y), 0).r;
 }
-
-// float index_extra(int i, int j) {
-//     return texelFetch(tree_extra_tex, ivec2(j, i), 0).r;
-// }
 
 
 // **** N^3 TREE IMPLEMENTATION ****
@@ -227,7 +239,7 @@ vec3 trace_ray(vec3 dir, vec3 vdir, vec3 cen, float tmax_bg, vec3 bg_color) {
     dda_world(cen, invdir, tmin, tmax);
     tmax = min(tmax, tmax_bg / delta_scale);
 
-    if (tmax < 0.f || tmin > tmax || tree_data_dim == 0) {
+    if (tmax < 0.f || tmin > tmax || tree_data_stride == 0) {
         // Ray doesn't hit box or tree not loaded
         output_color = bg_color;
     } else {
@@ -249,65 +261,64 @@ vec3 trace_ray(vec3 dir, vec3 vdir, vec3 cen, float tmax_bg, vec3 bg_color) {
             // ++n_steps;
             vec3 pos = cen + t * dir;
             float cube_sz;
-            int doffset = query_single_from_root(pos, cube_sz) * tree.data_dim;
+            int doffset = query_single_from_root(pos, cube_sz) * tree.data_dim_rgba;
 
             float subcube_tmax;
             dda_unit(pos, invdir, subcube_tmax);
 
             float t_subcube = subcube_tmax / float(cube_sz);
-            int tree_y = doffset / tree_data_dim;
-            int tree_x = doffset % tree_data_dim;
+            int tree_y = doffset / tree_data_stride;
+            int tree_x = doffset % tree_data_stride;
 
             float delta_t = t_subcube + opt.step_size;
-            float sigma = get_tree_data(tree_y, tree_x + tree.data_dim - 1);
-            if (sigma > opt.sigma_thresh) {
-                float att = min(exp(-delta_t * delta_scale * sigma), 1.f);
+            vec4 data = get_tree_data(tree_y, tree_x);
+            if (data.r > opt.sigma_thresh) {
+                float att = min(exp(-delta_t * delta_scale * data.r), 1.f);
                 float weight = light_intensity * (1.f - att);
 
-                int off = tree_x;
                 if (tree.format != FORMAT_RGBA) {
-#define MUL_BASIS_I(t) basis_fn[t] * get_tree_data(tree_y, off + t)
-                    for (int t = 0; t < 3; ++ t) {
-                        float tmp = basis_fn[0] * get_tree_data(tree_y, off);
-                        switch(tree.basis_dim) {
-                            // case 25:
-                            //     tmp += MUL_BASIS_I(16) +
-                            //         MUL_BASIS_I(17) +
-                            //         MUL_BASIS_I(18) +
-                            //         MUL_BASIS_I(19) +
-                            //         MUL_BASIS_I(20) +
-                            //         MUL_BASIS_I(21) +
-                            //         MUL_BASIS_I(22) +
-                            //         MUL_BASIS_I(23) +
-                            //         MUL_BASIS_I(24);
-                            case 16:
-                                tmp += MUL_BASIS_I(9) +
-                                    MUL_BASIS_I(10) +
-                                    MUL_BASIS_I(11) +
-                                    MUL_BASIS_I(12) +
-                                    MUL_BASIS_I(13) +
-                                    MUL_BASIS_I(14) +
-                                    MUL_BASIS_I(15);
+                    // TODO: implement other than SH9
+                    float tmp;
+                    tmp = basis_fn[0] * data.g
+                          + basis_fn[1] * data.b
+                          + basis_fn[2] * data.a;
+                    data = get_tree_data(tree_y, ++tree_x);
+                    tmp += basis_fn[3] * data.r
+                          + basis_fn[4] * data.g
+                          + basis_fn[5] * data.b
+                          + basis_fn[6] * data.a;
+                    data = get_tree_data(tree_y, ++tree_x);
+                    tmp += basis_fn[7] * data.r
+                          + basis_fn[8] * data.g;
+                    output_color.r += weight / (1.0 + exp(-tmp));
 
-                            case 9:
-                                tmp += MUL_BASIS_I(4) +
-                                    MUL_BASIS_I(5) +
-                                    MUL_BASIS_I(6) +
-                                    MUL_BASIS_I(7) +
-                                    MUL_BASIS_I(8);
+                    tmp = basis_fn[0] * data.b
+                        + basis_fn[1] * data.a;
+                    data = get_tree_data(tree_y, ++tree_x);
+                    tmp += basis_fn[2] * data.r
+                         + basis_fn[3] * data.g
+                         + basis_fn[4] * data.b
+                         + basis_fn[5] * data.a;
+                    data = get_tree_data(tree_y, ++tree_x);
+                    tmp += basis_fn[6] * data.r
+                         + basis_fn[7] * data.g
+                         + basis_fn[8] * data.b;
+                    output_color.g += weight / (1.0 + exp(-tmp));
 
-                            case 4:
-                                tmp += MUL_BASIS_I(1) +
-                                    MUL_BASIS_I(2) +
-                                    MUL_BASIS_I(3);
-                        }
-                        output_color[t] += weight / (1.0 + exp(-tmp));
-                        off += tree.basis_dim;
-                    }
+                    tmp = basis_fn[0] * data.a;
+                    data = get_tree_data(tree_y, ++tree_x);
+                    tmp += basis_fn[1] * data.r
+                         + basis_fn[2] * data.g
+                         + basis_fn[3] * data.b
+                         + basis_fn[4] * data.a;
+                    data = get_tree_data(tree_y, ++tree_x);
+                    tmp += basis_fn[5] * data.r
+                         + basis_fn[6] * data.g
+                         + basis_fn[7] * data.b
+                         + basis_fn[8] * data.a;
+                    output_color.b += weight / (1.0 + exp(-tmp));
                 } else {
-                    for (int t = 0; t < 3; ++ t) {
-                        output_color[t] += weight * get_tree_data(tree_y, tree_x + t);
-                    }
+                    output_color += weight * data.gba;
                 }
 
                 light_intensity *= att;
@@ -367,3 +378,4 @@ void main()
     rgb = clamp(rgb, 0.0, 1.0);
     FragColor = vec4(rgb, 1.0);
 }
+#endif

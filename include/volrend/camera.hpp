@@ -59,7 +59,7 @@ struct Camera {
 
     // Update the transform after modifying v_right/v_forward/center
     // (internal)
-    void _update(bool transform_from_vecs = true, bool copy_cuda = true);
+    void _update(bool transform_from_vecs = true);
 
    private:
     // For dragging

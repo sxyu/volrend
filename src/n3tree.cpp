@@ -227,6 +227,10 @@ void N3Tree::open_mem(const char* data, uint64_t size) {
 
 void N3Tree::load_npz(cnpy::npz_t& npz) {
     data_dim = (int)*npz["data_dim"].data<int64_t>();
+    data_dim_pad = data_dim;
+    if (data_dim % 4 != 0) {
+        data_dim_pad += 4 - data_dim % 4;
+    }
     if (npz.count("data_format")) {
         auto& df_node = npz["data_format"];
         std::string data_format_str =
@@ -346,6 +350,24 @@ void N3Tree::load_npz(cnpy::npz_t& npz) {
         }
         std::swap(data_, data_node);
     }
+
+    // Perform padding
+    {
+        data_.data_holder.resize(capacity * N * N * N * data_dim_pad * sizeof(half));
+        half* data_ptr = data_.data<half>();
+        for (int64_t i = int64_t(capacity) * N * N * N - 1; i >= 0; --i) {
+            int64_t old_base_idx = i * data_dim;
+            int64_t new_base_idx = i * data_dim_pad;
+            half sigma = data_ptr[old_base_idx + data_dim - 1];
+            for (int64_t j = data_dim - 2; j >= 0; --j) {
+                data_ptr[new_base_idx + j + 1] = data_ptr[old_base_idx + j];
+            }
+            // Switch to sigma first
+            data_ptr[new_base_idx] = sigma;
+        }
+    }
+
+
 
     if (npz.count("extra_data")) {
         std::swap(extra_, npz["extra_data"]);

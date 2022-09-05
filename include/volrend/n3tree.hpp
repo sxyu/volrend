@@ -40,6 +40,7 @@ struct N3Tree {
     int N = 0;
     // Size of data stored on each leaf
     int data_dim;
+    int data_dim_pad;
     // Data format (SH, SG etc)
     DataFormat data_format;
     // Capacity
