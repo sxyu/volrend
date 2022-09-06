@@ -27,21 +27,24 @@ struct Mesh {
     // appropriately
     void repeat(int n);
 
+    // Standard vertex normals estimation
+    void estimate_normals();
+
     // Apply affine transform directly to the vertices (rotation is axis-angle)
     void apply_transform(glm::vec3 r, glm::vec3 t, int start = 0, int end = -1);
     void apply_transform(glm::mat4 transform, int start = 0, int end = -1);
 
-    // Vertex positions
+    // Vertex positions + other data
     std::vector<float> vert;
     // Triangle indices
     std::vector<unsigned int> faces;
 
     // Model transform, rotation is axis-angle
-    glm::vec3 rotation, translation;
-    float scale = 1.f;
+    glm::vec3 model_rotation, model_translation;
+    float model_scale = 1.f;
 
-    // Time stamp to show the mesh; if time = 0 then mesh is always shown
-    int time = 0;
+    // Time stamp to show the mesh; if time = -1 then mesh is always shown
+    int time = -1;
 
     // Computed transform
     mutable glm::mat4 transform_;
@@ -86,12 +89,6 @@ struct Mesh {
     // Load a basic OBJ file (triangles & optionally vertex colors)
     static Mesh load_basic_obj(const std::string& path);
     static Mesh load_mem_basic_obj(const std::string& str);
-
-    // Load series of meshes/lines/points from a npz file
-    static std::vector<Mesh> open_drawlist(const std::string& path,
-                                           bool default_visible = true);
-    static std::vector<Mesh> open_drawlist_mem(const char* data, uint64_t size,
-                                               bool default_visible = true);
 
    private:
     unsigned int vao_, vbo_, ebo_;

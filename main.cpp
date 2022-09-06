@@ -23,16 +23,12 @@
 #include "imfilebrowser.h"
 #endif
 
-#ifdef VOLREND_CUDA
-#include "volrend/cuda/common.cuh"
-#endif
-
 namespace volrend {
 
 namespace {
 
 #define GET_RENDERER(window) \
-    (*((VolumeRenderer*)glfwGetWindowUserPointer(window)))
+    (*((Renderer*)glfwGetWindowUserPointer(window)))
 
 void glfw_update_title(GLFWwindow* window) {
     // static fps counters
@@ -57,10 +53,10 @@ void glfw_update_title(GLFWwindow* window) {
     frame_count++;
 }
 
-int gizmo_mesh_op = ImGuizmo::TRANSLATE;
-int gizmo_mesh_space = ImGuizmo::LOCAL;
+int gizmo_op = ImGuizmo::TRANSLATE;
+int gizmo_space = ImGuizmo::LOCAL;
 
-void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
+void draw_imgui(Renderer& rend) {
     auto& cam = rend.camera;
     ImGui_ImplOpenGL3_NewFrame();
     ImGui_ImplGlfw_NewFrame();
@@ -127,8 +123,9 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
         // Load octree
         std::string path = open_tree_dialog.GetSelected().string();
         printf("Load N3Tree npz: %s\n", path.c_str());
-        tree.open(path);
-        rend.set(tree);
+        N3Tree tmptree;
+        tmptree.open(path);
+        rend.add(std::move(tmptree));
         open_tree_dialog.ClearSelected();
     }
 
@@ -196,42 +193,88 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
         }
     }  // End camera node
 
+    ImGui::Checkbox("use_fxaa", &rend.options.use_fxaa);
+    ImGui::SliderFloat("bg_brightness", &rend.options.background_brightness,
+            0.f, 1.0f);
+    ImGui::TextUnformatted("op");
+    ImGui::SameLine();
+    ImGui::RadioButton("trans##giztrans", &gizmo_op,
+                       ImGuizmo::TRANSLATE);
+    ImGui::SameLine();
+    ImGui::RadioButton("rot##gizrot", &gizmo_op, ImGuizmo::ROTATE);
+    ImGui::SameLine();
+    ImGui::RadioButton("scale##gizscale", &gizmo_op,
+                       ImGuizmo::SCALE_Z);
+
+    ImGui::TextUnformatted("space");
+    ImGui::SameLine();
+    ImGui::RadioButton("local##gizlocal", &gizmo_space, ImGuizmo::LOCAL);
+    ImGui::SameLine();
+    ImGui::RadioButton("world##gizworld", &gizmo_space, ImGuizmo::WORLD);
+
     ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
     if (ImGui::CollapsingHeader("Render")) {
-        static float inv_step_size = 1.0f / rend.options.step_size;
-        if (ImGui::SliderFloat("1/eps", &inv_step_size, 128.f, 20000.f)) {
-            rend.options.step_size = 1.f / inv_step_size;
-        }
-        ImGui::SliderFloat("sigma_thresh", &rend.options.sigma_thresh, 0.f,
-                           100.0f);
-        ImGui::SliderFloat("stop_thresh", &rend.options.stop_thresh, 0.001f,
-                           0.4f);
-        ImGui::SliderFloat("bg_brightness", &rend.options.background_brightness,
-                           0.f, 1.0f);
+        for (int i = 0; i < (int)rend.trees.size(); ++i) {
+            N3Tree& tree = rend.trees[i];
+            static std::vector<glm::mat4> gizmo_tree_trans;
+            gizmo_tree_trans.resize(rend.trees.size());
+            if (ImGui::TreeNode(tree.name.c_str())) {
+                if (tree.visible) {
+                    glm::mat4& gizmo_trans = gizmo_tree_trans[i];
+                    gizmo_trans = tree.transform_;
+                    if (gizmo_op == ImGuizmo::SCALE_Z) {
+                        glm::mat4 tmp(1);
+                        tmp[3] = gizmo_trans[3];
+                        gizmo_trans = tmp;
+                    }
+                    ImGuizmo::SetID(i + 1);
+                    if (ImGuizmo::Manipulate(glm::value_ptr(w2c),
+                                             glm::value_ptr(camera_persp_prj),
+                                             (ImGuizmo::OPERATION)gizmo_op,
+                                             (ImGuizmo::MODE)gizmo_space,
+                                             glm::value_ptr(gizmo_trans), NULL,
+                                             NULL, NULL, NULL)) {
+                        if (gizmo_op == ImGuizmo::ROTATE) {
+                            glm::quat rot_q = glm::quat_cast(
+                                glm::mat3(gizmo_trans) / tree.model_scale);
+                            tree.model_rotation =
+                                glm::axis(rot_q) * glm::angle(rot_q);
+                        } else if (gizmo_op == ImGuizmo::SCALE_Z) {
+                            tree.model_scale *= gizmo_trans[2][2] /
+                                          tree.transform_[2][2];  // max_scale;
+                        }
+                        tree.model_translation = gizmo_trans[3];
+                    }
+                }
+                ImGui::Checkbox("visible", &tree.visible);
+                static float inv_step_size = 1.0f / tree.options_.step_size;
+                if (ImGui::SliderFloat("1/eps", &inv_step_size, 128.f, 20000.f)) {
+                    tree.options_.step_size = 1.f / inv_step_size;
+                }
+                ImGui::SliderFloat("sigma_thresh", &tree.options_.sigma_thresh, 0.f,
+                        100.0f);
+                ImGui::SliderFloat("stop_thresh", &tree.options_.stop_thresh, 0.001f,
+                        0.4f);
 
-    }  // End render node
-    ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
-    if (ImGui::CollapsingHeader("Visualization")) {
-        ImGui::PushItemWidth(230);
-        ImGui::SliderFloat3("bb_min", rend.options.render_bbox, 0.0, 1.0);
-        ImGui::SliderFloat3("bb_max", rend.options.render_bbox + 3, 0.0, 1.0);
-        ImGui::SliderInt2("decomp", rend.options.basis_minmax, 0,
-                          std::max(tree.data_format.basis_dim - 1, 0));
-        ImGui::SliderFloat3("viewdir shift", rend.options.rot_dirs, -M_PI / 4,
-                            M_PI / 4);
-        ImGui::PopItemWidth();
-        if (ImGui::Button("Reset Viewdir Shift")) {
-            for (int i = 0; i < 3; ++i) rend.options.rot_dirs[i] = 0.f;
-        }
+                ImGui::PushItemWidth(230);
+                ImGui::SliderFloat3("bb_min", tree.options_.render_bbox, 0.0, 1.0);
+                ImGui::SliderFloat3("bb_max", tree.options_.render_bbox + 3, 0.0, 1.0);
+                ImGui::SliderInt2("decomp", tree.options_.basis_minmax, 0,
+                        std::max(tree.data_format.basis_dim - 1, 0));
+                ImGui::SliderFloat3("viewdir shift", tree.options_.rot_dirs, -M_PI / 4,
+                        M_PI / 4);
+                ImGui::PopItemWidth();
+                if (ImGui::Button("Reset Viewdir Shift")) {
+                    for (int i = 0; i < 3; ++i) tree.options_.rot_dirs[i] = 0.f;
+                }
 
-        ImGui::Checkbox("Show Grid", &rend.options.show_grid);
-#ifdef VOLREND_CUDA
-        ImGui::SameLine();
-        ImGui::Checkbox("Render Depth", &rend.options.render_depth);
-#endif
-        if (rend.options.show_grid) {
-            ImGui::SliderInt("grid max depth", &rend.options.grid_max_depth, 0,
-                             7);
+                ImGui::Checkbox("Show Grid", &tree.options_.show_grid);
+                if (tree.options_.show_grid) {
+                    ImGui::SliderInt("grid max depth", &tree.options_.grid_max_depth, 0,
+                            7);
+                }
+                ImGui::TreePop();
+            }
         }
     }
 
@@ -239,24 +282,6 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
     if (ImGui::CollapsingHeader("Manipulation")) {
         static std::vector<glm::mat4> gizmo_mesh_trans;
         gizmo_mesh_trans.resize(rend.meshes.size());
-
-        ImGui::TextUnformatted("gizmo op");
-        ImGui::SameLine();
-        ImGui::RadioButton("trans##giztrans", &gizmo_mesh_op,
-                           ImGuizmo::TRANSLATE);
-        ImGui::SameLine();
-        ImGui::RadioButton("rot##gizrot", &gizmo_mesh_op, ImGuizmo::ROTATE);
-        ImGui::SameLine();
-        ImGui::RadioButton("scale##gizscale", &gizmo_mesh_op,
-                           ImGuizmo::SCALE_Z);
-
-        ImGui::TextUnformatted("gizmo space");
-        ImGui::SameLine();
-        ImGui::RadioButton("local##gizlocal", &gizmo_mesh_space,
-                           ImGuizmo::LOCAL);
-        ImGui::SameLine();
-        ImGui::RadioButton("world##gizworld", &gizmo_mesh_space,
-                           ImGuizmo::WORLD);
 
         ImGui::BeginGroup();
         std::vector<int> meshes_to_del;
@@ -266,34 +291,34 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
                 if (mesh.visible) {
                     glm::mat4& gizmo_trans = gizmo_mesh_trans[i];
                     gizmo_trans = mesh.transform_;
-                    if (gizmo_mesh_op == ImGuizmo::SCALE_Z) {
+                    if (gizmo_op == ImGuizmo::SCALE_Z) {
                         glm::mat4 tmp(1);
                         tmp[3] = gizmo_trans[3];
                         gizmo_trans = tmp;
                     }
-                    ImGuizmo::SetID(i + 1);
+                    ImGuizmo::SetID(rend.trees.size() + i + 1);
                     if (ImGuizmo::Manipulate(glm::value_ptr(w2c),
                                              glm::value_ptr(camera_persp_prj),
-                                             (ImGuizmo::OPERATION)gizmo_mesh_op,
-                                             (ImGuizmo::MODE)gizmo_mesh_space,
+                                             (ImGuizmo::OPERATION)gizmo_op,
+                                             (ImGuizmo::MODE)gizmo_space,
                                              glm::value_ptr(gizmo_trans), NULL,
                                              NULL, NULL, NULL)) {
-                        if (gizmo_mesh_op == ImGuizmo::ROTATE) {
+                        if (gizmo_op == ImGuizmo::ROTATE) {
                             glm::quat rot_q = glm::quat_cast(
-                                glm::mat3(gizmo_trans) / mesh.scale);
-                            mesh.rotation =
+                                glm::mat3(gizmo_trans) / mesh.model_scale);
+                            mesh.model_rotation =
                                 glm::axis(rot_q) * glm::angle(rot_q);
-                        } else if (gizmo_mesh_op == ImGuizmo::SCALE_Z) {
-                            mesh.scale *= gizmo_trans[2][2] /
+                        } else if (gizmo_op == ImGuizmo::SCALE_Z) {
+                            mesh.model_scale *= gizmo_trans[2][2] /
                                           mesh.transform_[2][2];  // max_scale;
                         }
-                        mesh.translation = gizmo_trans[3];
+                        mesh.model_translation = gizmo_trans[3];
                     }
                 }
                 ImGui::PushItemWidth(230);
-                ImGui::InputFloat3("trans", glm::value_ptr(mesh.translation));
-                ImGui::InputFloat3("rot", glm::value_ptr(mesh.rotation));
-                ImGui::InputFloat("scale", &mesh.scale);
+                ImGui::InputFloat3("trans", glm::value_ptr(mesh.model_translation));
+                ImGui::InputFloat3("rot", glm::value_ptr(mesh.model_rotation));
+                ImGui::InputFloat("scale", &mesh.model_scale);
                 ImGui::PopItemWidth();
                 ImGui::Checkbox("visible", &mesh.visible);
                 ImGui::SameLine();
@@ -323,8 +348,8 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
             static int sphereid = 0;
             {
                 Mesh sph = Mesh::Sphere();
-                sph.scale = 0.1f;
-                sph.translation[2] = 1.0f;
+                sph.model_scale = 0.1f;
+                sph.model_translation[2] = 1.0f;
                 sph.update();
                 if (sphereid) sph.name = sph.name + std::to_string(sphereid);
                 ++sphereid;
@@ -336,32 +361,12 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
             static int cubeid = 0;
             {
                 Mesh cube = Mesh::Cube();
-                cube.scale = 0.2f;
-                cube.translation[2] = 1.0f;
+                cube.model_scale = 0.2f;
+                cube.model_translation[2] = 1.0f;
                 cube.update();
                 if (cubeid) cube.name = cube.name + std::to_string(cubeid);
                 ++cubeid;
                 rend.meshes.push_back(std::move(cube));
-            }
-        }
-        ImGui::SameLine();
-        if (ImGui::Button("Latti##addlattice")) {
-            static int lattid = 0;
-            {
-                Mesh latt = Mesh::Lattice();
-                if (tree.N > 0) {
-                    latt.scale =
-                        1.f / std::min(std::min(tree.scale[0], tree.scale[1]),
-                                       tree.scale[2]);
-                    for (int i = 0; i < 3; ++i) {
-                        latt.translation[i] =
-                            -1.f / tree.scale[0] * tree.offset[0];
-                    }
-                }
-                latt.update();
-                if (lattid) latt.name = latt.name + std::to_string(lattid);
-                ++lattid;
-                rend.meshes.push_back(std::move(latt));
             }
         }
         ImGui::SameLine();
@@ -373,43 +378,6 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
             rend.meshes.clear();
         }
 
-#ifdef VOLREND_CUDA
-        if (tree.capacity) {
-            ImGui::BeginGroup();
-            ImGui::Checkbox("Enable Lumisphere Probe",
-                            &rend.options.enable_probe);
-            if (rend.options.enable_probe) {
-                ImGui::SetNextTreeNodeOpen(true, ImGuiCond_Once);
-                if (ImGui::TreeNode("Probe")) {
-                    static glm::mat4 probe_trans;
-                    static bool show_probe_gizmo = true;
-                    float* probe = rend.options.probe;
-                    probe_trans =
-                        glm::translate(glm::mat4(1.f),
-                                       glm::vec3(probe[0], probe[1], probe[2]));
-
-                    ImGui::Checkbox("Show gizmo", &show_probe_gizmo);
-                    if (show_probe_gizmo) {
-                        ImGuizmo::SetID(0);
-                        if (ImGuizmo::Manipulate(
-                                glm::value_ptr(w2c),
-                                glm::value_ptr(camera_persp_prj),
-                                ImGuizmo::TRANSLATE, ImGuizmo::LOCAL,
-                                glm::value_ptr(probe_trans), NULL, NULL, NULL,
-                                NULL)) {
-                            for (int i = 0; i < 3; ++i)
-                                probe[i] = probe_trans[3][i];
-                        }
-                    }
-                    ImGui::InputFloat3("probe", probe);
-                    ImGui::SliderInt("probe_win_sz",
-                                     &rend.options.probe_disp_size, 50, 800);
-                    ImGui::TreePop();
-                }
-            }
-            ImGui::EndGroup();
-        }
-#endif
     }
     open_obj_mesh_dialog.Display();
     if (open_obj_mesh_dialog.HasSelected()) {
@@ -423,10 +391,10 @@ void draw_imgui(VolumeRenderer& rend, N3Tree& tree) {
                 // Auto offset
                 std::ifstream ifs(path + ".offs");
                 if (ifs) {
-                    ifs >> tmp.translation.x >> tmp.translation.y >>
-                        tmp.translation.z;
+                    ifs >> tmp.model_translation.x >> tmp.model_translation.y >>
+                        tmp.model_translation.z;
                     if (ifs) {
-                        ifs >> tmp.scale;
+                        ifs >> tmp.model_scale;
                     }
                 }
                 tmp.update();
@@ -494,41 +462,21 @@ void glfw_key_callback(GLFWwindow* window, int key, int scancode, int action,
 
             case GLFW_KEY_Z: {
                 // Cycle gizmo op
-                if (gizmo_mesh_op == ImGuizmo::TRANSLATE)
-                    gizmo_mesh_op = ImGuizmo::ROTATE;
-                else if (gizmo_mesh_op == ImGuizmo::ROTATE)
-                    gizmo_mesh_op = ImGuizmo::SCALE_Z;
+                if (gizmo_op == ImGuizmo::TRANSLATE)
+                    gizmo_op = ImGuizmo::ROTATE;
+                else if (gizmo_op == ImGuizmo::ROTATE)
+                    gizmo_op = ImGuizmo::SCALE_Z;
                 else
-                    gizmo_mesh_op = ImGuizmo::TRANSLATE;
+                    gizmo_op = ImGuizmo::TRANSLATE;
             } break;
 
             case GLFW_KEY_X: {
                 // Cycle gizmo space
-                if (gizmo_mesh_space == ImGuizmo::LOCAL)
-                    gizmo_mesh_space = ImGuizmo::WORLD;
+                if (gizmo_space == ImGuizmo::LOCAL)
+                    gizmo_space = ImGuizmo::WORLD;
                 else
-                    gizmo_mesh_space = ImGuizmo::LOCAL;
+                    gizmo_space = ImGuizmo::LOCAL;
             } break;
-
-            case GLFW_KEY_I:
-            case GLFW_KEY_J:
-            case GLFW_KEY_K:
-            case GLFW_KEY_L:
-            case GLFW_KEY_U:
-            case GLFW_KEY_O:
-                if (rend.options.enable_probe) {
-                    // Probe movement
-                    float speed = 0.002f;
-                    if (mods & GLFW_MOD_SHIFT) speed *= 5.f;
-                    if (key == GLFW_KEY_J || key == GLFW_KEY_K ||
-                        key == GLFW_KEY_U)
-                        speed = -speed;
-                    int dim = (key == GLFW_KEY_J || key == GLFW_KEY_L)   ? 0
-                              : (key == GLFW_KEY_I || key == GLFW_KEY_K) ? 1
-                                                                         : 2;
-                    rend.options.probe[dim] += speed;
-                }
-                break;
 
             case GLFW_KEY_MINUS:
                 cam.fx *= 0.99f;
@@ -611,13 +559,8 @@ GLFWwindow* glfw_init(const int width, const int height) {
     if (!glfwInit()) std::exit(EXIT_FAILURE);
 
     glfwWindowHint(GLFW_DEPTH_BITS, GL_TRUE);
-#ifdef VOLREND_CUDA
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 4);
-    glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 5);
-#else
     glfwWindowHint(GLFW_CONTEXT_VERSION_MAJOR, 3);
     glfwWindowHint(GLFW_CONTEXT_VERSION_MINOR, 3);
-#endif
     glfwWindowHint(GLFW_OPENGL_PROFILE, GLFW_OPENGL_CORE_PROFILE);
     glfwWindowHint(GLFW_OPENGL_FORWARD_COMPAT, GL_TRUE);
 
@@ -702,19 +645,6 @@ int main(int argc, char* argv[]) {
 
     cxxopts::ParseResult args = internal::parse_options(cxxoptions, argc, argv);
 
-#ifdef VOLREND_CUDA
-    const int device_id = args["gpu"].as<int>();
-    if (~device_id) {
-        cuda(SetDevice(device_id));
-    }
-#endif
-
-    N3Tree tree;
-    bool init_loaded = false;
-    if (args.count("file")) {
-        init_loaded = true;
-        tree.open(args["file"].as<std::string>());
-    }
     int width = args["width"].as<int>(), height = args["height"].as<int>();
     float fx = args["fx"].as<float>();
     float fy = args["fy"].as<float>();
@@ -723,47 +653,55 @@ int main(int argc, char* argv[]) {
     GLFWwindow* window = glfw_init(width, height);
 
     {
-        VolumeRenderer rend;
+        Renderer rend;
+        if (args.count("file")) {
+            N3Tree tree;
+            tree.open(args["file"].as<std::string>());
+            tree.options_ = internal::render_options_from_args(args);
+
+            if (tree.use_ndc) {
+                // Special inital coordinates for NDC
+                // (pick average camera)
+                rend.camera.center = glm::vec3(0);
+                rend.camera.origin = glm::vec3(0, 0, -3);
+                rend.camera.v_back = glm::vec3(0, 0, 1);
+                rend.camera.v_world_up = glm::vec3(0, 1, 0);
+                if (fx <= 0) {
+                    rend.camera.fx = rend.camera.fy = tree.ndc_focal * 0.25f;
+                }
+                rend.camera.movement_speed = 0.1f;
+            } else {
+                auto cen = args["center"].as<std::vector<float>>();
+                rend.camera.center = glm::vec3(cen[0], cen[1], cen[2]);
+                auto origin = args["origin"].as<std::vector<float>>();
+                rend.camera.origin = glm::vec3(origin[0], origin[1], origin[2]);
+                auto world_up = args["world_up"].as<std::vector<float>>();
+                rend.camera.v_world_up =
+                    glm::vec3(world_up[0], world_up[1], world_up[2]);
+                auto back = args["back"].as<std::vector<float>>();
+                rend.camera.v_back = glm::vec3(back[0], back[1], back[2]);
+            }
+            rend.add(std::move(tree));
+        }
+
         if (fx > 0.f) {
             rend.camera.fx = fx;
         }
 
-        rend.options = internal::render_options_from_args(args);
-        if (init_loaded && tree.use_ndc) {
-            // Special inital coordinates for NDC
-            // (pick average camera)
-            rend.camera.center = glm::vec3(0);
-            rend.camera.origin = glm::vec3(0, 0, -3);
-            rend.camera.v_back = glm::vec3(0, 0, 1);
-            rend.camera.v_world_up = glm::vec3(0, 1, 0);
-            if (fx <= 0) {
-                rend.camera.fx = rend.camera.fy = tree.ndc_focal * 0.25f;
-            }
-            rend.camera.movement_speed = 0.1f;
-        } else {
-            auto cen = args["center"].as<std::vector<float>>();
-            rend.camera.center = glm::vec3(cen[0], cen[1], cen[2]);
-            auto origin = args["origin"].as<std::vector<float>>();
-            rend.camera.origin = glm::vec3(origin[0], origin[1], origin[2]);
-            auto world_up = args["world_up"].as<std::vector<float>>();
-            rend.camera.v_world_up =
-                glm::vec3(world_up[0], world_up[1], world_up[2]);
-            auto back = args["back"].as<std::vector<float>>();
-            rend.camera.v_back = glm::vec3(back[0], back[1], back[2]);
-        }
         if (fy <= 0.f) {
             rend.camera.fy = rend.camera.fx;
         }
 
         {
-            std::string drawlist_load_path = args["draw"].as<std::string>();
-            if (drawlist_load_path.size()) {
-                rend.meshes = Mesh::open_drawlist(drawlist_load_path);
+            auto& drawlists = args["draw"].as<std::vector<std::string>>();
+            for (auto& drawlist: drawlists) {
+                if (drawlist.size()) {
+                    rend.open_drawlist(drawlist);
+                }
             }
         }
 
         glfwGetFramebufferSize(window, &width, &height);
-        rend.set(tree);
         rend.resize(width, height);
 
         // Set user pointer and callbacks
@@ -782,7 +720,7 @@ int main(int argc, char* argv[]) {
 
             rend.render();
 
-            if (!nogui) draw_imgui(rend, tree);
+            if (!nogui) draw_imgui(rend);
 
             glfwSwapBuffers(window);
             glFinish();

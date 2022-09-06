@@ -13,6 +13,16 @@
 
 namespace volrend {
 
+// Currently meshes store 9 data entries (position, normal, color)
+const int MESH_VERT_SIZE = 9;
+
+namespace util {
+
+// Draw a full screen quad, initializing geometry lazily
+void draw_fs_quad();
+
+} // namespace util
+
 // Shader; each shader program has a UNIQUE instance
 // that is move-only
 class GLShader {

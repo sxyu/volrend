@@ -12,7 +12,7 @@ void add_common_opts(cxxopts::Options& options);
 cxxopts::ParseResult parse_options(cxxopts::Options& options, int argc,
                                    char* argv[]);
 
-RenderOptions render_options_from_args(cxxopts::ParseResult& args);
+N3TreeRenderOptions render_options_from_args(cxxopts::ParseResult& args);
 
 }  // namespace internal
 }  // namespace volrend

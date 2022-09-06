@@ -7,8 +7,8 @@
 
 namespace volrend {
 
-// Rendering options
-struct RenderOptions {
+// PlenOctree Rendering options
+struct N3TreeRenderOptions {
     // * BASIC RENDERING
     // Epsilon added to steps to prevent hitting current box again
     float step_size = 1e-3f;
@@ -18,9 +18,6 @@ struct RenderOptions {
 
     // If remaining light intensity/alpha < this amount stop marching
     float stop_thresh = 1e-2f;
-
-    // Background brightness
-    float background_brightness = 1.f;
 
     // * VISUALIZATION
     // Rendering bounding box (relative to outer tree bounding box [0, 1])
@@ -40,16 +37,14 @@ struct RenderOptions {
     bool show_grid = false;
     // Grid max depth
     int grid_max_depth = 4;
+};
 
-#ifdef VOLREND_CUDA
-    // Render depth instead of color, currently CUDA only
-    bool render_depth = false;
-#endif
+struct RendererOptions {
+    // Whether to enable fxaa
+    bool use_fxaa = true;
 
-    // * Probe for inspecting lumispheres
-    bool enable_probe = false;
-    float probe[3] = {0.f, 0.f, 1.f};
-    int probe_disp_size = 100;
+    // Background brightness
+    float background_brightness = 1.f;
 };
 
 }  // namespace volrend

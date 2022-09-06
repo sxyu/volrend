@@ -44,6 +44,10 @@ set( PROJ_LIB_NAME "volrend" )
 
 if ( CMAKE_COMPILER_IS_GNUCXX OR (CMAKE_CXX_COMPILER_ID MATCHES "Clang") )
     set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -Wno-deprecated -Wno-deprecated-declarations -O3 -funroll-loops" )
+    if (NOT EMSCRIPTEN)
+        set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -g" )
+    endif()
+
     if( VOLREND_USE_FFAST_MATH )
         set( CMAKE_CXX_FLAGS "${CMAKE_CXX_FLAGS} -ffast-math" )
     endif()
@@ -370,7 +374,6 @@ else (EMSCRIPTEN)
     endmacro()
 
     VOLREND_ADD_EXECUTABLE(volrend_exe volrend main.cpp)
-    VOLREND_ADD_EXECUTABLE(volrend_anim_exe volrend_anim main_anim.cpp)
 
     if(WIN32)
         add_definitions(-DNOMINMAX -D_USE_MATH_DEFINES)

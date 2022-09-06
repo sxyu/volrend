@@ -24,8 +24,10 @@
 #include "volrend/internal/glutil.hpp"
 #include "volrend/internal/basic_mesh.shader"
 
+namespace volrend {
 namespace {
-const int VERT_SZ = 9;
+
+GLShader g_mesh_program;
 
 GLenum get_gl_ele_type(int face_size) {
     switch (face_size) {
@@ -62,24 +64,25 @@ void _normalize(scalar_t* dir) {
     }
 }
 
+// Mesh normal estimation
 void estimate_normals(std::vector<float>& verts,
                       const std::vector<unsigned int>& faces) {
     const int n_faces =
-        faces.size() ? faces.size() / 3 : verts.size() / VERT_SZ / 3;
+        faces.size() ? faces.size() / 3 : verts.size() / MESH_VERT_SIZE / 3;
     float a[3], b[3], cross[3];
     unsigned off[3];
-    for (int i = 0; i < verts.size() / VERT_SZ; ++i) {
-        for (int j = 0; j < 3; ++j) verts[i * VERT_SZ + 6 + j] = 0.f;
+    for (int i = 0; i < verts.size() / MESH_VERT_SIZE; ++i) {
+        for (int j = 0; j < 3; ++j) verts[i * MESH_VERT_SIZE + 6 + j] = 0.f;
     }
     for (int i = 0; i < n_faces; ++i) {
         if (faces.size()) {
-            off[0] = faces[3 * i] * VERT_SZ;
-            off[1] = faces[3 * i + 1] * VERT_SZ;
-            off[2] = faces[3 * i + 2] * VERT_SZ;
+            off[0] = faces[3 * i] * MESH_VERT_SIZE;
+            off[1] = faces[3 * i + 1] * MESH_VERT_SIZE;
+            off[2] = faces[3 * i + 2] * MESH_VERT_SIZE;
         } else {
-            off[0] = i * VERT_SZ * 3;
-            off[1] = off[0] + VERT_SZ;
-            off[2] = off[1] + VERT_SZ;
+            off[0] = i * MESH_VERT_SIZE * 3;
+            off[1] = off[0] + MESH_VERT_SIZE;
+            off[2] = off[1] + MESH_VERT_SIZE;
         }
 
         for (int j = 0; j < 3; ++j) {
@@ -94,185 +97,26 @@ void estimate_normals(std::vector<float>& verts,
             }
         }
     }
-    for (int i = 0; i < verts.size() / VERT_SZ; ++i) {
-        _normalize(&verts[i * VERT_SZ + 6]);
+    for (int i = 0; i < verts.size() / MESH_VERT_SIZE; ++i) {
+        _normalize(&verts[i * MESH_VERT_SIZE + 6]);
     }
-}
-
-volrend::GLShader g_mesh_program;
-
-// Split a string by '__'
-std::vector<std::string> split_by_2underscore(const std::string& s) {
-    std::vector<std::string> r;
-    size_t j = 0;
-    for (size_t i = 1; i < s.size(); ++i) {
-        if (s[i] == '_' && s[i - 1] == '_') {
-            if (i - 1 - j > 0) {
-                r.push_back(s.substr(j, i - 1 - j));
-            }
-            j = i + 1;
-        }
-    }
-    if (j < s.size()) {
-        r.push_back(s.substr(j));
-    }
-    return r;
-}
-
-// Get int with default val from a NpyArray map
-int map_get_int(const std::map<std::string, cnpy::NpyArray>& m,
-                const std::string& key, const int defval, std::ostream& errs) {
-    const auto it = m.find(key);
-    if (it == m.end()) {
-        return defval;
-    } else {
-        if (it->second.word_size == 1) {
-            return *it->second.data<int8_t>();
-        } else if (it->second.word_size == 2) {
-            return *it->second.data<int16_t>();
-        } else if (it->second.word_size == 4) {
-            return *it->second.data<int32_t>();
-        } else if (it->second.word_size == 8) {
-            return (int)*it->second.data<int64_t>();
-        }
-        errs << "Invalid word size for int " << it->second.word_size << "\n";
-        return 0;
-    }
-}
-
-float map_get_float(const std::map<std::string, cnpy::NpyArray>& m,
-                    const std::string& key, const float defval,
-                    std::ostream& errs) {
-    const auto it = m.find(key);
-    if (it == m.end()) {
-        return defval;
-    } else {
-        if (it->second.word_size == 2) {
-            return *it->second.data<half>();
-        } else if (it->second.word_size == 4) {
-            return *it->second.data<float>();
-        } else if (it->second.word_size == 8) {
-            return (float)*it->second.data<double>();
-        }
-        errs << "Invalid word size for float " << it->second.word_size << "\n";
-        return 0;
-    }
-}
-
-glm::vec3 map_get_vec3(const std::map<std::string, cnpy::NpyArray>& m,
-                       const std::string& key, const glm::vec3& defval,
-                       std::ostream& errs) {
-    const auto it = m.find(key);
-    if (it == m.end()) {
-        return defval;
-    } else {
-        glm::vec3 r;
-        auto assn_ptr = [&](auto* ptr) {};
-#define _ASSN_PTR_V3(dtype)                          \
-    do {                                             \
-        const dtype* ptr = it->second.data<dtype>(); \
-        r[0] = (float)ptr[0];                        \
-        r[1] = (float)ptr[1];                        \
-        r[2] = (float)ptr[2];                        \
-    } while (0)
-
-        if (it->second.shape.size() != 1 || it->second.shape[0] != 3) {
-            errs << "Invalid shape for float3, must be (3,)";
-        }
-
-        if (it->second.word_size == 2) {
-            _ASSN_PTR_V3(half);
-        } else if (it->second.word_size == 4) {
-            _ASSN_PTR_V3(float);
-        } else if (it->second.word_size == 8) {
-            _ASSN_PTR_V3(double);
-        } else {
-            errs << "Invalid word size for float " << it->second.word_size
-                 << "\n";
-        }
-#undef _ASSN_PTR_V3
-        return r;
-    }
-}
-
-std::vector<float> map_get_floatarr(
-    const std::map<std::string, cnpy::NpyArray>& m, const std::string& key,
-    std::ostream& errs) {
-    const auto it = m.find(key);
-    std::vector<float> result;
-    if (it == m.end()) {
-        return result;
-    }
-
-#define _ASSN_PTR_ARR(dtype)                                       \
-    do {                                                           \
-        const dtype* ptr = it->second.data<dtype>();               \
-        std::copy(ptr, ptr + it->second.num_vals, result.begin()); \
-    } while (0)
-
-    result.resize(it->second.num_vals);
-    if (it->second.word_size == 1) {
-        _ASSN_PTR_ARR(uint8_t);
-        for (float& v : result) v /= 255.0f;
-    } else if (it->second.word_size == 2) {
-        _ASSN_PTR_ARR(half);
-    } else if (it->second.word_size == 4) {
-        _ASSN_PTR_ARR(float);
-    } else if (it->second.word_size == 8) {
-        _ASSN_PTR_ARR(double);
-    } else {
-        errs << "Invalid word size for float " << it->second.word_size << "\n";
-    }
-#undef _ASSN_PTR_ARR
-    return result;
-}
-
-std::vector<int> map_get_intarr(const std::map<std::string, cnpy::NpyArray>& m,
-                                const std::string& key, std::ostream& errs) {
-    const auto it = m.find(key);
-    std::vector<int> result;
-    if (it == m.end()) {
-        return result;
-    }
-
-#define _ASSN_PTR_ARR(dtype)                                       \
-    do {                                                           \
-        const dtype* ptr = it->second.data<dtype>();               \
-        std::copy(ptr, ptr + it->second.num_vals, result.begin()); \
-    } while (0)
-
-    result.resize(it->second.num_vals);
-    if (it->second.word_size == 1) {
-        _ASSN_PTR_ARR(int8_t);
-    } else if (it->second.word_size == 2) {
-        _ASSN_PTR_ARR(int16_t);
-    } else if (it->second.word_size == 4) {
-        _ASSN_PTR_ARR(int32_t);
-    } else if (it->second.word_size == 8) {
-        _ASSN_PTR_ARR(int64_t);
-    } else {
-        errs << "Invalid word size for int " << it->second.word_size << "\n";
-    }
-#undef _ASSN_PTR_ARR
-    return result;
 }
 }  // namespace
-
-namespace volrend {
 
 Mesh::Mesh(int n_verts, int n_faces, int face_size, bool unlit)
     : vert(n_verts * 9),
       faces(n_faces * face_size),
-      rotation(0),
-      translation(0),
+      model_rotation(0),
+      model_translation(0),
       face_size(face_size),
       unlit(unlit) {
-    if (!g_mesh_program) {
-        g_mesh_program = GLShader(BASIC_MESH_SHADER_SRC, "BASIC_MESH");
-    }
 }
 
 void Mesh::update() {
+    if (!g_mesh_program) {
+        g_mesh_program = GLShader(BASIC_MESH_SHADER_SRC, "BASIC_MESH");
+    }
+
     glGenVertexArrays(1, &vao_);
     glGenBuffers(1, &vbo_);
     glGenBuffers(1, &ebo_);
@@ -281,11 +125,11 @@ void Mesh::update() {
     glBindBuffer(GL_ARRAY_BUFFER, vbo_);
     glBufferData(GL_ARRAY_BUFFER, vert.size() * sizeof(vert[0]), vert.data(),
                  GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, VERT_SZ * sizeof(float),
+    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, MESH_VERT_SIZE * sizeof(float),
                           (void*)0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, VERT_SZ * sizeof(float),
+    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, MESH_VERT_SIZE * sizeof(float),
                           (void*)(3 * sizeof(float)));
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, VERT_SZ * sizeof(float),
+    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, MESH_VERT_SIZE * sizeof(float),
                           (void*)(6 * sizeof(float)));
     glEnableVertexAttribArray(0);
     glEnableVertexAttribArray(1);
@@ -304,21 +148,21 @@ void Mesh::draw(const glm::mat4x4& V, glm::mat4x4 K, bool y_up,
     if (!visible) return;
     if (this->time != -1 && time != this->time) return;
 
-    float norm = glm::length(rotation);
+    float norm = glm::length(model_rotation);
     if (norm < 1e-3) {
         transform_ = glm::mat4(1.0);
     } else {
-        glm::quat rot = glm::angleAxis(norm, rotation / norm);
+        glm::quat rot = glm::angleAxis(norm, model_rotation / norm);
         transform_ = glm::mat4_cast(rot);
     }
-    transform_ *= scale;
+    transform_ *= model_scale;
+    transform_[3] = glm::vec4(model_translation, 1);
     glm::vec3 cam_pos = -glm::transpose(glm::mat3x3(V)) * glm::vec3(V[3]);
     if (!y_up) {
         K[1][1] *= -1.0;
     }
 
     g_mesh_program.use();
-    transform_[3] = glm::vec4(translation, 1);
     glm::mat4x4 MV = V * transform_;
     glUniformMatrix4fv(g_mesh_program["MV"], 1, GL_FALSE, glm::value_ptr(MV));
     glUniformMatrix4fv(g_mesh_program["M"], 1, GL_FALSE, glm::value_ptr(transform_));
@@ -328,7 +172,7 @@ void Mesh::draw(const glm::mat4x4& V, glm::mat4x4 K, bool y_up,
     glUniform1i(g_mesh_program["unlit"], unlit);
     glBindVertexArray(vao_);
     if (faces.empty()) {
-        glDrawArrays(get_gl_ele_type(face_size), 0, vert.size() / VERT_SZ);
+        glDrawArrays(get_gl_ele_type(face_size), 0, vert.size() / MESH_VERT_SIZE);
     } else {
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
         glDrawElements(get_gl_ele_type(face_size), faces.size(),
@@ -411,7 +255,7 @@ Mesh Mesh::Sphere(int rings, int sectors, glm::vec3 color) {
             vptr[6] = x;
             vptr[7] = y;
             vptr[8] = z;
-            vptr += VERT_SZ;
+            vptr += MESH_VERT_SIZE;
         }
     }
     unsigned int* ptr = m.faces.data();
@@ -452,7 +296,7 @@ Mesh Mesh::Lattice(int reso, glm::vec3 color) {
                 vptr[6] = 1;
                 vptr[7] = 0;
                 vptr[8] = 0;
-                vptr += VERT_SZ;
+                vptr += MESH_VERT_SIZE;
             }
         }
     }
@@ -496,7 +340,7 @@ Mesh Mesh::CameraFrustum(float focal_length, float image_width,
 }
 
 Mesh Mesh::Line(glm::vec3 a, glm::vec3 b, glm::vec3 color) {
-    volrend::Mesh m(2, 1, 2);
+    Mesh m(2, 1, 2);
     // clang-format off
     m.vert = {
         a[0], a[1], a[2], color[0], color[1], color[2], 0.f, 0.f, 1.f,
@@ -514,7 +358,7 @@ Mesh Mesh::Lines(std::vector<float> points, glm::vec3 color) {
         printf("Lines: Number of elements in points must be divisible by 3\n");
     }
     const int n_points = (int)points.size() / 3;
-    volrend::Mesh m(n_points, n_points - 1, 2);
+    Mesh m(n_points, n_points - 1, 2);
     float* vptr = m.vert.data();
     float* pptr = points.data();
     for (int i = 0; i < n_points; ++i) {
@@ -527,7 +371,7 @@ Mesh Mesh::Lines(std::vector<float> points, glm::vec3 color) {
         vptr[6] = 0.f;
         vptr[7] = 0.f;
         vptr[8] = 1.f;
-        vptr += VERT_SZ;
+        vptr += MESH_VERT_SIZE;
         pptr += 3;
     }
     unsigned int* fptr = m.faces.data();
@@ -546,7 +390,7 @@ Mesh Mesh::Points(std::vector<float> points, glm::vec3 color) {
         printf("Points: Number of elements in points must be divisible by 3\n");
     }
     const int n_points = (int)points.size() / 3;
-    volrend::Mesh m(n_points, 0, 1);
+    Mesh m(n_points, 0, 1);
     float* vptr = m.vert.data();
     float* pptr = points.data();
     for (int i = 0; i < n_points; ++i) {
@@ -559,7 +403,7 @@ Mesh Mesh::Points(std::vector<float> points, glm::vec3 color) {
         vptr[6] = 0.f;
         vptr[7] = 0.f;
         vptr[8] = 1.f;
-        vptr += VERT_SZ;
+        vptr += MESH_VERT_SIZE;
         pptr += 3;
     }
 
@@ -569,14 +413,14 @@ Mesh Mesh::Points(std::vector<float> points, glm::vec3 color) {
 }
 
 void Mesh::auto_faces() {
-    faces.resize(vert.size() / VERT_SZ);
+    faces.resize(vert.size() / MESH_VERT_SIZE);
     std::iota(faces.begin(), faces.end(), 0);
 }
 
 void Mesh::repeat(int n) {
     if (n < 1) return;
     const size_t vert_size = vert.size();
-    const size_t n_verts = vert_size / VERT_SZ;
+    const size_t n_verts = vert_size / MESH_VERT_SIZE;
     const size_t faces_size = faces.size();
     vert.resize(vert.size() * n);
     faces.resize(faces.size() * n);
@@ -607,16 +451,16 @@ void Mesh::apply_transform(glm::vec3 r, glm::vec3 t, int start, int end) {
 
 void Mesh::apply_transform(glm::mat4 transform, int start, int end) {
     if (end == -1) {
-        end = vert.size() / VERT_SZ;
+        end = vert.size() / MESH_VERT_SIZE;
     }
-    auto* ptr = &vert[start * VERT_SZ];
+    auto* ptr = &vert[start * MESH_VERT_SIZE];
     for (int i = start; i < end; ++i) {
         glm::vec4 v(ptr[0], ptr[1], ptr[2], 1.0);
         v = transform * v;
         ptr[0] = v[0];
         ptr[1] = v[1];
         ptr[2] = v[2];
-        ptr += VERT_SZ;
+        ptr += MESH_VERT_SIZE;
     }
 }
 
@@ -650,9 +494,9 @@ Mesh _load_basic_obj(const std::string& path_or_string, bool from_string) {
     auto& shapes = reader.GetShapes();
 
     const size_t n_verts = attrib.vertices.size() / 3;
-    mesh.vert.resize(VERT_SZ * n_verts);
+    mesh.vert.resize(MESH_VERT_SIZE * n_verts);
     for (size_t i = 0; i < n_verts; i++) {
-        auto* ptr = &mesh.vert[i * VERT_SZ];
+        auto* ptr = &mesh.vert[i * MESH_VERT_SIZE];
         for (int j = 0; j < 3; ++j) {
             ptr[j] = attrib.vertices[i * 3 + j];
         }
@@ -675,7 +519,7 @@ Mesh _load_basic_obj(const std::string& path_or_string, bool from_string) {
 
     if (attrib.colors.size() / 3 >= n_verts) {
         for (int i = 0; i < n_verts; ++i) {
-            auto* color_ptr = &mesh.vert[i * VERT_SZ + 3];
+            auto* color_ptr = &mesh.vert[i * MESH_VERT_SIZE + 3];
             for (int j = 0; j < 3; ++j) {
                 color_ptr[j] = attrib.colors[3 * i + j];
             }
@@ -683,7 +527,7 @@ Mesh _load_basic_obj(const std::string& path_or_string, bool from_string) {
     }
     if (attrib.normals.size() / 3 >= n_verts) {
         for (size_t i = 0; i < n_verts; i++) {
-            auto* normal_ptr = &mesh.vert[i * VERT_SZ + 6];
+            auto* normal_ptr = &mesh.vert[i * MESH_VERT_SIZE + 6];
             for (int j = 0; j < 3; ++j) {
                 normal_ptr[j] = attrib.normals[i * 3 + j];
             }
@@ -701,6 +545,10 @@ Mesh _load_basic_obj(const std::string& path_or_string, bool from_string) {
     return mesh;
 }
 
+void Mesh::estimate_normals() {
+    volrend::estimate_normals(vert, faces);
+}
+
 Mesh Mesh::load_basic_obj(const std::string& path) {
     return _load_basic_obj(path, false);
 }
@@ -710,189 +558,5 @@ Mesh Mesh::load_mem_basic_obj(const std::string& str) {
 }
 
 namespace {
-std::vector<Mesh> _load_npz(const cnpy::npz_t& npz, bool default_visible) {
-    printf("INFO: Loading drawlist npz\n");
-    std::map<std::string,
-             std::pair<std::string /*type*/,
-                       std::map<std::string, cnpy::NpyArray> /*fields*/>>
-        mesh_parse_map;
-
-    for (const std::pair<std::string, cnpy::NpyArray>& kv : npz) {
-        const std::string& fullname = kv.first;
-        std::vector<std::string> spl = split_by_2underscore(fullname);
-        if (spl.size() == 1) {
-            // Mesh type
-            std::string meshtype(kv.second.data_holder.begin(),
-                                 kv.second.data_holder.end());
-            for (size_t i = 4; i < meshtype.size(); i += 4)
-                meshtype[i / 4] = std::tolower(meshtype[i]);
-            meshtype.resize(meshtype.size() / 4);
-            mesh_parse_map[spl[0]].first = meshtype;
-        } else if (spl.size() == 2) {
-            // Field
-            mesh_parse_map[spl[0]].second[spl[1]] = kv.second;
-        } else
-            printf(
-                "Mesh load_npz warning: invalid field '%s"
-                "', must be of the form <name>=mesh_type or "
-                "<name>__<field>=val\n",
-                fullname.c_str());
-        continue;
-    }
-
-    std::vector<Mesh> meshes;
-    std::stringstream errs;
-    const glm::vec3 DEFAULT_COLOR{1.f, 0.5f, 0.2f};
-    for (const auto& kv : mesh_parse_map) {
-        const std::string& mesh_name = kv.first;
-        const std::string& mesh_type = kv.second.first;
-        const std::map<std::string, cnpy::NpyArray>& fields = kv.second.second;
-
-        volrend::Mesh me;
-        glm::vec3 color = map_get_vec3(fields, "color", DEFAULT_COLOR, errs);
-        if (mesh_type == "cube") {
-            me = volrend::Mesh::Cube(color);
-        } else if (mesh_type == "sphere") {
-            auto rings = map_get_int(fields, "rings", 15, errs);
-            auto sectors = map_get_int(fields, "sectors", 30, errs);
-            me = volrend::Mesh::Sphere(rings, sectors, color);
-        } else if (mesh_type == "line") {
-            auto a = map_get_vec3(fields, "a", glm::vec3(0.f, 0.f, 0.f), errs);
-            auto b = map_get_vec3(fields, "b", glm::vec3(0.f, 0.f, 1.f), errs);
-            me = volrend::Mesh::Line(a, b, color);
-        } else if (mesh_type == "camerafrustum") {
-            auto focal_length =
-                map_get_float(fields, "focal_length", 1111.0f, errs);
-            auto image_width =
-                map_get_float(fields, "image_width", 800.0f, errs);
-            auto image_height =
-                map_get_float(fields, "image_height", 800.0f, errs);
-            auto z = map_get_float(fields, "z", -0.3f, errs);
-            me = volrend::Mesh::CameraFrustum(focal_length, image_width,
-                                              image_height, z, color);
-            if (fields.count("t")) {
-                auto t = map_get_floatarr(fields, "t", errs);
-                auto r = map_get_floatarr(fields, "r", errs);
-                if (r.size() != t.size() || r.size() % 3) {
-                    errs << "camerafrustums r, t have different sizes or "
-                            "not "
-                            "multiple of 3\n";
-                }
-                const size_t n_verts = me.vert.size() / VERT_SZ;
-                const size_t n_reps = t.size() / 3;
-                me.repeat(n_reps);
-                for (int i = 0; i < n_reps; ++i) {
-                    const int j = i * 3;
-                    glm::vec3 ri{r[j], r[j + 1], r[j + 2]};
-                    glm::vec3 ti{t[j], t[j + 1], t[j + 2]};
-                    me.apply_transform(ri, ti, n_verts * i, n_verts * (i + 1));
-                }
-                bool connect = map_get_int(fields, "connect", 0, errs) != 0;
-                if (connect) {
-                    // Connect camera centers in a trajectory
-                    const size_t start_idx = me.faces.size();
-                    me.faces.resize(start_idx + (n_reps - 1) * 2);
-                    for (int i = 0; i < n_reps - 1; ++i) {
-                        me.faces[start_idx + i * 2] = n_verts * i;
-                        me.faces[start_idx + i * 2 + 1] = n_verts * (i + 1);
-                    }
-                }
-            }
-        } else if (mesh_type == "lines") {
-            // Lines
-            auto data = map_get_floatarr(fields, "points", errs);
-            me = volrend::Mesh::Lines(data, color);
-            if (fields.count("segs")) {
-                // By default, the points are connected in a single line
-                // i -> i+1 etc
-                // specify this to connect every consecutive pair of indices
-                // 0a 0b 1a 1b 2a 2b ...
-                auto lines = map_get_intarr(fields, "segs", errs);
-                me.faces.resize(lines.size());
-                std::copy(lines.begin(), lines.end(), me.faces.begin());
-            }
-        } else if (mesh_type == "points") {
-            // Point cloud
-            auto data = map_get_floatarr(fields, "points", errs);
-            me = volrend::Mesh::Points(data, color);
-            me.point_size = map_get_float(fields, "point_size", 1.f, errs);
-        } else if (mesh_type == "mesh") {
-            // Most generic mesh
-            auto data = map_get_floatarr(fields, "points", errs);
-            me = volrend::Mesh::Points(data, color);
-            // Face_size = 1: points  2: lines  3: triangles
-            me.face_size = map_get_int(fields, "face_size", 3, errs);
-            if (me.face_size <= 0 || me.face_size > 3) {
-                me.face_size = 3;
-                errs << "Mesh face size must be one of 1,2,3\n";
-            }
-            if (fields.count("faces")) {
-                auto faces = map_get_intarr(fields, "faces", errs);
-                if (faces.size() % me.face_size) {
-                    errs << "Faces must have face_size=" << me.face_size
-                         << " elements\n";
-                }
-                me.faces.resize(faces.size());
-                std::copy(faces.begin(), faces.end(), me.faces.begin());
-            }
-            if (me.face_size == 3) {
-                estimate_normals(me.vert, me.faces);
-            }
-        } else {
-            errs << "Mesh '" << mesh_name << "' has unsupported type '"
-                 << mesh_type << "'\n";
-            continue;
-        }
-        if (fields.count("vert_color")) {
-            // Support manual vertex colors
-            auto vert_color = map_get_floatarr(fields, "vert_color", errs);
-            if (vert_color.size() * VERT_SZ != me.vert.size() * 3) {
-                errs << "Mesh " << mesh_name
-                     << " vert_color has invalid size\n";
-                continue;
-            }
-            const float* in_ptr = vert_color.data();
-            float* out_ptr = me.vert.data() + 3;
-            for (int i = 0; i < vert_color.size(); i += 3) {
-                for (int j = 0; j < 3; ++j) {
-                    out_ptr[j] = in_ptr[j];
-                }
-                in_ptr += 3;
-                out_ptr += VERT_SZ;
-            }
-        }
-        me.name = mesh_name;
-        me.time = map_get_int(fields, "time", -1, errs);
-        me.scale = map_get_float(fields, "scale", 1.0f, errs);
-        me.translation =
-            map_get_vec3(fields, "translation", glm::vec3{0.f, 0.f, 0.f}, errs);
-        me.rotation =
-            map_get_vec3(fields, "rotation", glm::vec3{0.f, 0.f, 0.f}, errs);
-        me.visible = map_get_int(fields, "visible", default_visible, errs) != 0;
-        me.unlit = map_get_int(fields, "unlit", 0, errs) != 0;
-        me.update();
-        meshes.push_back(std::move(me));
-    }
-    std::string errstr = errs.str();
-    if (errstr.size()) {
-        printf("Mesh load_npz encountered errors while parsing:\n%s",
-               errstr.c_str());
-    }
-
-    return meshes;
-}
 }  // namespace
-
-std::vector<Mesh> Mesh::open_drawlist(const std::string& path,
-                                      bool default_visible) {
-    auto npz = cnpy::npz_load(path);
-    return _load_npz(npz, default_visible);
-}
-
-std::vector<Mesh> Mesh::open_drawlist_mem(const char* data, uint64_t size,
-                                          bool default_visible) {
-    auto npz = cnpy::npz_load_mem(data, size);
-    return _load_npz(npz, default_visible);
-}
-
 }  // namespace volrend

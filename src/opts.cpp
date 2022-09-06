@@ -8,9 +8,10 @@ namespace internal {
 void add_common_opts(cxxopts::Options& options) {
     // clang-format off
     options.add_options()
-        ("file", "npz file storing octree data", cxxopts::value<std::string>())
-        ("draw", "npz drawlist file",
-         cxxopts::value<std::string>()->default_value(""))
+        ("file", "npz file storing octree data. --draw is more general.",
+         cxxopts::value<std::string>())
+        ("draw", "npz volume/mesh/line/point general drawlist file(s) to display",
+         cxxopts::value<std::vector<std::string>>()->default_value(""))
         ("gpu", "CUDA device id (only if using cuda; defaults to first one)",
              cxxopts::value<int>()->default_value("-1"))
         ("w,width", "image width", cxxopts::value<int>()->default_value("800"))
@@ -19,7 +20,6 @@ void add_common_opts(cxxopts::Options& options) {
             cxxopts::value<float>()->default_value("-1.0"))
         ("fy", "focal length in y direction; -1 = use fx",
             cxxopts::value<float>()->default_value("-1.0"))
-        ("bg", "background brightness 0-1", cxxopts::value<float>()->default_value("1.0"))
         ("s,step_size", "step size epsilon added to computed cube size",
              cxxopts::value<float>()->default_value("1e-4"))
         ("e,stop_thresh", "early stopping threshold (on remaining intensity)",
@@ -42,9 +42,8 @@ cxxopts::ParseResult parse_options(cxxopts::Options& options, int argc,
     return args;
 }
 
-RenderOptions render_options_from_args(cxxopts::ParseResult& args) {
-    RenderOptions options;
-    options.background_brightness = args["bg"].as<float>();
+N3TreeRenderOptions render_options_from_args(cxxopts::ParseResult& args) {
+    N3TreeRenderOptions options;
     options.step_size = args["step_size"].as<float>();
     options.stop_thresh = args["stop_thresh"].as<float>();
     options.sigma_thresh = args["sigma_thresh"].as<float>();

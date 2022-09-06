@@ -33,8 +33,7 @@ EM_JS(void, show_loading_screen, (), { showLoadingScreen(); });
 EM_JS(void, update_fps, (double x), { cppUpdateFPS(x); });
 
 GLFWwindow* window;
-volrend::N3Tree tree;
-std::unique_ptr<volrend::VolumeRenderer> renderer;
+std::unique_ptr<volrend::Renderer> renderer;
 const int FPS_AVERAGE_FRAMES = 20;
 struct {
     bool mesh_default_visible = true;
@@ -88,8 +87,8 @@ void toggle_fps_counter() {
     gui.curr_fps_frame = -1;
 }
 
-std::string get_basis_format() { return tree.data_format.to_string(); }
-int get_basis_dim() { return tree.data_format.basis_dim; }
+// std::string get_basis_format() { return tree.data_format.to_string(); }
+// int get_basis_dim() { return tree.data_format.basis_dim; }
 
 void set_time(int time) {
     renderer->time = time;
@@ -167,9 +166,10 @@ void load_tree_remote(const std::string& url) {
     show_loading_screen();
     auto _load_remote_download_success = [](emscripten_fetch_t* fetch) {
         // Decompress the tree in memory
+        volrend::N3Tree tree;
         tree.open_mem(fetch->data, fetch->numBytes);
         emscripten_fetch_close(fetch);  // Free data associated with the fetch.
-        renderer->set(tree);
+        renderer->add(std::move(tree));
         tree.clear_cpu_memory();
         report_progress(101.0f);  // Report finished loading
         gui.require_update();
@@ -200,8 +200,9 @@ void load_tree_remote(const std::string& url) {
 // Load from emscripten MEMFS (retrieved from file input in JS)
 void load_tree_local(const std::string& path) {
     report_progress(50.0f);  // Fake progress (loaded to MEMFS at this point)
+    volrend::N3Tree tree;
     tree.open(path);
-    renderer->set(tree);
+    renderer->set(std::move(tree));
     tree.clear_cpu_memory();
     report_progress(101.0f);  // Report finished loading
     gui.require_update();
@@ -378,8 +379,8 @@ void mesh_add_cube(std::array<float, 3> xyz, float scale,
     static int cubeid = 0;
     {
         volrend::Mesh cube = volrend::Mesh::Cube(arr2vec3(color));
-        cube.scale = scale;
-        cube.translation = arr2vec3(xyz);
+        cube.model_scale = scale;
+        cube.model_translation = arr2vec3(xyz);
         cube.update();
         if (cubeid) cube.name = cube.name + std::to_string(cubeid);
         ++cubeid;
@@ -393,56 +394,12 @@ void mesh_add_sphere(std::array<float, 3> xyz, float scale,
     static int sphereid = 0;
     {
         volrend::Mesh sph = volrend::Mesh::Sphere(30, 30, arr2vec3(color));
-        sph.scale = scale;
-        sph.translation = arr2vec3(xyz);
+        sph.model_scale = scale;
+        sph.model_translation = arr2vec3(xyz);
         sph.update();
         if (sphereid) sph.name = sph.name + std::to_string(sphereid);
         ++sphereid;
         renderer->meshes.push_back(std::move(sph));
-        gui.require_update();
-    }
-}
-
-void mesh_add_lattice(std::array<float, 3> xyz, float scale,
-                      std::array<float, 3> color) {
-    static int lattid = 0;
-    {
-        volrend::Mesh latt = volrend::Mesh::Lattice(10, arr2vec3(color));
-        latt.scale = scale;
-        latt.translation = arr2vec3(xyz);
-        latt.update();
-        if (lattid) latt.name = latt.name + std::to_string(lattid);
-        ++lattid;
-        renderer->meshes.push_back(std::move(latt));
-        gui.require_update();
-    }
-}
-
-void mesh_add_camera_frustum(float focal_length, float image_width,
-                             float image_height, float z,
-                             std::array<float, 3> color) {
-    static int camfrusid = 0;
-    {
-        volrend::Mesh camfrus = volrend::Mesh::CameraFrustum(
-            focal_length, image_width, image_height, z, arr2vec3(color));
-        camfrus.update();
-        if (camfrusid) camfrus.name = camfrus.name + std::to_string(camfrusid);
-        ++camfrusid;
-        renderer->meshes.push_back(std::move(camfrus));
-        gui.require_update();
-    }
-}
-
-void mesh_add_line(std::array<float, 3> a, std::array<float, 3> b,
-                   std::array<float, 3> color) {
-    static int lineid = 0;
-    {
-        volrend::Mesh line =
-            volrend::Mesh::Line(arr2vec3(a), arr2vec3(b), arr2vec3(color));
-        line.update();
-        if (lineid) line.name = line.name + std::to_string(lineid);
-        ++lineid;
-        renderer->meshes.push_back(std::move(line));
         gui.require_update();
     }
 }
@@ -467,17 +424,17 @@ bool mesh_get_visible(int mesh_id) {
 }
 void mesh_set_translation(int mesh_id, std::array<float, 3> xyz) {
     if (_check_mesh_id(mesh_id)) return;
-    renderer->meshes[mesh_id].translation = arr2vec3(xyz);
+    renderer->meshes[mesh_id].model_translation = arr2vec3(xyz);
     gui.require_update();
 }
 void mesh_set_rotation(int mesh_id, std::array<float, 3> aa) {
     if (_check_mesh_id(mesh_id)) return;
-    renderer->meshes[mesh_id].rotation = arr2vec3(aa);
+    renderer->meshes[mesh_id].model_rotation = arr2vec3(aa);
     gui.require_update();
 }
 void mesh_set_scale(int mesh_id, float scale) {
     if (_check_mesh_id(mesh_id)) return;
-    renderer->meshes[mesh_id].scale = scale;
+    renderer->meshes[mesh_id].model_scale = scale;
     gui.require_update();
 }
 void mesh_set_visible(int mesh_id, bool visible) {
@@ -533,9 +490,6 @@ EMSCRIPTEN_BINDINGS(Volrend) {
     // Meshes
     function("mesh_add_cube", &mesh_add_cube);
     function("mesh_add_sphere", &mesh_add_sphere);
-    function("mesh_add_lattice", &mesh_add_lattice);
-    function("mesh_add_camera_frustum", &mesh_add_camera_frustum);
-    function("mesh_add_line", &mesh_add_line);
     function("mesh_get_name", &mesh_get_name);
     function("mesh_get_color", &mesh_get_color);
     function("mesh_get_visible", &mesh_get_visible);
@@ -595,8 +549,8 @@ EMSCRIPTEN_BINDINGS(Volrend) {
     function("set_cam_center", &set_cam_center);
     function("toggle_fps_counter", &toggle_fps_counter);
     function("get_fps", &get_fps);
-    function("get_basis_dim", &get_basis_dim);
-    function("get_basis_format", &get_basis_format);
+    // function("get_basis_dim", &get_basis_dim);
+    // function("get_basis_format", &get_basis_format);
 
     function("get_time", &get_time);
     function("mesh_max_time", &mesh_max_time);
@@ -623,12 +577,8 @@ bool init_gl() {
     glDepthFunc(GL_LESS);
 
     glfwGetFramebufferSize(window, &width, &height);
-    renderer = std::make_unique<volrend::VolumeRenderer>();
-    renderer->options.step_size = 1e-4f;
-    renderer->options.stop_thresh = 1e-2f;
+    renderer = std::make_unique<volrend::Renderer>();
     renderer->camera.movement_speed = 2.0f;
-
-    renderer->set(tree);
     renderer->resize(width, height);
     emscripten_set_main_loop(redraw, 0, 1);
     return true;

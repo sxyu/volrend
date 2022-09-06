@@ -3,6 +3,37 @@
 
 namespace volrend {
 
+namespace {
+
+const float g_quad_verts[] = {
+    -1.f, -1.f, 0.5f, 1.f, -1.f, 0.5f, -1.f, 1.f, 0.5f, 1.f, 1.f, 0.5f,
+};
+unsigned g_vao_quad = -1;
+
+}  // namespace
+
+namespace util {
+// Draw a full screen quad, initializing geometry lazily
+void draw_fs_quad() {
+    if (g_vao_quad == (unsigned)-1) {
+        GLuint vbo;
+        glGenBuffers(1, &vbo);
+        glGenVertexArrays(1, &g_vao_quad);
+        glBindVertexArray(g_vao_quad);
+        glBindBuffer(GL_ARRAY_BUFFER, vbo);
+        glBufferData(GL_ARRAY_BUFFER, sizeof g_quad_verts, (GLvoid*)g_quad_verts,
+                GL_STATIC_DRAW);
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, 3 * sizeof(float),
+                (GLvoid*)0);
+        glEnableVertexAttribArray(0);
+    } else {
+        glBindVertexArray(g_vao_quad);
+    }
+    glDrawArrays(GL_TRIANGLE_STRIP, 0, (GLsizei)4);
+    glBindVertexArray(0);
+}
+}  // namespace util
+
 void check_compile_errors(GLuint shader, const std::string& type, std::string debug_escription) {
     GLint success;
     GLchar infoLog[1024];

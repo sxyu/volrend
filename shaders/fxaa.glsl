@@ -92,7 +92,8 @@ out vec4 FragColor;
 //optimized version for mobile, where dependent
 //texture reads can be a bottleneck
 vec3 rgba2rgb(vec4 rgba) {
-    return rgba.xyz * rgba.a + (1.0 - rgba.a) * 0.86;
+    //return rgba.xyz * rgba.a + (1.0 - rgba.a) * 0.86;
+    return rgba.xyz;
 }
 vec4 fxaa(sampler2D tex, vec2 fragCoord, vec2 resolution,
             vec2 v_rgbNW, vec2 v_rgbNE,

@@ -3,23 +3,30 @@
 #include <memory>
 #include "volrend/camera.hpp"
 #include "volrend/n3tree.hpp"
-#include "volrend/render_options.hpp"
 #include "volrend/mesh.hpp"
+#include "volrend/render_options.hpp"
 
 namespace volrend {
 // Volume renderer using CUDA or compute shader
-struct VolumeRenderer {
-    explicit VolumeRenderer();
-    ~VolumeRenderer();
+struct Renderer {
+    explicit Renderer();
+    ~Renderer();
 
     // Render the currently set tree
     void render();
 
-    // Set volumetric data to render
-    void set(N3Tree& tree);
+    // Add volumetric data to render
+    void add(const N3Tree& tree);
+    void add(N3Tree&& tree);
 
     // Clear the volumetric data
     void clear();
+
+    // Load series of volumes/meshes/lines/points from a npz file
+    void open_drawlist(const std::string& path,
+            bool default_visible = true);
+    void open_drawlist_mem(const char* data, uint64_t size,
+            bool default_visible = true);
 
     // Resize the buffer
     void resize(int width, int height);
@@ -30,11 +37,13 @@ struct VolumeRenderer {
     // Camera instance
     Camera camera;
 
-    // Rendering options
-    RenderOptions options;
+    // Rendering Options
+    RendererOptions options;
 
-    // Meshes to draw, currently only supported on CUDA implementation
+    // Meshes to draw
     std::vector<Mesh> meshes;
+    // PlenOctrees to draw
+    std::vector<N3Tree> trees;
 
     // Time
     int time = 0;
