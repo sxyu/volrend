@@ -6,6 +6,7 @@
 #include <GLES3/gl3.h>
 #include <GLFW/glfw3.h>
 
+#include "volrend/render_options.hpp"
 #include "volrend/renderer.hpp"
 #include "volrend/n3tree.hpp"
 
@@ -36,7 +37,7 @@ GLFWwindow* window;
 std::unique_ptr<volrend::Renderer> renderer;
 const int FPS_AVERAGE_FRAMES = 20;
 struct {
-    bool mesh_default_visible = true;
+    bool layer_default_visible = true;
 
     bool measure_fps = true;
     int curr_fps_frame = -1;
@@ -87,15 +88,12 @@ void toggle_fps_counter() {
     gui.curr_fps_frame = -1;
 }
 
-// std::string get_basis_format() { return tree.data_format.to_string(); }
-// int get_basis_dim() { return tree.data_format.basis_dim; }
-
 void set_time(int time) {
     renderer->time = time;
     gui.require_update();
 }
 int get_time() { return renderer->time; }
-int mesh_max_time() {
+int layer_max_time() {
     int time = 0;
     for (auto& mesh : renderer->meshes) {
         time = std::max<int>(mesh.time, time);
@@ -162,15 +160,16 @@ void on_resize(int width, int height) {
 
 // ** Data Loading
 // Remote octree file loading from a url
-void load_tree_remote(const std::string& url) {
+void load_unified_remote(const std::string& url) {
     show_loading_screen();
     auto _load_remote_download_success = [](emscripten_fetch_t* fetch) {
+        printf("Drawlist download: Received %llu bytes\n", fetch->numBytes);
         // Decompress the tree in memory
-        volrend::N3Tree tree;
-        tree.open_mem(fetch->data, fetch->numBytes);
+        renderer->open_drawlist_mem(fetch->data, fetch->numBytes, gui.layer_default_visible);
+
         emscripten_fetch_close(fetch);  // Free data associated with the fetch.
-        renderer->add(std::move(tree));
-        tree.clear_cpu_memory();
+        populate_layers();
+
         report_progress(101.0f);  // Report finished loading
         gui.require_update();
     };
@@ -198,12 +197,9 @@ void load_tree_remote(const std::string& url) {
 }
 
 // Load from emscripten MEMFS (retrieved from file input in JS)
-void load_tree_local(const std::string& path) {
+void load_unified_local(const std::string& path) {
     report_progress(50.0f);  // Fake progress (loaded to MEMFS at this point)
-    volrend::N3Tree tree;
-    tree.open(path);
-    renderer->set(std::move(tree));
-    tree.clear_cpu_memory();
+    renderer->open_drawlist(path);
     report_progress(101.0f);  // Report finished loading
     gui.require_update();
 }
@@ -264,41 +260,6 @@ void _append_meshes(std::vector<volrend::Mesh>& mesh_list,
     std::move(to_add.begin(), to_add.end(), mesh_list.begin() + n_meshes);
 }
 
-// Load custom drawlist format from url
-void load_drawlist_remote(const std::string& url) {
-    auto _load_remote_download_success = [](emscripten_fetch_t* fetch) {
-        printf("Drawlist download: Received %llu bytes\n", fetch->numBytes);
-        _append_meshes(renderer->meshes, volrend::Mesh::open_drawlist_mem(
-                                             fetch->data, fetch->numBytes,
-                                             gui.mesh_default_visible));
-        emscripten_fetch_close(fetch);  // Free data associated with the fetch.
-        populate_layers();
-        gui.require_update();
-    };
-
-    auto _load_remote_download_failed = [](emscripten_fetch_t* fetch) {
-        printf("Downloading meshes %s failed, HTTP failure status code: %d.\n",
-               fetch->url, fetch->status);
-        emscripten_fetch_close(fetch);
-    };
-
-    emscripten_fetch_attr_t attr;
-    emscripten_fetch_attr_init(&attr);
-    strcpy(attr.requestMethod, "GET");
-    attr.attributes = EMSCRIPTEN_FETCH_LOAD_TO_MEMORY;
-    attr.onsuccess = _load_remote_download_success;
-    attr.onerror = _load_remote_download_failed;
-
-    emscripten_fetch(&attr, url.c_str());
-}
-
-// Load custom drawlist format from MEMFS
-void load_drawlist_local(const std::string& path) {
-    _append_meshes(renderer->meshes, volrend::Mesh::open_drawlist(path));
-    report_progress(101.0f);  // Report finished loading
-    gui.require_update();
-}
-
 // Minor util to check if string ends with another
 bool _ends_with(const std::string& str, const std::string& end) {
     if (str.length() >= end.length())
@@ -310,26 +271,34 @@ bool _ends_with(const std::string& str, const std::string& end) {
 void load_remote(const std::string& url) {
     if (_ends_with(url, ".obj")) {
         load_obj_remote(url);
-    } else if (_ends_with(url, ".draw.npz")) {
-        load_drawlist_remote(url);
     } else {
-        load_tree_remote(url);
+        load_unified_remote(url);
     }
 }
 
 void load_local(const std::string& path) {
     if (_ends_with(path, ".obj")) {
         load_obj_local(path);
-    } else if (_ends_with(path, ".draw.npz")) {
-        load_drawlist_local(path);
     } else {
-        load_tree_local(path);
+        load_unified_local(path);
     }
 }
 
 // ** Options
-volrend::RenderOptions get_options() { return renderer->options; }
-void set_options(const volrend::RenderOptions& opt) { renderer->options = opt; }
+volrend::RendererOptions get_options() {
+    return renderer->options;
+}
+void set_options(const volrend::RendererOptions& opt) {
+    renderer->options = opt;
+    gui.require_update();
+}
+volrend::N3TreeRenderOptions get_tree_options(int i) {
+    return renderer->trees[i].options_;
+}
+void set_tree_options(int i, const volrend::N3TreeRenderOptions& opt) {
+    renderer->trees[i].options_ = opt;
+    gui.require_update();
+}
 
 // ** Camera utilities
 glm::vec3 arr2vec3(const std::array<float, 3>& arr) {
@@ -373,93 +342,88 @@ void set_cam_center(std::array<float, 3> xyz) {
     gui.require_update();
 }
 
-// ** Mesh utilities
-void mesh_add_cube(std::array<float, 3> xyz, float scale,
-                   std::array<float, 3> color) {
-    static int cubeid = 0;
-    {
-        volrend::Mesh cube = volrend::Mesh::Cube(arr2vec3(color));
-        cube.model_scale = scale;
-        cube.model_translation = arr2vec3(xyz);
-        cube.update();
-        if (cubeid) cube.name = cube.name + std::to_string(cubeid);
-        ++cubeid;
-        renderer->meshes.push_back(std::move(cube));
+// ** Layer utilities
+int volume_count() { return static_cast<int>(renderer->trees.size()); }
+int layer_count() { return static_cast<int>(
+        renderer->trees.size() + renderer->meshes.size()); }
+
+bool _check_layer_id(int layer_id) {
+    return (layer_id < 0 || layer_id >= layer_count());
+}
+
+std::array<float, 3> palette_color(int id) {
+    static const std::vector<std::array<float, 3>> palette {
+        {1.f, 0.5f, 0.0f},
+        {1.f, 0.0f, 0.0f},
+        {0.0f, 0.5f, 1.0f},
+        {1.f, 0.0f, 1.0f},
+        {0.f, 1.0f, 0.0f},
+        {0.f, 0.0f, 1.0f},
+        {0.f, 0.0f, 0.0f},
+        {0.f, 1.0f, 1.0f},
+        {0.5f, 0.5f, 0.5f},
+        {0.5f, 1.0f, 0.0f},
+        {0.f, 0.5f, 1.0f}
+    };
+    return palette[id % palette.size()];
+} 
+
+std::string layer_get_name(int layer_id) {
+    if (_check_layer_id(layer_id)) return "";
+    if (layer_id >= volume_count()) {
+        return renderer->meshes[layer_id - volume_count()].name;
+    } else {
+        return renderer->trees[layer_id].name;
+    }
+}
+std::array<float, 3> layer_get_color(int layer_id) {
+    if (_check_layer_id(layer_id)) return std::array<float, 3>{0.f, 0.f, 0.f};
+    if (layer_id >= volume_count()) {
+        // Mesh: color of first vertex
+        const float* ptr = &renderer->meshes[layer_id - volume_count()].vert[3];
+        return std::array<float, 3>{ptr[0], ptr[1], ptr[2]};
+    } else {
+        // Volume: use hardcoded colors for now
+        return palette_color(layer_id);
+    }
+}
+bool layer_get_visible(int layer_id) {
+    if (_check_layer_id(layer_id)) return false;
+    if (layer_id >= volume_count()) {
+        return renderer->meshes[layer_id - volume_count()].visible;
+    } else {
+        return renderer->trees[layer_id].visible;
+    }
+}
+bool layer_is_volume(int layer_id) {
+    return layer_id < volume_count();
+}
+bool layer_get_show_grid(int layer_id) {
+    if (_check_layer_id(layer_id)) return false;
+    if (layer_id < volume_count()) {
+        return renderer->trees[layer_id].options_.show_grid;
+    }
+    return false;
+}
+void layer_set_show_grid(int layer_id, bool value) {
+    if (_check_layer_id(layer_id)) return;
+    if (layer_id < volume_count()) {
+        renderer->trees[layer_id].options_.show_grid = value;
         gui.require_update();
     }
 }
-
-void mesh_add_sphere(std::array<float, 3> xyz, float scale,
-                     std::array<float, 3> color) {
-    static int sphereid = 0;
-    {
-        volrend::Mesh sph = volrend::Mesh::Sphere(30, 30, arr2vec3(color));
-        sph.model_scale = scale;
-        sph.model_translation = arr2vec3(xyz);
-        sph.update();
-        if (sphereid) sph.name = sph.name + std::to_string(sphereid);
-        ++sphereid;
-        renderer->meshes.push_back(std::move(sph));
-        gui.require_update();
+void layer_set_visible(int layer_id, bool visible) {
+    if (_check_layer_id(layer_id)) return;
+    if (layer_id >= volume_count()) {
+        renderer->meshes[layer_id - volume_count()].visible = visible;
+    } else {
+        renderer->trees[layer_id].visible = visible;
     }
-}
-
-bool _check_mesh_id(int mesh_id) {
-    return (mesh_id < 0 || mesh_id >= (int)renderer->meshes.size());
-}
-
-std::string mesh_get_name(int mesh_id) {
-    if (_check_mesh_id(mesh_id)) return "";
-    return renderer->meshes[mesh_id].name;
-}
-// Color of first vertex
-std::array<float, 3> mesh_get_color(int mesh_id) {
-    if (_check_mesh_id(mesh_id)) return std::array<float, 3>{0.f, 0.f, 0.f};
-    const float* ptr = &renderer->meshes[mesh_id].vert[3];
-    return std::array<float, 3>{ptr[0], ptr[1], ptr[2]};
-}
-bool mesh_get_visible(int mesh_id) {
-    if (_check_mesh_id(mesh_id)) return false;
-    return renderer->meshes[mesh_id].visible;
-}
-void mesh_set_translation(int mesh_id, std::array<float, 3> xyz) {
-    if (_check_mesh_id(mesh_id)) return;
-    renderer->meshes[mesh_id].model_translation = arr2vec3(xyz);
     gui.require_update();
 }
-void mesh_set_rotation(int mesh_id, std::array<float, 3> aa) {
-    if (_check_mesh_id(mesh_id)) return;
-    renderer->meshes[mesh_id].model_rotation = arr2vec3(aa);
-    gui.require_update();
-}
-void mesh_set_scale(int mesh_id, float scale) {
-    if (_check_mesh_id(mesh_id)) return;
-    renderer->meshes[mesh_id].model_scale = scale;
-    gui.require_update();
-}
-void mesh_set_visible(int mesh_id, bool visible) {
-    if (_check_mesh_id(mesh_id)) return;
-    renderer->meshes[mesh_id].visible = visible;
-    gui.require_update();
-}
-// Default visibility of meshes loaded thru remote drawlists
-void mesh_set_default_visible(bool visible) {
-    gui.mesh_default_visible = visible;
-    gui.require_update();
-}
-void mesh_set_unlit(int mesh_id, bool unlit) {
-    if (_check_mesh_id(mesh_id)) return;
-    renderer->meshes[mesh_id].unlit = unlit;
-    gui.require_update();
-}
-void mesh_delete(int mesh_id) {
-    if (_check_mesh_id(mesh_id)) return;
-    renderer->meshes.erase(renderer->meshes.begin() + mesh_id);
-    gui.require_update();
-}
-int mesh_count() { return (int)renderer->meshes.size(); }
-void mesh_clear_all() {
-    renderer->meshes.clear();
+// Default visibility of layers loaded thru remote drawlists
+void layer_set_default_visible(bool visible) {
+    gui.layer_default_visible = visible;
     gui.require_update();
 }
 
@@ -478,45 +442,44 @@ EMSCRIPTEN_BINDINGS(Volrend) {
     function("on_resize", &on_resize);
 
     // Data loading
-    function("load_tree_remote", &load_tree_remote);
-    function("load_tree_local", &load_tree_local);
     function("load_obj_remote", &load_obj_remote);
     function("load_obj_local", &load_obj_local);
-    function("load_drawlist_remote", &load_drawlist_remote);
-    function("load_drawlist_local", &load_drawlist_local);
+    function("load_unified_remote", &load_unified_remote);
+    function("load_unified_local", &load_unified_local);
     function("load_remote", &load_remote);
     function("load_local", &load_local);
 
-    // Meshes
-    function("mesh_add_cube", &mesh_add_cube);
-    function("mesh_add_sphere", &mesh_add_sphere);
-    function("mesh_get_name", &mesh_get_name);
-    function("mesh_get_color", &mesh_get_color);
-    function("mesh_get_visible", &mesh_get_visible);
-    function("mesh_set_translation", &mesh_set_translation);
-    function("mesh_set_rotation", &mesh_set_rotation);
-    function("mesh_set_scale", &mesh_set_scale);
-    function("mesh_set_visible", &mesh_set_visible);
-    function("mesh_set_default_visible", &mesh_set_default_visible);
-    function("mesh_set_unlit", &mesh_set_unlit);
-    function("mesh_delete", &mesh_delete);
-    function("mesh_count", &mesh_count);
-    function("mesh_clear_all", &mesh_clear_all);
+    // Layers interface
+    function("palette_color", &palette_color);
+    function("layer_get_name", &layer_get_name);
+    function("layer_get_color", &layer_get_color);
+    function("layer_get_visible", &layer_get_visible);
+    function("layer_set_visible", &layer_set_visible);
+    function("layer_set_default_visible", &layer_set_default_visible);
+    function("layer_get_show_grid", &layer_get_show_grid);
+    function("layer_set_show_grid", &layer_set_show_grid);
+    function("layer_is_volume", &layer_is_volume);
+    function("layer_count", &layer_count);
+    function("volume_count", &volume_count);
 
     // Misc
     function("is_camera_moving", &is_camera_moving);
 
-    value_object<volrend::RenderOptions>("RenderOptions")
-        .field("step_size", &volrend::RenderOptions::step_size)
-        .field("sigma_thresh", &volrend::RenderOptions::sigma_thresh)
-        .field("stop_thresh", &volrend::RenderOptions::stop_thresh)
+    value_object<volrend::N3TreeRenderOptions>("N3TreeRenderOptions")
+        .field("step_size", &volrend::N3TreeRenderOptions::step_size)
+        .field("sigma_thresh", &volrend::N3TreeRenderOptions::sigma_thresh)
+        .field("stop_thresh", &volrend::N3TreeRenderOptions::stop_thresh)
+        .field("render_bbox", &volrend::N3TreeRenderOptions::render_bbox)
+        .field("basis_minmax", &volrend::N3TreeRenderOptions::basis_minmax)
+        .field("rot_dirs", &volrend::N3TreeRenderOptions::rot_dirs)
+        .field("show_grid", &volrend::N3TreeRenderOptions::show_grid)
+        .field("grid_max_depth", &volrend::N3TreeRenderOptions::grid_max_depth);
+
+    value_object<volrend::RendererOptions>("RendererOptions")
+        .field("use_fxaa",
+               &volrend::RendererOptions::use_fxaa)
         .field("background_brightness",
-               &volrend::RenderOptions::background_brightness)
-        .field("render_bbox", &volrend::RenderOptions::render_bbox)
-        .field("basis_minmax", &volrend::RenderOptions::basis_minmax)
-        .field("rot_dirs", &volrend::RenderOptions::rot_dirs)
-        .field("show_grid", &volrend::RenderOptions::show_grid)
-        .field("grid_max_depth", &volrend::RenderOptions::grid_max_depth);
+               &volrend::RendererOptions::background_brightness);
 
     value_array<std::array<int, 2>>("array_int_2")
         .element(emscripten::index<0>())
@@ -537,6 +500,8 @@ EMSCRIPTEN_BINDINGS(Volrend) {
 
     function("get_options", &get_options);
     function("set_options", &set_options);
+    function("get_tree_options", &get_tree_options);
+    function("set_tree_options", &set_tree_options);
     function("get_focal", &get_focal);
     function("set_focal", &set_focal);
     function("get_world_up", &get_world_up);
@@ -549,11 +514,9 @@ EMSCRIPTEN_BINDINGS(Volrend) {
     function("set_cam_center", &set_cam_center);
     function("toggle_fps_counter", &toggle_fps_counter);
     function("get_fps", &get_fps);
-    // function("get_basis_dim", &get_basis_dim);
-    // function("get_basis_format", &get_basis_format);
 
     function("get_time", &get_time);
-    function("mesh_max_time", &mesh_max_time);
+    function("layer_max_time", &layer_max_time);
     function("set_time", &set_time);
 }
 

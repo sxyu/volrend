@@ -7,9 +7,7 @@ var showLoadingScreen = function() {
 };
 
 var cppReportProgress = function(x) {
-    let prog_ele = $("#load-progress");
-    prog_ele.css("width", x + "%");
-    prog_ele.attr("aria-valuenow", x);
+    let prog_ele = $("#load-text");
     if (x > 100.0) {
         let loading_ele = $('#loading');
         setTimeout(function() {
@@ -18,11 +16,10 @@ var cppReportProgress = function(x) {
                 loading_ele.css('display', 'none');
             }, 600);
         }, 50);
-        guiLoadTreeUpdate();
-        Volrend.mesh_set_visible(i, false);
+        Volrend.layer_set_visible(i, false);
         populateLayers();
     } else {
-        prog_ele.text(x.toFixed(2));
+        prog_ele.text(x.toFixed(2)) + "%";
     }
 };
 
@@ -32,7 +29,7 @@ var cppUpdateFPS = function(fps) {
 
 var onResizeCanvas = function() {
     let canvas = document.getElementById("canvas");
-    let height = window.innerHeight - $('#header').outerHeight() - 7;
+    let height = window.innerHeight;
     let width = window.innerWidth;
     canvas.width = width;
     canvas.height = height;
@@ -55,7 +52,7 @@ var Volrend = {
     monitorRunDependencies: function() {},
     onRuntimeInitialized: function() { $(document).ready(onInit); },
     set_title: function(title) {
-        $('#navbar-title').text(title);
+        $('#nerfvis-title').text(title);
         document.title = title;
     },
 };

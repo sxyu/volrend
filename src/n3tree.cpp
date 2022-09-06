@@ -176,7 +176,6 @@ void N3Tree::open(const std::string& path) {
     }
     name = path;
     last_sigma_thresh_ = -1.f;
-    data_loaded_ = true;
 }
 
 void N3Tree::open_mem(const char* data, uint64_t size) {
@@ -188,7 +187,6 @@ void N3Tree::open_mem(const char* data, uint64_t size) {
     load_npz(npz);
 
     last_sigma_thresh_ = -1.f;
-    data_loaded_ = true;
 }
 
 // namespace {
@@ -439,6 +437,7 @@ void N3Tree::load_npz(cnpy::npz_t& npz) {
     }
     options_.basis_minmax[0] = 0;
     options_.basis_minmax[1] = std::max(data_format.basis_dim - 1, 0);
+    data_loaded_ = true;
 }
 
 namespace {
@@ -506,7 +505,7 @@ void N3Tree::gen_wireframe(int max_depth) const {
     if (last_wire_depth_ != max_depth) {
         std::vector<float> verts;
         if (!data_loaded_) {
-            fprintf(stderr, "ERROR: Please load data before gen_wireframe!\n");
+            puts("ERROR: Please load data before gen_wireframe!\n");
             return;
         }
 
@@ -546,6 +545,7 @@ bool N3Tree::draw(const Camera& camera, int time) const {
                     : data_format.basis_dim);
     glUniform3f(g_plenoctree_program["tree.center"], offset[0], offset[1], offset[2]);
     glUniform3f(g_plenoctree_program["tree.scale"], scale[0], scale[1], scale[2]);
+    glUniform1f(g_plenoctree_program["tree.model_scale"], model_scale);
     if (use_ndc) {
         glUniform1f(g_plenoctree_program["tree.ndc_width"],
                     ndc_width);

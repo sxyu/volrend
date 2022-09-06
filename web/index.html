@@ -1,20 +1,31 @@
 <!DOCTYPE html>
 <html lang="en-us">
 
-<head>
-    <meta charset="utf-8">
-    <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
-    <title></title>
-    <meta name="description" content="nerfvis">
-    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css" integrity="sha384-B0vP5xmATw1+K9KRQjQERJvTumQW0nPEzvF6L/Z6nronJ3oUOFUFpCjEUQouq2+l" crossorigin="anonymous">
-    <style>
-#header {
-    user-select: none;
+    <head>
+        <meta charset="utf-8">
+        <meta http-equiv="Content-Type" content="text/html; charset=utf-8">
+        <meta name="viewport" content="width=device-width, initial-scale=1.0, maximum-scale=1.0, user-scalable=no, shrink-to-fit=no">
+        <title></title>
+        <meta name="description" content="nerfvis">
+        <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/css/bootstrap.min.css" integrity="sha384-B0vP5xmATw1+K9KRQjQERJvTumQW0nPEzvF6L/Z6nronJ3oUOFUFpCjEUQouq2+l" crossorigin="anonymous">
+        <style>
+html {
+    box-sizing: border-box
 }
-
+body {
+    font-family: monospace;
+}
+#nerfvis-title {
+    top: 20px;
+    left: 30px;
+    position: absolute;
+    width: 100vw;
+}
 #main-wrapper {
-    position: relative
+    position: relative;
+    width: 100%;
+    max-height: 100vh;
+    overflow:hidden;
 }
 
 #loading {
@@ -25,7 +36,7 @@
     top: 50%;
     left: 50%;
     transform: translate(-50%, -50%);
-    background: #fafafa;
+    background: transparent;
     width: 500px;
     height: 150px;
     z-index: 10000;
@@ -41,8 +52,8 @@
     user-select: none;
 }
 
-#loading h3 {
-    font-size: 2em;
+#loading p {
+    font-size: 1em;
     margin-bottom: 0.5em;
     margin-top: 1em 0.7em;
 }
@@ -66,111 +77,6 @@
     color: rgba(0, 0, 0, .5)
 }
 
-.custom-popup {
-    display: none;
-    position: fixed;
-    background: #f8f9fa;
-}
-
-#options.custom-popup {
-    top: 5em;
-    left: 1em;
-    min-width: 500px;
-    max-width: 1000px;
-    width: 28%;
-}
-
-#layers.custom-popup {
-    top: 5em;
-    right: 1em;
-    min-width: 300px;
-    max-width: 500px;
-    width: 15%;
-}
-
-.custom-popup a.custom-popup-close {
-    display: block;
-    position: absolute;
-    right: 4px;
-    top: 4px;
-    padding: 0.2em 0.5em;
-    z-index: 1000;
-}
-
-.options-description {
-    font-size: 0.8em;
-    color: #444;
-}
-
-.options-description>a {
-    font-size: 0.9em;
-    padding: 0 1em;
-    cursor: pointer;
-    color: #26e !important;
-}
-
-#options-dragger {
-    min-width: 6px;
-    max-width: 6px;
-    cursor: ew-resize;
-    background: #fcfbfb;
-    transition: background 1s ease;
-}
-
-#options-dragger.minimize {
-    min-width: 12px;
-    max-width: 12px;
-    background: #dfdfdf;
-}
-
-#options-dragger #options-dragger-label {
-    display: none;
-}
-
-#options-dragger.minimize #options-dragger-label {
-    display: block;
-    text-align: center;
-    vertical-align: middle;
-    overflow: hidden;
-    position: absolute;
-    top: 50vh;
-    color: #888;
-    transform: translate(0, -50%);
-    left: -4px;
-}
-
-.custom-popup-container {
-    padding: 1em;
-    overflow-y: hidden;
-    width: 100%;
-    height: 100%;
-    display: flex;
-    flex-direction: column;
-    align-content: flex-start;
-    position: relative;
-}
-
-#options .input-group-text {
-    background: #fafafa;
-    color: #444;
-    font-size: 0.8em;
-    border: none;
-}
-
-#options .input-group-prepend {
-    padding-right: 0.5em;
-    width: 6em;
-    color: #444;
-}
-
-#options .slider {
-    padding-left: 0;
-    border: none;
-    background: transparent;
-    outline: none;
-    box-shadow: none
-}
-
 #slider-time {
     padding-left: 1em;
     padding-right: 1em;
@@ -178,6 +84,11 @@
     background: transparent;
     outline: none;
     box-shadow: none
+}
+#slider-time-form ,
+#slider-time-form > span {
+    user-select:none;
+    font-size:0.9em;
 }
 
 #slider-time-label {
@@ -197,19 +108,31 @@
 
 /* Layers */
 #layers {
-    max-height: 100%;
-    overflow: hidden;
+    position:absolute;
+    left: 0;
+    top: 0;
+    padding-top: 20px;
+    padding-left: 30px;
+    min-width: 300px;
+    max-width: 500px;
+    width: 15%;
+    padding-top: 65px;
+    height: 100vh;
+    overflow-x: hidden;
+    overflow-y: hidden;
 }
 
 #layers-container {
-    max-height: 100vh;
+    max-height: 100%;
     position: relative;
     padding-bottom: 6em;
+    overflow-y: auto;
 }
 
 #layers-items {
     max-height: 100%;
     overflow-y: auto;
+    font-size: 0.9em;
 }
 
 #layers-btn {
@@ -263,240 +186,52 @@
 .layers-collection-collapse[aria-expanded="true"] svg {
     transform: rotate(90deg);
 }
-
-/* Open local */
-#open-local-file-dropdown {
-    min-width: 350px;
-    padding: 0.5em;
+.layers-item-show-grid {
+    cursor: pointer;
+    color: #777;
+    position:relative;
+    top:-2px;
+}
+.layers-item-show-grid-visible {
+    color: #c73;
+}
+.layers-item-mesh .layers-item-show-grid {
+    display: none;
 }
 
-#open-local-file-dropdown .custom-file {
-    overflow: hidden;
-}
+        </style>
+    </head>
 
-#open-local-error {
-    color: #c88;
-}
-    </style>
-</head>
-
-<body>
-    <div id="loading">
-        <div>
-            <h3 id="load-text">Loading</h3>
-            <div class="progress">
-                <div class="progress-bar" role="progressbar" style="width: 0%;" aria-valuenow="0" aria-valuemin="0" aria-valuemax="100" id="load-progress">0%</div>
+    <body>
+        <div id="main-wrapper">
+            <div id="loading">
+                <div>
+                    <p id="load-text">Loading</p>
+                </div>
+            </div>
+            <div id="content">
+                <div>
+                    <div class="emscripten_border">
+                        <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()"></canvas>
+                    </div>
+                </div>
+                <h5 id="nerfvis-title" class="pb-2">loading</h5>
+                <div id="layers">
+                    <form class="d-flex pt-1 pb-2" id="slider-time-form">
+                        <label for="slider-time" id="slider-time-label">
+                            time
+                        </label>
+                        <input type="range" class="form-control custom-range" min="0" max="0" value="0" step="1" id="slider-time">
+                        <span id="slider-time-label-curr">0</span> /
+                        <span id="slider-time-label-max">0</span>
+                    </form>
+                    <div id="layers-container" class="custom-popup-container pt-1">
+                        <div id="layers-items">
+                        </div>
+                    </div>
+                </div>
             </div>
         </div>
-    </div>
-    <nav class="navbar navbar-expand-md navbar-light bg-light" id="header">
-        <span class="navbar-brand">
-            <a href="..#demo-section" class="back-link">
-                <svg viewBox="0 0 24 24">
-                    <path fill="currentColor" d="M15.41,16.58L10.83,12L15.41,7.41L14,6L8,12L14,18L15.41,16.58Z" />
-                </svg>
-            </a>
-            <span id="navbar-title"></span>
-        </span>
-        <button class="navbar-toggler" type="button" data-toggle="collapse" data-target="#navbar-toggle" aria-controls="navbar-toggle" aria-expanded="false" aria-label="Toggle navigation">
-            <span class="navbar-toggler-icon"></span>
-        </button>
-        <!-- <div class="collapse navbar-collapse" id="navbar-toggle"> -->
-        <ul class="navbar-nav mr-auto">
-            <li class="nav-item pl-1">
-                <a href="#" class="nav-link dropdown-toggle" id="options-btn" title="Options and Visualization">
-                    <svg style="width:24px;height:24px" viewBox="0 0 24 24">
-                        <path fill="currentColor" d="M12,15.5A3.5,3.5 0 0,1 8.5,12A3.5,3.5 0 0,1 12,8.5A3.5,3.5 0 0,1 15.5,12A3.5,3.5 0 0,1 12,15.5M19.43,12.97C19.47,12.65 19.5,12.33 19.5,12C19.5,11.67 19.47,11.34 19.43,11L21.54,9.37C21.73,9.22 21.78,8.95 21.66,8.73L19.66,5.27C19.54,5.05 19.27,4.96 19.05,5.05L16.56,6.05C16.04,5.66 15.5,5.32 14.87,5.07L14.5,2.42C14.46,2.18 14.25,2 14,2H10C9.75,2 9.54,2.18 9.5,2.42L9.13,5.07C8.5,5.32 7.96,5.66 7.44,6.05L4.95,5.05C4.73,4.96 4.46,5.05 4.34,5.27L2.34,8.73C2.21,8.95 2.27,9.22 2.46,9.37L4.57,11C4.53,11.34 4.5,11.67 4.5,12C4.5,12.33 4.53,12.65 4.57,12.97L2.46,14.63C2.27,14.78 2.21,15.05 2.34,15.27L4.34,18.73C4.46,18.95 4.73,19.03 4.95,18.95L7.44,17.94C7.96,18.34 8.5,18.68 9.13,18.93L9.5,21.58C9.54,21.82 9.75,22 10,22H14C14.25,22 14.46,21.82 14.5,21.58L14.87,18.93C15.5,18.67 16.04,18.34 16.56,17.94L19.05,18.95C19.27,19.03 19.54,18.95 19.66,18.73L21.66,15.27C21.78,15.05 21.73,14.78 21.54,14.63L19.43,12.97Z" />
-                    </svg>
-                    Options
-                </a>
-            </li> <!-- nav-item  -->
-            <li class="nav-item dropdown pl-1">
-                <a class="nav-link dropdown-toggle" href="#" id="open-local-dropdown-toggle" role="button" data-toggle="dropdown" aria-haspopup="true" aria-expanded="false" title="Load a PlenOctree or drawlist or OBJ from a local file">
-                    <svg style="width:24px;height:24px" viewBox="0 0 24 24">
-                        <path fill="currentColor" d="M9,16V10H5L12,3L19,10H15V16H9M5,20V18H19V20H5Z" />
-                    </svg>
-                    Open Local
-                </a>
-                <div class="dropdown-menu" aria-labelledby="open-local-dropdown-toggle" id="open-local-file-dropdown">
-                    <div class="btn-group" role="group">
-                        <div class="custom-file">
-                            <input type="file" class="custom-file-input" id="open-local-file" aria-describedby="fileHelp">
-                            <label class="custom-file-label" for="open-local-file">
-                                Select npz or obj...
-                            </label>
-                        </div>
-                        <button type="button" id="open-local-btn" class="btn btn-primary">
-                            Open
-                        </button>
-                    </div>
-                    <div>
-                        <span id="open-local-error"></span>
-                    </div>
-                </div> <!-- dropdown-menu -->
-            </li> <!-- nav-item  -->
-        </ul>
-        <form class="d-flex pr-2" id="slider-time-form" class="pt-1">
-            <label for="slider-time" id="slider-time-label">
-                time
-            </label>
-            <input type="range" class="form-control custom-range" min="0" max="0" value="0" step="1" id="slider-time">
-            <span id="slider-time-label-curr">0</span> /
-            <span id="slider-time-label-max">0</span>
-        </form>
-        <a href="#" class="nav-link dropdown-toggle" id="layers-btn" title="Show/hide mesh layers">
-            <svg style="width:24px;height:24px" viewBox="0 0 24 24">
-                <path fill="currentColor" d="M12,16L19.36,10.27L21,9L12,2L3,9L4.63,10.27M12,18.54L4.62,12.81L3,14.07L12,21.07L21,14.07L19.37,12.8L12,18.54Z" />
-            </svg>
-            Layers
-        </a>
-    </nav> <!-- navbar -->
-    <div class="wrapper" id="main-wrapper">
-        <nav id="options" class="custom-popup">
-            <a class="btn custom-popup-close" id="options-close">
-                <svg style="width:14px;height:14px" viewBox="0 0 24 24">
-                    <path fill="currentColor" d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" />
-                </svg>
-            </a>
-            <div id="options-container" class="custom-popup-container">
-                <h4>Options</h4>
-                <div class="options-section">
-                    <div class='input-group input-group-sm'>
-                        <div class='input-group-prepend'>
-                            render
-                        </div>
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="qual-radio" id="qual-radio-0" value="0">
-                            <label class="form-check-label" for="qual-radio-0">high speed</label>
-                        </div>
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="qual-radio" id="qual-radio-1" value="1" checked>
-                            <label class="form-check-label" for="qual-radio-1">moderate</label>
-                        </div>
-                        <div class="form-check form-check-inline">
-                            <input class="form-check-input" type="radio" name="qual-radio" id="qual-radio-2" value="2">
-                            <label class="form-check-label" for="qual-radio-2">high quality</label>
-                        </div>
-                    </div>
-                    <div class='input-group input-group-sm'>
-                        <div class='input-group-prepend'>
-                            backlight
-                        </div>
-                        <input type="range" class="form-control custom-range slider" min="0" max="1" value="1" step="any" id="slider-bgbrightness">
-                    </div>
-                </div>
-                <div class="options-section">
-                    <h5>Slicing</h5>
-                    <p class="options-description">
-                        Only render volume within normalized bounding box.</p>
-                    <div class='input-group input-group-sm'>
-                        <div class='input-group-prepend'>
-                            min
-                        </div>
-                        <div class="input-group-text">x</div>
-                        <input type="range" class="form-control custom-range slider slider-min" min="0" max="1" value="0" step="any" id="slider-bbox-minx">
-                        <div class="input-group-text">y</div>
-                        <input type="range" class="form-control custom-range slider slider-min" min="0" max="1" value="0" step="any" id="slider-bbox-miny">
-                        <div class="input-group-text">z</div>
-                        <input type="range" class="form-control custom-range slider slider-min" min="0" max="1" value="0" step="any" id="slider-bbox-minz">
-                    </div>
-                    <div class='input-group input-group-sm'>
-                        <div class='input-group-prepend'>
-                            max
-                        </div>
-                        <div class="input-group-text">x</div>
-                        <input type="range" class="form-control custom-range slider slider-max" min="0" max="1" value="1" step="any" id="slider-bbox-maxx">
-                        <div class="input-group-text">y</div>
-                        <input type="range" class="form-control custom-range slider slider-max" min="0" max="1" value="1" step="any" id="slider-bbox-maxy">
-                        <div class="input-group-text">z</div>
-                        <input type="range" class="form-control custom-range slider slider-max" min="0" max="1" value="1" step="any" id="slider-bbox-maxz">
-                    </div>
-                </div>
-                <div class="options-section">
-                    <h5>SH Decompose</h5>
-                    <p class="options-description">
-                        Only render given range of SH components:
-                        <span id="decomp-min-disp">0</span> to <span id="decomp-max-disp">0</span>
-                    </p>
-                    <div class='input-group input-group-sm'>
-                        <div class='input-group-prepend'>
-                            min/max
-                        </div>
-                        <input type="range" class="form-control custom-range slider slider-decomp" min="0" max="9" value="0" step="1" id="slider-decomp-min">
-                        <input type="range" class="form-control custom-range slider slider-decomp" min="0" max="9" value="9" step="1" id="slider-decomp-max">
-                    </div>
-                </div>
-                <div class="options-section">
-                    <h5>View Direction Shifting (&quot;Relighting&quot;)</h5>
-                    <p class="options-description">
-                        Pseudo-relighting by rotating viewdirs
-                        <a id="vdir-reset-btn">
-                            Reset
-                        </a>
-                    </p>
-                    <div class='input-group input-group-sm'>
-                        <div class='input-group-prepend'>
-                            axis-angle
-                        </div>
-                        <input type="range" class="form-control custom-range slider slider-vdir" min="-0.785" max="0.785" value="0" step="any" id="slider-vdir-x">
-                        <input type="range" class="form-control custom-range slider slider-vdir" min="-0.785" max="0.785" value="0" step="any" id="slider-vdir-y">
-                        <input type="range" class="form-control custom-range slider slider-vdir" min="-0.785" max="0.785" value="0" step="any" id="slider-vdir-z">
-                    </div>
-                </div>
-                <div class="options-section">
-                    <h5>Octree Grid</h5>
-                    <p class="options-description">
-                    </p>
-                    <div class='input-group input-group-sm' id='grid'>
-                        <div class='input-group-prepend'>
-                            show grid
-                        </div>
-                        <div class="form-check">
-                            <input class="form-check-input" type="checkbox" value="" id="checkbox-showgrid">
-                        </div>
-                    </div>
-                    <div class='input-group input-group-sm'>
-                        <div class='input-group-prepend'>
-                            reso&nbsp;
-                            <span id="grid-reso-disp">4</span>
-                        </div>
-                        <input type="range" class="form-control custom-range slider" min="0" max="6" value="4" step="1" id="slider-grid-reso">
-                    </div>
-                </div>
-                <div class="options-section">
-                    <h5>Mesh</h5>
-                    <p class="options-description">
-                        <span class="pr-3">Adding meshes (prototype)</span>
-                        <a id="mesh-add-cube-btn" class="btn pl-1">
-                            Add Cube
-                        </a>
-                        <a id="mesh-add-sphere-btn" class="btn pl-1">
-                            Add Sphere
-                        </a>
-                    </p>
-                </div>
-                <p id="fps-counter"><span id="fps-counter-val">0.00</span> FPS</p>
-            </div>
-        </nav>
-        <nav id="layers" class="custom-popup">
-            <a class="btn custom-popup-close" id="layers-close">
-                <svg style="width:14px;height:14px" viewBox="0 0 24 24">
-                    <path fill="currentColor" d="M19,6.41L17.59,5L12,10.59L6.41,5L5,6.41L10.59,12L5,17.59L6.41,19L12,13.41L17.59,19L19,17.59L13.41,12L19,6.41Z" />
-                </svg>
-            </a>
-            <div id="layers-container" class="custom-popup-container">
-                <h5>Layers</h5>
-                <div id="layers-items">
-                </div>
-            </div>
-        </nav>
-
-        <div id="content">
-            <div class="emscripten_border">
-                <canvas class="emscripten" id="canvas" oncontextmenu="event.preventDefault()"></canvas>
-            </div>
-        </div>
-    </div>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
     <script type="text/javascript" src="js/main.js?v={{ver}}"></script>
@@ -525,6 +260,11 @@
             <span class="layers-item-color" layer-color="{border_color}" id="layer-item-color-{id}"
                   style="background:{bg_color};border:2px solid {border_color}"></span>
             <span class="layers-item-name">{name}</span>
+            <span class="layers-item-show-grid" id="layer-item-show-grid-{id}" title="Visualize octree volume">
+                <svg style="width:17px;height:17px" viewBox="0 0 24 24">
+                    <path fill="currentColor" d="M10,21V18H3L8,13H5L10,8H7L12,3L17,8H14L19,13H16L21,18H14V21H10Z" />
+                </svg>
+            </span>
         </div>
     </script>
 </body>

@@ -45,6 +45,7 @@ struct N3TreeSpec {
     float ndc_focal;
     vec3 center;
     vec3 scale;
+    float model_scale;
 };
 
 // Store render options
@@ -205,7 +206,7 @@ vec4 trace_ray(vec3 dir, vec3 vdir, vec3 cen, inout float tmax_bg, vec4 bg_color
     vec3 invdir = 1.f / (dir + 1e-9);
     float tmin, tmax;
     dda_world(cen, invdir, tmin, tmax);
-    tmax = min(tmax, tmax_bg / delta_scale);
+    tmax = min(tmax, tmax_bg / delta_scale / tree.model_scale);
 
     if (tmax < 0.f || tmin > tmax || tree_data_stride == 0) {
         // Ray doesn't hit box or tree not loaded
@@ -397,7 +398,7 @@ vec4 trace_ray(vec3 dir, vec3 vdir, vec3 cen, inout float tmax_bg, vec4 bg_color
 
         output_color.a = 1.0 - light_intensity;
         if (output_color.a > 1e-4 && depth >= 0.f) {
-            tmax_bg = depth * delta_scale;
+            tmax_bg = min(tmax_bg, depth * delta_scale * tree.model_scale);
         }
         output_color += light_intensity * bg_color;
     }

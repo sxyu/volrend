@@ -13,14 +13,12 @@ struct Mesh {
     // Upload to GPU
     void update();
 
-    // Use mesh shader program (for shader render purposes only)
-    static void use_shader();
-
     // Draw the mesh
     void draw(const glm::mat4x4& V, glm::mat4x4 K, bool y_up = true,
               int time = 0) const;
 
     // Create faces by grouping consecutive vertices (only for triangle mesh)
+    // unneeded as it should default to draw array
     void auto_faces();
 
     // Copy the vertices & faces in the mesh n times and offset the faces

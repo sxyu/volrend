@@ -275,7 +275,6 @@ if (EMSCRIPTEN)
     set(JS_SOURCES
         util.js
         glfwPatch.js
-        guiComponents.js
         init.js
         emModule.js
         )

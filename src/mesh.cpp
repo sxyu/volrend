@@ -141,8 +141,6 @@ void Mesh::update() {
     glBindVertexArray(0);
 }
 
-void Mesh::use_shader() { g_mesh_program.use(); }
-
 void Mesh::draw(const glm::mat4x4& V, glm::mat4x4 K, bool y_up,
                 int time) const {
     if (!visible) return;
@@ -161,6 +159,9 @@ void Mesh::draw(const glm::mat4x4& V, glm::mat4x4 K, bool y_up,
     if (!y_up) {
         K[1][1] *= -1.0;
     }
+    if (!g_mesh_program) {
+        printf("WTF\n");
+    }
 
     g_mesh_program.use();
     glm::mat4x4 MV = V * transform_;
@@ -176,7 +177,6 @@ void Mesh::draw(const glm::mat4x4& V, glm::mat4x4 K, bool y_up,
     } else {
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
         glDrawElements(get_gl_ele_type(face_size), faces.size(),
-                //3665000 * 3,
                        GL_UNSIGNED_INT, (void*)0);
     }
     glBindVertexArray(0);

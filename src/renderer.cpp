@@ -230,15 +230,12 @@ struct Renderer::Impl {
 #ifdef __EMSCRIPTEN__
         // GLES 3
         glClearDepthf(1.f);
-        // Transparent
-        GLfloat clear_color[] = {0.f, 0.f, 0.f, 0.f};
 #else
         glClearDepth(1.f);
-        // White
+#endif
         GLfloat clear_color[] = {options.background_brightness,
                                  options.background_brightness,
                                  options.background_brightness, 1.f};
-#endif
 
         glClearBufferfv(GL_COLOR, 0, clear_color);
         glClearBufferfv(GL_COLOR, 1, &depth_inf);
@@ -338,6 +335,7 @@ struct Renderer::Impl {
             N3Tree tree;
             tree.load_npz(npz);
             trees.push_back(std::move(tree));
+            tree.clear_cpu_memory();
         }
 
         for (const std::pair<std::string, cnpy::NpyArray>& kv : npz) {
@@ -357,13 +355,13 @@ struct Renderer::Impl {
             } else if (spl.size() == 2) {
                 // Field
                 obj_parse_map[spl[0]].second[spl[1]] = kv.second;
-            } else
+            } else {
                 printf(
                     "Mesh load_npz warning: invalid field '%s"
                     "', must be of the form <name>=mesh_type or "
                     "<name>__<field>=val\n",
                     fullname.c_str());
-            continue;
+            }
         }
 
         std::stringstream errs;
@@ -373,10 +371,7 @@ struct Renderer::Impl {
             const std::string& obj_type = kv.second.first;
             cnpy::npz_t& fields = kv.second.second;
 
-            if (obj_type.empty() || fields.empty()) {
-                // No data
-                continue;
-            } else if (obj_type == "volume") {
+            if (obj_type == "volume") {
                 // Volume data
                 N3Tree tree;
                 tree.load_npz(fields);
@@ -390,6 +385,7 @@ struct Renderer::Impl {
                 tree.visible = map_get_int(fields, "visible",
                         default_visible, errs) != 0;
                 trees.push_back(std::move(tree));
+                tree.clear_cpu_memory();
             } else {
                 // Mesh/lines/point cloud data
                 Mesh me;
@@ -513,7 +509,7 @@ struct Renderer::Impl {
                 me.model_rotation =
                     map_get_vec3(fields, "rotation", glm::vec3{0.f, 0.f, 0.f}, errs);
                 me.visible = map_get_int(fields, "visible", default_visible, errs) != 0;
-                me.unlit = map_get_int(fields, "unlit", 0, errs) != 0;
+                me.unlit = map_get_int(fields, "unlit", int(me.face_size != 3), errs) != 0;
                 me.update();
                 meshes.push_back(std::move(me));
             }
@@ -564,7 +560,8 @@ void Renderer::add(const N3Tree& tree) { impl_->add(tree); }
 void Renderer::add(N3Tree&& tree) { impl_->add(tree); }
 void Renderer::clear() { impl_->clear(); }
 void Renderer::open_drawlist(const std::string& path, bool default_visible) { impl_->open_drawlist(path, default_visible); }
-void Renderer::open_drawlist_mem(const char* data, uint64_t size, bool default_visible) { impl_->open_drawlist_mem(data, size, default_visible); }
+void Renderer::open_drawlist_mem(const char* data, uint64_t size, bool default_visible) {
+    impl_->open_drawlist_mem(data, size, default_visible); }
 
 void Renderer::resize(int width, int height) {
     impl_->resize(width, height);
