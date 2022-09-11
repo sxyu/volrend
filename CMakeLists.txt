@@ -278,35 +278,22 @@ if (EMSCRIPTEN)
         COMMAND ${CMAKE_COMMAND} -DFILELIST=${INIT_JS_SRC},$<TARGET_FILE:volrend_web>
         -DOUTPUT=${MAIN_JS}
         -P ${CMAKE_MODULE_PATH}/concat.cmake
-        DEPENDS ${JS_SOURCES} volrend_web
+        DEPENDS ${INIT_JS_SRC} volrend_web
         COMMENT "Concatenating JS sources to main.js"
         VERBATIM )
     add_custom_target(js_config ALL DEPENDS "${MAIN_JS}")
 
-    # add_custom_command(
-    #     TARGET volrend_web POST_BUILD
-    #     COMMAND ${CMAKE_COMMAND} -E copy
-    #     ${PROJECT_BINARY_DIR}/volrend_web.wasm
-    #     ${PROJECT_BINARY_DIR}/build/volrend_web.wasm
-    #     )
-
     find_package(Python REQUIRED COMPONENTS Interpreter)
+
     add_custom_command(
         OUTPUT "${PROJECT_BINARY_DIR}/build/index.html"
-        COMMAND ${CMAKE_COMMAND} -E copy
-        ${PROJECT_SOURCE_DIR}/web/index.html
-        ${PROJECT_BINARY_DIR}/build/
-        DEPENDS ${PROJECT_SOURCE_DIR}/web/index.html
-        )
+        COMMAND ${Python_EXECUTABLE} ${PROJECT_SOURCE_DIR}/web/inline.py "${PROJECT_BINARY_DIR}/build/index.html" "${PROJECT_SOURCE_DIR}/web/index.html" "${MAIN_JS}" "${PROJECT_BINARY_DIR}/volrend_web.wasm"
+        DEPENDS "${PROJECT_SOURCE_DIR}/web/index.html"
+    )
     add_custom_target(html_config ALL DEPENDS "${PROJECT_BINARY_DIR}/build/index.html" js_config)
-
     add_custom_target(serve
         COMMAND ${Python_EXECUTABLE} -m http.server --directory "${PROJECT_BINARY_DIR}/build/"
         DEPENDS html_config)
-
-    add_custom_command(
-        TARGET html_config POST_BUILD
-        COMMAND ${Python_EXECUTABLE} ${PROJECT_SOURCE_DIR}/web/inline.py "${PROJECT_BINARY_DIR}/build/" "${MAIN_JS}" "${PROJECT_BINARY_DIR}/volrend_web.wasm")
 
 else (EMSCRIPTEN)
     if (VOLREND_BUILD_INSTALL)

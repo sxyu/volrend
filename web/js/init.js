@@ -149,6 +149,8 @@ var Volrend = {
             }
         }
 
+        const event = new Event('volrend_ready');
+        window.dispatchEvent(event);
     }); },
     set_title: function(title) {
         $('#nerfvis-title').text(title);
