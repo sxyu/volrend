@@ -49,7 +49,7 @@ void Camera::_update(bool transform_from_vecs) {
         transform[3] = center;
     }
 
-    const float CLIP_NEAR = 1e-3;
+    const float CLIP_NEAR = 0.2f; //1e-3;
     // clang-format off
     K = glm::mat4x4(fx / (0.5f * width), 0, 0, 0,
                   0, -fy / (0.5f * height), 0, 0,
@@ -76,6 +76,7 @@ void Camera::drag_update(float x, float y) {
     glm::vec2 delta = drag_curr - drag_state_->drag_start;
     delta *= -2.f * movement_speed / std::max(width, height);
     if (drag_state_->is_panning) {
+        delta *= 3.f;
         center = drag_state_->drag_start_center +
                  delta.x * drag_state_->drag_start_right -
                  delta.y * drag_state_->drag_start_up;

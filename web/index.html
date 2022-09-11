@@ -14,8 +14,10 @@ html {
 }
 body {
     font-family: monospace;
+    overscroll-behavior: contain;
 }
 #nerfvis-title {
+    user-select: none;
     top: 20px;
     left: 30px;
     position: absolute;
@@ -146,6 +148,10 @@ body {
     user-select: none;
 }
 
+.layers-item {
+    padding-bottom: 0.3em
+}
+
 .layers-item.layers-item-invisible {
     opacity: 0.6
 }
@@ -216,7 +222,7 @@ body {
                     </div>
                 </div>
                 <h5 id="nerfvis-title" class="pb-2">loading</h5>
-                <div id="layers">
+                <div id="layers" oncontextmenu="return false">
                     <form class="d-flex pt-1 pb-2" id="slider-time-form">
                         <label for="slider-time" id="slider-time-label">
                             time
@@ -234,8 +240,10 @@ body {
         </div>
 
     <script src="https://code.jquery.com/jquery-3.6.0.min.js" integrity="sha256-/xUj+3OJU5yExlq6GSYGSHk7tPXikynS7ogEvDej/m4=" crossorigin="anonymous"></script>
-    <script type="text/javascript" src="js/main.js?v={{ver}}"></script>
     <script src="https://cdn.jsdelivr.net/npm/bootstrap@4.6.0/dist/js/bootstrap.bundle.min.js" integrity="sha384-Piv4xVNRyMGpqkS2by6br4gNJ7DXjqk09RmUpJ8jgGtD7zP9yug3goQfGII0yAns" crossorigin="anonymous"></script>
+    <script type="application/javascript">
+    {{main_js}}
+    </script>
 
 
     <script type="text/template" id="layers-collection-template">

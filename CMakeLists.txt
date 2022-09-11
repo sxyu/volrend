@@ -269,39 +269,26 @@ if (EMSCRIPTEN)
         ${PROJECT_BINARY_DIR}/3rdparty/zlib
         )
 
-    set(JS_SRC_DIR "${PROJECT_SOURCE_DIR}/web/js" )
-    # Write a list of js files in order they should be loaded here
-    # index.html should only include main.js
-    set(JS_SOURCES
-        util.js
-        glfwPatch.js
-        init.js
-        emModule.js
-        )
-    list(TRANSFORM JS_SOURCES PREPEND ${JS_SRC_DIR}/)
+    set(INIT_JS_SRC "${PROJECT_SOURCE_DIR}/web/js/init.js" )
+    set(MAIN_JS ${PROJECT_BINARY_DIR}/main.js )
 
     # Concat JS files automatically
-    SET(JSFILES "")
-    FOREACH(ITEM ${JS_SOURCES})
-        SET(JSFILES "${JSFILES},${ITEM}")
-    ENDFOREACH()
-    STRING(SUBSTRING ${JSFILES} 1 -1 JSFILES)
     add_custom_command(
-        OUTPUT "${PROJECT_BINARY_DIR}/build/js/main.js"
-        COMMAND ${CMAKE_COMMAND} -DFILELIST=${JSFILES},$<TARGET_FILE:volrend_web>
-        -DOUTPUT=${PROJECT_BINARY_DIR}/build/js/main.js
+        OUTPUT ${MAIN_JS}
+        COMMAND ${CMAKE_COMMAND} -DFILELIST=${INIT_JS_SRC},$<TARGET_FILE:volrend_web>
+        -DOUTPUT=${MAIN_JS}
         -P ${CMAKE_MODULE_PATH}/concat.cmake
         DEPENDS ${JS_SOURCES} volrend_web
-        COMMENT "Concatenating JS sources to build/js/main.js"
+        COMMENT "Concatenating JS sources to main.js"
         VERBATIM )
-    add_custom_target(js_config ALL DEPENDS "${PROJECT_BINARY_DIR}/build/js/main.js")
+    add_custom_target(js_config ALL DEPENDS "${MAIN_JS}")
 
-    add_custom_command(
-        TARGET volrend_web POST_BUILD
-        COMMAND ${CMAKE_COMMAND} -E copy
-        ${PROJECT_BINARY_DIR}/volrend_web.wasm
-        ${PROJECT_BINARY_DIR}/build/js/volrend_web.wasm
-        )
+    # add_custom_command(
+    #     TARGET volrend_web POST_BUILD
+    #     COMMAND ${CMAKE_COMMAND} -E copy
+    #     ${PROJECT_BINARY_DIR}/volrend_web.wasm
+    #     ${PROJECT_BINARY_DIR}/build/volrend_web.wasm
+    #     )
 
     find_package(Python REQUIRED COMPONENTS Interpreter)
     add_custom_command(
@@ -319,7 +306,7 @@ if (EMSCRIPTEN)
 
     add_custom_command(
         TARGET html_config POST_BUILD
-        COMMAND ${Python_EXECUTABLE} ${PROJECT_SOURCE_DIR}/web/autoversion.py "${PROJECT_BINARY_DIR}/build/")
+        COMMAND ${Python_EXECUTABLE} ${PROJECT_SOURCE_DIR}/web/inline.py "${PROJECT_BINARY_DIR}/build/" "${MAIN_JS}" "${PROJECT_BINARY_DIR}/volrend_web.wasm")
 
 else (EMSCRIPTEN)
     if (VOLREND_BUILD_INSTALL)

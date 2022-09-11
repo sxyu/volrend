@@ -188,27 +188,27 @@ struct Renderer::Impl {
     ~Impl() { }
 
     void render() {
-        glClear(GL_COLOR_BUFFER_BIT | GL_DEPTH_BUFFER_BIT);
         if (!fxaa_program) {
+            // Init
             fbo_screen = GLFramebuffer::Screen(camera.width, camera.height);
             fbo_mesh = GLFramebuffer(
                     camera.width, camera.height,
                     {
-                    { GL_COLOR_ATTACHMENT0,
-                    { GLImage2D::TEXTURE, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT} },
-                    { GL_COLOR_ATTACHMENT1,
-                    { GLImage2D::TEXTURE, GL_R32F, GL_RED, GL_FLOAT} },
-                    { GL_DEPTH_ATTACHMENT,
-                    { GLImage2D::RENDER_BUFFER, GL_DEPTH_COMPONENT24 } }
+                        { GL_COLOR_ATTACHMENT0,
+                            { GLImage2D::TEXTURE, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT} },
+                        { GL_COLOR_ATTACHMENT1,
+                            { GLImage2D::TEXTURE, GL_R16F, GL_RED, GL_HALF_FLOAT} },
+                        { GL_DEPTH_ATTACHMENT,
+                            { GLImage2D::RENDER_BUFFER, GL_DEPTH_COMPONENT24 } }
                     }
                     );
             fbo_tree = GLFramebuffer(
                     camera.width, camera.height,
                     {
-                    { GL_COLOR_ATTACHMENT0,
-                    { GLImage2D::TEXTURE, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT} },
-                    { GL_COLOR_ATTACHMENT1,
-                    { GLImage2D::TEXTURE, GL_R32F, GL_RED, GL_FLOAT} },
+                        { GL_COLOR_ATTACHMENT0,
+                            { GLImage2D::TEXTURE, GL_RGBA16F, GL_RGBA, GL_HALF_FLOAT} },
+                        { GL_COLOR_ATTACHMENT1,
+                            { GLImage2D::TEXTURE, GL_R16F, GL_RED, GL_HALF_FLOAT} },
                     }
                     );
 
@@ -221,25 +221,26 @@ struct Renderer::Impl {
         }
 
         camera._update();
-        GLfloat depth_inf = 1e9, zero = 0;
+        GLfloat depth_inf[] = {1e9, 1e9, 1e9, 1e9};
 
         fbo_mesh.bind();
-        glEnable(GL_DEPTH_TEST);
-        glDepthFunc(GL_LESS);
+        // glEnable(GL_DEPTH_TEST);
+        // glDepthFunc(GL_LESS);
 
 #ifdef __EMSCRIPTEN__
         // GLES 3
-        glClearDepthf(1.f);
+        glClearDepthf(1e9f);
 #else
-        glClearDepth(1.f);
+        glClearDepth(1e9f);
 #endif
         GLfloat clear_color[] = {options.background_brightness,
                                  options.background_brightness,
                                  options.background_brightness, 1.f};
 
         glClearBufferfv(GL_COLOR, 0, clear_color);
-        glClearBufferfv(GL_COLOR, 1, &depth_inf);
-        glClearBufferfv(GL_DEPTH, 0, &depth_inf);
+        glClearBufferfv(GL_COLOR, 1, depth_inf);
+        glClearBufferfv(GL_DEPTH, 0, depth_inf);
+        glClear(GL_DEPTH_BUFFER_BIT);
 
         // Draw meshes/lines/point clouds
         for (const Mesh& mesh : meshes) {
@@ -268,8 +269,9 @@ struct Renderer::Impl {
 
         // Disable depth buffer now
         glDisable(GL_DEPTH_TEST);
-        int fbo_id = 0;
 
+        fbo_screen.bind();
+        int fbo_id = 0;
         GLFramebuffer* tree_fbos[2] = { &fbo_mesh, &fbo_tree };
 
         // Draw PlenOctrees
@@ -280,7 +282,8 @@ struct Renderer::Impl {
             (*tree_fbos[fbo_id ^ 1])[GL_COLOR_ATTACHMENT1].bind_unit(1);
             tree_fbos[fbo_id]->bind();
             glClearBufferfv(GL_COLOR, 0, clear_color);
-            glClearBufferfv(GL_COLOR, 1, &depth_inf);
+            glClearBufferfv(GL_COLOR, 1, depth_inf);
+            // glClear(GL_COLOR_BUFFER_BIT);
             if (!tree.draw(camera, time)) {
                 // Not drawn, reuse fbo
                 fbo_id ^= 1;

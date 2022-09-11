@@ -139,6 +139,8 @@ void Mesh::update() {
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, faces.size() * sizeof(faces[0]),
                  faces.data(), GL_STATIC_DRAW);
     glBindVertexArray(0);
+    glBindBuffer(GL_ARRAY_BUFFER, 0);
+    glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, 0);
 }
 
 void Mesh::draw(const glm::mat4x4& V, glm::mat4x4 K, bool y_up,
@@ -160,7 +162,8 @@ void Mesh::draw(const glm::mat4x4& V, glm::mat4x4 K, bool y_up,
         K[1][1] *= -1.0;
     }
     if (!g_mesh_program) {
-        printf("WTF\n");
+        fprintf(stderr, "mesh program not initialized\n");
+        return;
     }
 
     g_mesh_program.use();

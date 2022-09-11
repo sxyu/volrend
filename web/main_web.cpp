@@ -26,12 +26,11 @@
     } while (false)
 
 namespace {
-// cppReportProgress is a JS function (emModule.js) which will be called if you
-// call report_progress in C++
-EM_JS(void, report_progress, (double x), { cppReportProgress(x); });
-EM_JS(void, populate_layers, (), { populateLayers(); });
-EM_JS(void, show_loading_screen, (), { showLoadingScreen(); });
-EM_JS(void, update_fps, (double x), { cppUpdateFPS(x); });
+EM_JS(void, report_progress, (double x), { Volrend._reportProgress(x); });
+EM_JS(void, report_complete, (), { Volrend._reportComplete(); });
+EM_JS(void, report_error, (), { Volrend._reportError(); });
+EM_JS(void, populate_layers, (), { Volrend._populateLayers(); });
+EM_JS(void, show_loading_screen, (), { Volrend._showLoadingScreen(); });
 
 GLFWwindow* window;
 std::unique_ptr<volrend::Renderer> renderer;
@@ -69,7 +68,6 @@ void redraw() {
                 FPS_AVERAGE_FRAMES * 1e3 /
                 std::chrono::duration<double, std::milli>(tend - gui.tstart)
                     .count();
-            update_fps(gui.curr_fps);
             gui.tstart = std::chrono::high_resolution_clock::now();
         }
         renderer->render();
@@ -79,7 +77,6 @@ void redraw() {
     }
 
     glfwSwapBuffers(window);
-    glfwPollEvents();
 }
 
 float get_fps() { return gui.curr_fps; }
@@ -144,8 +141,8 @@ void on_mousemove(int x, int y) {
 }
 void on_mouseup() { renderer->camera.end_drag(); }
 bool is_camera_moving() { return renderer->camera.is_dragging(); }
-void on_mousewheel(bool upwards, int distance, int x, int y) {
-    float speed_fact = 1e-1f;
+void on_mousewheel(bool upwards, float distance, int x, int y) {
+    float speed_fact = 1e-1f * distance;
     float radius = fmaxf(glm::length(renderer->camera.center), 1.f);
     speed_fact *= radius;
     renderer->camera.move(renderer->camera.v_back *
@@ -170,14 +167,15 @@ void load_unified_remote(const std::string& url) {
         emscripten_fetch_close(fetch);  // Free data associated with the fetch.
         populate_layers();
 
-        report_progress(101.0f);  // Report finished loading
+        report_complete();
         gui.require_update();
     };
 
     auto _load_remote_download_failed = [](emscripten_fetch_t* fetch) {
         printf("Downloading %s failed, HTTP failure status code: %d.\n",
                fetch->url, fetch->status);
-        emscripten_fetch_close(fetch);  // Also free data on failure.
+        emscripten_fetch_close(fetch);  // Also free data on failure
+        report_error();
     };
 
     auto _load_remote_download_progress = [](emscripten_fetch_t* fetch) {
@@ -366,7 +364,7 @@ std::array<float, 3> palette_color(int id) {
         {0.f, 0.5f, 1.0f}
     };
     return palette[id % palette.size()];
-} 
+}
 
 std::string layer_get_name(int layer_id) {
     if (_check_layer_id(layer_id)) return "";
