@@ -13,8 +13,7 @@ namespace volrend {
 
 struct Camera::DragState {
     bool is_dragging = false;
-    // Pan instead of rotate
-    bool is_panning = false;
+    DragMode mode = DRAG_MODE_ROTATE;
     // Rotate about (0.5, 0.5, 0.5)
     bool about_origin = false;
     glm::vec2 drag_start;
@@ -59,7 +58,7 @@ void Camera::_update(bool transform_from_vecs) {
     w2c = glm::affineInverse(glm::mat4x4(transform));
 }
 
-void Camera::begin_drag(float x, float y, bool is_pan, bool about_origin) {
+void Camera::begin_drag(float x, float y, DragMode mode, bool about_origin) {
     drag_state_->is_dragging = true;
     drag_state_->drag_start = glm::vec2(x, y);
     drag_state_->drag_start_back = v_back;
@@ -67,7 +66,7 @@ void Camera::begin_drag(float x, float y, bool is_pan, bool about_origin) {
     drag_state_->drag_start_up = v_up;
     drag_state_->drag_start_center = center;
     drag_state_->drag_start_origin = origin;
-    drag_state_->is_panning = is_pan;
+    drag_state_->mode = mode;
     drag_state_->about_origin = about_origin;
 }
 void Camera::drag_update(float x, float y) {
@@ -75,7 +74,7 @@ void Camera::drag_update(float x, float y) {
     glm::vec2 drag_curr(x, y);
     glm::vec2 delta = drag_curr - drag_state_->drag_start;
     delta *= -2.f * movement_speed / std::max(width, height);
-    if (drag_state_->is_panning) {
+    if (drag_state_->mode == DRAG_MODE_PAN) {
         delta *= 3.f;
         center = drag_state_->drag_start_center +
                  delta.x * drag_state_->drag_start_right -
@@ -85,7 +84,10 @@ void Camera::drag_update(float x, float y) {
                      delta.x * drag_state_->drag_start_right -
                      delta.y * drag_state_->drag_start_up;
         }
+    } else if (drag_state_->mode == DRAG_MODE_ZOOM) {
+        center = drag_state_->drag_start_center - v_back * delta.y * 6.f;
     } else {
+        // ROTATE
         if (drag_state_->about_origin) delta *= -1.f;
         glm::mat4 m(1.0f), m_tmp(1.0f);
 

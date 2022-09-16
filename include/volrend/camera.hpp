@@ -11,13 +11,19 @@
 namespace volrend {
 static const float CAMERA_DEFAULT_FOCAL_LENGTH = 1111.11f;
 
+enum DragMode {
+    DRAG_MODE_ROTATE = 0,
+    DRAG_MODE_PAN = 1,
+    DRAG_MODE_ZOOM = 2,
+};
+
 struct Camera {
     Camera(int width = 256, int height = 256,
            float fx = CAMERA_DEFAULT_FOCAL_LENGTH, float fy = -1.f);
     ~Camera();
 
     /** Drag helpers **/
-    void begin_drag(float x, float y, bool is_pan, bool about_origin);
+    void begin_drag(float x, float y, DragMode mode, bool about_origin);
     void drag_update(float x, float y);
     void end_drag();
     bool is_dragging() const;

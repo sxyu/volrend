@@ -531,9 +531,18 @@ void glfw_mouse_button_callback(GLFWwindow* window, int button, int action,
     glfwGetCursorPos(window, &x, &y);
     if (action == GLFW_PRESS) {
         const bool SHIFT = mods & GLFW_MOD_SHIFT;
-        cam.begin_drag(x, y, SHIFT || button == GLFW_MOUSE_BUTTON_MIDDLE,
-                       button == GLFW_MOUSE_BUTTON_RIGHT ||
-                           (button == GLFW_MOUSE_BUTTON_MIDDLE && SHIFT));
+        const bool ALT = mods & GLFW_MOD_ALT;
+        DragMode mode;
+        if ((SHIFT && button == GLFW_MOUSE_BUTTON_LEFT) ||
+             button == GLFW_MOUSE_BUTTON_RIGHT) {
+            mode = DRAG_MODE_PAN;
+        } else if ((ALT && button == GLFW_MOUSE_BUTTON_LEFT) ||
+                button == GLFW_MOUSE_BUTTON_MIDDLE) {
+            mode = DRAG_MODE_ZOOM;
+        } else {
+            mode = DRAG_MODE_ROTATE;
+        }
+        cam.begin_drag(x, y, mode, mode != DRAG_MODE_PAN);
     } else if (action == GLFW_RELEASE) {
         cam.end_drag();
     }
@@ -702,6 +711,7 @@ int main(int argc, char* argv[]) {
         }
 
         glfwGetFramebufferSize(window, &width, &height);
+        glViewport(0, 0, width, height);
         rend.resize(width, height);
 
         // Set user pointer and callbacks

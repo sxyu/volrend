@@ -212,7 +212,7 @@ struct Renderer::Impl {
                     }
                     );
 
-            resize(800, 800);
+            resize(camera.width, camera.height);
             fbo_screen.bind();
 
             fxaa_program = GLShader(FXAA_SHADER_SRC, "FXAA");

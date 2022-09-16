@@ -281,19 +281,18 @@ if (EMSCRIPTEN)
         DEPENDS ${INIT_JS_SRC} volrend_web
         COMMENT "Concatenating JS sources to main.js"
         VERBATIM )
-    add_custom_target(js_config ALL DEPENDS "${MAIN_JS}")
 
     find_package(Python REQUIRED COMPONENTS Interpreter)
 
     add_custom_command(
         OUTPUT "${PROJECT_BINARY_DIR}/build/index.html"
         COMMAND ${Python_EXECUTABLE} ${PROJECT_SOURCE_DIR}/web/inline.py "${PROJECT_BINARY_DIR}/build/index.html" "${PROJECT_SOURCE_DIR}/web/index.html" "${MAIN_JS}" "${PROJECT_BINARY_DIR}/volrend_web.wasm"
-        DEPENDS "${PROJECT_SOURCE_DIR}/web/index.html"
+        DEPENDS "${PROJECT_SOURCE_DIR}/web/index.html" ${MAIN_JS}
     )
-    add_custom_target(html_config ALL DEPENDS "${PROJECT_BINARY_DIR}/build/index.html" js_config)
+    add_custom_target(js_config ALL DEPENDS "${PROJECT_BINARY_DIR}/build/index.html" "${MAIN_JS}")
     add_custom_target(serve
         COMMAND ${Python_EXECUTABLE} -m http.server --directory "${PROJECT_BINARY_DIR}/build/"
-        DEPENDS html_config)
+        DEPENDS js_config)
 
 else (EMSCRIPTEN)
     if (VOLREND_BUILD_INSTALL)

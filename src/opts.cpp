@@ -14,8 +14,8 @@ void add_common_opts(cxxopts::Options& options) {
          cxxopts::value<std::vector<std::string>>()->default_value(""))
         ("gpu", "CUDA device id (only if using cuda; defaults to first one)",
              cxxopts::value<int>()->default_value("-1"))
-        ("w,width", "image width", cxxopts::value<int>()->default_value("800"))
-        ("h,height", "image height", cxxopts::value<int>()->default_value("800"))
+        ("w,width", "image width", cxxopts::value<int>()->default_value("1100"))
+        ("h,height", "image height", cxxopts::value<int>()->default_value("600"))
         ("fx", "focal length in x direction; -1 = 1111 or default for NDC",
             cxxopts::value<float>()->default_value("-1.0"))
         ("fy", "focal length in y direction; -1 = use fx",

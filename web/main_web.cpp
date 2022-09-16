@@ -128,10 +128,26 @@ void on_key(int key, bool ctrl, bool shift, bool alt) {
         case GLFW_KEY_6:
             cam.v_world_up = glm::vec3(-1.f, 0.f, 0.f);
             break;
+
+        case GLFW_KEY_EQUAL:
+        case GLFW_KEY_KP_ADD:
+            renderer->camera.move(renderer->camera.v_back * (shift ? 1e-1f : -1e-1f));
+            break;
+
+        case GLFW_KEY_MINUS:
+        case GLFW_KEY_KP_SUBTRACT:
+        case GLFW_KEY_KP_EQUAL:
+            renderer->camera.move(renderer->camera.v_back * (shift ? -1e-1f : 1e-1f));
+            break;
+
+        default:
+            return;
     }
+    gui.require_update();
 }
-void on_mousedown(int x, int y, bool middle) {
-    renderer->camera.begin_drag(x, y, middle, !middle);
+void on_mousedown(int x, int y, int mode) {
+    renderer->camera.begin_drag(x, y, static_cast<volrend::DragMode>(mode),
+                                mode != volrend::DRAG_MODE_PAN);
 }
 void on_mousemove(int x, int y) {
     if (renderer->camera.is_dragging()) {
@@ -522,7 +538,7 @@ bool init_gl() {
     /* Initialize GLFW */
     if (!glfwInit()) return false;
 
-    int width = 800, height = 800;
+    int width = 1100, height = 600;
     window = glfwCreateWindow(width, height, "volrend viewer", NULL, NULL);
 
     if (!window) {
