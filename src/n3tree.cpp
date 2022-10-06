@@ -308,13 +308,13 @@ void N3Tree::load_npz(cnpy::npz_t& npz) {
 
         const size_t n_child = (size_t)capacity * N * N * N;
         for (size_t i = 0; i < n_child; ++i) {
-            int off = i * data_dim;
-            for (int j = 0; j < n_basis - n_basis_retain; ++j) {
-                int boff = off + j + n_basis_retain;
-                int id = quant_map_ptr[j * n_child + i];
+            size_t off = i * data_dim;
+            for (size_t j = 0; j < n_basis - n_basis_retain; ++j) {
+                size_t boff = off + j + n_basis_retain;
+                size_t id = quant_map_ptr[j * n_child + i];
                 const half* colors_ptr =
                     quant_colors_ptr + j * 65536 * 3 + id * 3;
-                for (int k = 0; k < 3; ++k) {
+                for (size_t k = 0; k < 3; ++k) {
                     data_ptr[boff] = colors_ptr[k];
                     boff += n_basis;
                 }
@@ -326,12 +326,12 @@ void N3Tree::load_npz(cnpy::npz_t& npz) {
             auto& retain_node = npz["data_retained"];
             const half* retain_ptr = retain_node.data<half>();
             for (size_t i = 0; i < n_child; ++i) {
-                int off = i * data_dim;
-                for (int j = 0; j < n_basis_retain; ++j) {
-                    int boff = off + j;
+                size_t off = i * data_dim;
+                for (size_t j = 0; j < n_basis_retain; ++j) {
+                    size_t boff = off + j;
                     const half* colors_ptr =
                         retain_ptr + j * n_child * 3 + i * 3;
-                    for (int k = 0; k < 3; ++k) {
+                    for (size_t k = 0; k < 3; ++k) {
                         data_ptr[boff] = colors_ptr[k];
                         boff += n_basis;
                     }
