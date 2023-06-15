@@ -23,11 +23,13 @@
 
 #include "volrend/internal/glutil.hpp"
 #include "volrend/internal/basic_mesh.shader"
+#include "volrend/internal/basic_image.shader"
 
 namespace volrend {
 namespace {
 
 GLShader g_mesh_program;
+GLShader g_image_program;
 
 GLenum get_gl_ele_type(int face_size) {
     switch (face_size) {
@@ -66,23 +68,24 @@ void _normalize(scalar_t* dir) {
 
 // Mesh normal estimation
 void estimate_normals(std::vector<float>& verts,
-                      const std::vector<unsigned int>& faces) {
+                      const std::vector<unsigned int>& faces,
+                      int mesh_vert_size) {
     const int n_faces =
-        faces.size() ? faces.size() / 3 : verts.size() / MESH_VERT_SIZE / 3;
+        faces.size() ? faces.size() / 3 : verts.size() / mesh_vert_size / 3;
     float a[3], b[3], cross[3];
     unsigned off[3];
-    for (int i = 0; i < verts.size() / MESH_VERT_SIZE; ++i) {
-        for (int j = 0; j < 3; ++j) verts[i * MESH_VERT_SIZE + 6 + j] = 0.f;
+    for (int i = 0; i < verts.size() / mesh_vert_size; ++i) {
+        for (int j = 0; j < 3; ++j) verts[i * mesh_vert_size + 6 + j] = 0.f;
     }
     for (int i = 0; i < n_faces; ++i) {
         if (faces.size()) {
-            off[0] = faces[3 * i] * MESH_VERT_SIZE;
-            off[1] = faces[3 * i + 1] * MESH_VERT_SIZE;
-            off[2] = faces[3 * i + 2] * MESH_VERT_SIZE;
+            off[0] = faces[3 * i] * mesh_vert_size;
+            off[1] = faces[3 * i + 1] * mesh_vert_size;
+            off[2] = faces[3 * i + 2] * mesh_vert_size;
         } else {
-            off[0] = i * MESH_VERT_SIZE * 3;
-            off[1] = off[0] + MESH_VERT_SIZE;
-            off[2] = off[1] + MESH_VERT_SIZE;
+            off[0] = i * mesh_vert_size * 3;
+            off[1] = off[0] + mesh_vert_size;
+            off[2] = off[1] + mesh_vert_size;
         }
 
         for (int j = 0; j < 3; ++j) {
@@ -97,14 +100,16 @@ void estimate_normals(std::vector<float>& verts,
             }
         }
     }
-    for (int i = 0; i < verts.size() / MESH_VERT_SIZE; ++i) {
-        _normalize(&verts[i * MESH_VERT_SIZE + 6]);
+    for (int i = 0; i < verts.size() / mesh_vert_size; ++i) {
+        _normalize(&verts[i * mesh_vert_size + 6]);
     }
 }
 }  // namespace
 
-Mesh::Mesh(int n_verts, int n_faces, int face_size, bool unlit)
-    : vert(n_verts * 9),
+Mesh::Mesh(int n_verts, int n_faces, int face_size, bool unlit, bool is_image)
+    : 
+      vert_size(is_image ? 5 : 9),
+      vert(n_verts * vert_size),
       faces(n_faces * face_size),
       model_rotation(0),
       model_translation(0),
@@ -113,8 +118,16 @@ Mesh::Mesh(int n_verts, int n_faces, int face_size, bool unlit)
 }
 
 void Mesh::update() {
-    if (!g_mesh_program) {
-        g_mesh_program = GLShader(BASIC_MESH_SHADER_SRC, "BASIC_MESH");
+    if (is_image) {
+        if (!g_image_program) {
+            g_image_program = GLShader(BASIC_IMAGE_SHADER_SRC, "BASIC_IMAGE");
+        }
+        vert_size = 5;
+    } else {
+        if (!g_mesh_program) {
+            g_mesh_program = GLShader(BASIC_MESH_SHADER_SRC, "BASIC_MESH");
+        }
+        vert_size = 9;
     }
 
     glGenVertexArrays(1, &vao_);
@@ -125,15 +138,29 @@ void Mesh::update() {
     glBindBuffer(GL_ARRAY_BUFFER, vbo_);
     glBufferData(GL_ARRAY_BUFFER, vert.size() * sizeof(vert[0]), vert.data(),
                  GL_STATIC_DRAW);
-    glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, MESH_VERT_SIZE * sizeof(float),
-                          (void*)0);
-    glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, MESH_VERT_SIZE * sizeof(float),
-                          (void*)(3 * sizeof(float)));
-    glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, MESH_VERT_SIZE * sizeof(float),
-                          (void*)(6 * sizeof(float)));
-    glEnableVertexAttribArray(0);
-    glEnableVertexAttribArray(1);
-    glEnableVertexAttribArray(2);
+    if (is_image) {
+        // Position
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, vert_size * sizeof(float),
+                              (void*)0);
+        // UV
+        glVertexAttribPointer(1, 2, GL_FLOAT, GL_FALSE, vert_size * sizeof(float),
+                              (void*)(3 * sizeof(float)));
+        glEnableVertexAttribArray(0);
+        glEnableVertexAttribArray(1);
+    } else {
+        // Position
+        glVertexAttribPointer(0, 3, GL_FLOAT, GL_FALSE, vert_size * sizeof(float),
+                              (void*)0);
+        // Color
+        glVertexAttribPointer(1, 3, GL_FLOAT, GL_FALSE, vert_size * sizeof(float),
+                              (void*)(3 * sizeof(float)));
+        // Normals
+        glVertexAttribPointer(2, 3, GL_FLOAT, GL_FALSE, vert_size * sizeof(float),
+                              (void*)(6 * sizeof(float)));
+        glEnableVertexAttribArray(0);
+        glEnableVertexAttribArray(1);
+        glEnableVertexAttribArray(2);
+    }
 
     glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
     glBufferData(GL_ELEMENT_ARRAY_BUFFER, faces.size() * sizeof(faces[0]),
@@ -166,7 +193,17 @@ void Mesh::draw(const glm::mat4x4& V, glm::mat4x4 K, bool y_up,
         return;
     }
 
-    g_mesh_program.use();
+    if (is_image) {
+        g_image_program.use();
+        glUniform1i(g_image_program["tex"], 0);
+    } else {
+        g_mesh_program.use();
+    }
+    if (~texture_) {
+        // Bind any textures required
+        glActiveTexture(GL_TEXTURE0);
+        glBindTexture(GL_TEXTURE_2D, texture_);
+    }
     glm::mat4x4 MV = V * transform_;
     glUniformMatrix4fv(g_mesh_program["MV"], 1, GL_FALSE, glm::value_ptr(MV));
     glUniformMatrix4fv(g_mesh_program["M"], 1, GL_FALSE, glm::value_ptr(transform_));
@@ -176,11 +213,14 @@ void Mesh::draw(const glm::mat4x4& V, glm::mat4x4 K, bool y_up,
     glUniform1i(g_mesh_program["unlit"], unlit);
     glBindVertexArray(vao_);
     if (faces.empty()) {
-        glDrawArrays(get_gl_ele_type(face_size), 0, vert.size() / MESH_VERT_SIZE);
+        glDrawArrays(get_gl_ele_type(face_size), 0, vert.size() / vert_size);
     } else {
         glBindBuffer(GL_ELEMENT_ARRAY_BUFFER, ebo_);
         glDrawElements(get_gl_ele_type(face_size), faces.size(),
                        GL_UNSIGNED_INT, (void*)0);
+    }
+    if (~texture_) {
+        glBindTexture(GL_TEXTURE_2D, 0);
     }
     glBindVertexArray(0);
 }
@@ -258,7 +298,7 @@ Mesh Mesh::Sphere(int rings, int sectors, glm::vec3 color) {
             vptr[6] = x;
             vptr[7] = y;
             vptr[8] = z;
-            vptr += MESH_VERT_SIZE;
+            vptr += m.vert_size;
         }
     }
     unsigned int* ptr = m.faces.data();
@@ -299,7 +339,7 @@ Mesh Mesh::Lattice(int reso, glm::vec3 color) {
                 vptr[6] = 1;
                 vptr[7] = 0;
                 vptr[8] = 0;
-                vptr += MESH_VERT_SIZE;
+                vptr += m.vert_size;
             }
         }
     }
@@ -358,7 +398,7 @@ Mesh Mesh::Line(glm::vec3 a, glm::vec3 b, glm::vec3 color) {
 
 Mesh Mesh::Lines(std::vector<float> points, glm::vec3 color) {
     if (points.size() % 3 != 0) {
-        printf("Lines: Number of elements in points must be divisible by 3\n");
+        throw std::runtime_error("Lines: Number of elements in points must be divisible by 3\n");
     }
     const int n_points = (int)points.size() / 3;
     Mesh m(n_points, n_points - 1, 2);
@@ -374,7 +414,7 @@ Mesh Mesh::Lines(std::vector<float> points, glm::vec3 color) {
         vptr[6] = 0.f;
         vptr[7] = 0.f;
         vptr[8] = 1.f;
-        vptr += MESH_VERT_SIZE;
+        vptr += m.vert_size;
         pptr += 3;
     }
     unsigned int* fptr = m.faces.data();
@@ -385,6 +425,78 @@ Mesh Mesh::Lines(std::vector<float> points, glm::vec3 color) {
     }
     m.name = "Lines";
     m.unlit = true;
+    return m;
+}
+
+Mesh Mesh::Image(
+                float focal_length,
+                float image_width,
+                float image_height,
+                float z,
+                const std::vector<float>& r,
+                const std::vector<float>& t,
+                const uint8_t* data) {
+    if (r.size() != t.size()) {
+        throw std::runtime_error("Image: r must be same size as t\n");
+    }
+    if (r.size() != 3) {
+        throw std::runtime_error("Image: r size must be divisible by 3\n");
+    }
+    int n_images = static_cast<int>(r.size() / 3);
+    Mesh m(4,
+           2,
+           3,
+           true,
+           true);
+    size_t vert_base = 0;
+    float halfw = image_width * 0.5f, halfh = image_height * 0.5f;
+    float invf = 1.f / focal_length;
+    // Vertex generation
+    m.vert[vert_base] = z * -halfw * invf;
+    m.vert[vert_base + 1] = z * -halfh * invf;
+    m.vert[vert_base + 2] = z;
+    m.vert[vert_base + 3] = 0.f;
+    m.vert[vert_base + 4] = 0.f;
+    vert_base += m.vert_size;
+
+    m.vert[vert_base] = z * -halfw * invf;
+    m.vert[vert_base + 1] = z * halfh * invf;
+    m.vert[vert_base + 2] = z;
+    m.vert[vert_base + 3] = 0.f;
+    m.vert[vert_base + 4] = 1.f;
+    vert_base += m.vert_size;
+
+    m.vert[vert_base] = z * halfw * invf;
+    m.vert[vert_base + 1] = z * halfh * invf;
+    m.vert[vert_base + 2] = z;
+    m.vert[vert_base + 3] = 1.f;
+    m.vert[vert_base + 4] = 1.f;
+    vert_base += m.vert_size;
+
+    m.vert[vert_base] = z * halfw * invf;
+    m.vert[vert_base + 1] = z * -halfh * invf;
+    m.vert[vert_base + 2] = z;
+    m.vert[vert_base + 3] = 1.f;
+    m.vert[vert_base + 4] = 0.f;
+
+    glm::vec3 ri{r[0], r[1], r[2]};
+    glm::vec3 ti{t[0], t[1], t[2]};
+    m.apply_transform(ri, ti, 0, 4);
+
+    // Face generation
+    // triangle 1
+    m.faces[0] = 0;
+    m.faces[1] = 1;
+    m.faces[2] = 2;
+    // triangle 2 (could use strip instead)
+    m.faces[3] = 0;
+    m.faces[4] = 2;
+    m.faces[5] = 3;
+
+    // Texture
+    m.set_image_texture(image_width, image_height, data);
+
+    m.name = "Image";
     return m;
 }
 
@@ -406,7 +518,7 @@ Mesh Mesh::Points(std::vector<float> points, glm::vec3 color) {
         vptr[6] = 0.f;
         vptr[7] = 0.f;
         vptr[8] = 1.f;
-        vptr += MESH_VERT_SIZE;
+        vptr += m.vert_size;
         pptr += 3;
     }
 
@@ -416,14 +528,14 @@ Mesh Mesh::Points(std::vector<float> points, glm::vec3 color) {
 }
 
 void Mesh::auto_faces() {
-    faces.resize(vert.size() / MESH_VERT_SIZE);
+    faces.resize(vert.size() / vert_size);
     std::iota(faces.begin(), faces.end(), 0);
 }
 
 void Mesh::repeat(int n) {
     if (n < 1) return;
     const size_t vert_size = vert.size();
-    const size_t n_verts = vert_size / MESH_VERT_SIZE;
+    const size_t n_verts = vert_size / vert_size;
     const size_t faces_size = faces.size();
     vert.resize(vert.size() * n);
     faces.resize(faces.size() * n);
@@ -454,17 +566,34 @@ void Mesh::apply_transform(glm::vec3 r, glm::vec3 t, int start, int end) {
 
 void Mesh::apply_transform(glm::mat4 transform, int start, int end) {
     if (end == -1) {
-        end = vert.size() / MESH_VERT_SIZE;
+        end = vert.size() / vert_size;
     }
-    auto* ptr = &vert[start * MESH_VERT_SIZE];
+    auto* ptr = &vert[start * vert_size];
     for (int i = start; i < end; ++i) {
         glm::vec4 v(ptr[0], ptr[1], ptr[2], 1.0);
         v = transform * v;
         ptr[0] = v[0];
         ptr[1] = v[1];
         ptr[2] = v[2];
-        ptr += MESH_VERT_SIZE;
+        ptr += vert_size;
     }
+}
+
+void Mesh::set_image_texture(int width, int height, const uint8_t* data) {
+    is_image = true;
+    if (texture_ == (unsigned)-1) {
+        glGenTextures(1, &texture_);
+    }
+    glBindTexture(GL_TEXTURE_2D, texture_);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, //8UI,
+            width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
+
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MIN_FILTER, GL_LINEAR);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_R, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_S, GL_CLAMP_TO_EDGE);
+    glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_WRAP_T, GL_CLAMP_TO_EDGE);
+    glBindTexture(GL_TEXTURE_2D, 0);
 }
 
 Mesh _load_basic_obj(const std::string& path_or_string, bool from_string) {
@@ -497,9 +626,10 @@ Mesh _load_basic_obj(const std::string& path_or_string, bool from_string) {
     auto& shapes = reader.GetShapes();
 
     const size_t n_verts = attrib.vertices.size() / 3;
-    mesh.vert.resize(MESH_VERT_SIZE * n_verts);
+    mesh.vert_size = 9;
+    mesh.vert.resize(mesh.vert_size * n_verts);
     for (size_t i = 0; i < n_verts; i++) {
-        auto* ptr = &mesh.vert[i * MESH_VERT_SIZE];
+        auto* ptr = &mesh.vert[i * mesh.vert_size];
         for (int j = 0; j < 3; ++j) {
             ptr[j] = attrib.vertices[i * 3 + j];
         }
@@ -522,7 +652,7 @@ Mesh _load_basic_obj(const std::string& path_or_string, bool from_string) {
 
     if (attrib.colors.size() / 3 >= n_verts) {
         for (int i = 0; i < n_verts; ++i) {
-            auto* color_ptr = &mesh.vert[i * MESH_VERT_SIZE + 3];
+            auto* color_ptr = &mesh.vert[i * mesh.vert_size + 3];
             for (int j = 0; j < 3; ++j) {
                 color_ptr[j] = attrib.colors[3 * i + j];
             }
@@ -530,13 +660,13 @@ Mesh _load_basic_obj(const std::string& path_or_string, bool from_string) {
     }
     if (attrib.normals.size() / 3 >= n_verts) {
         for (size_t i = 0; i < n_verts; i++) {
-            auto* normal_ptr = &mesh.vert[i * MESH_VERT_SIZE + 6];
+            auto* normal_ptr = &mesh.vert[i * mesh.vert_size + 6];
             for (int j = 0; j < 3; ++j) {
                 normal_ptr[j] = attrib.normals[i * 3 + j];
             }
         }
     } else {
-        estimate_normals(mesh.vert, mesh.faces);
+        estimate_normals(mesh.vert, mesh.faces, mesh.vert_size);
     }
 
     mesh.face_size = 3;
@@ -549,7 +679,7 @@ Mesh _load_basic_obj(const std::string& path_or_string, bool from_string) {
 }
 
 void Mesh::estimate_normals() {
-    volrend::estimate_normals(vert, faces);
+    volrend::estimate_normals(vert, faces, vert_size);
 }
 
 Mesh Mesh::load_basic_obj(const std::string& path) {

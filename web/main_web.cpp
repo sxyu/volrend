@@ -95,6 +95,9 @@ int layer_max_time() {
     for (auto& mesh : renderer->meshes) {
         time = std::max<int>(mesh.time, time);
     }
+    for (auto& tree : renderer->trees) {
+        time = std::max<int>(tree.time, time);
+    }
     return time;
 }
 

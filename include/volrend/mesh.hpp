@@ -1,5 +1,6 @@
 #pragma once
 
+#include <cstdint>
 #include <vector>
 #include <string>
 #include "glm/mat4x4.hpp"
@@ -8,7 +9,8 @@ namespace volrend {
 
 struct Mesh {
     explicit Mesh(int n_verts = 0, int n_faces = 0, int face_size = 3,
-                  bool unshaded = false);
+                  bool unshaded = false,
+                  bool is_image = false);
 
     // Upload to GPU
     void update();
@@ -32,6 +34,11 @@ struct Mesh {
     void apply_transform(glm::vec3 r, glm::vec3 t, int start = 0, int end = -1);
     void apply_transform(glm::mat4 transform, int start = 0, int end = -1);
 
+    // Set image texture
+    void set_image_texture(int width, int height, const uint8_t* data);
+
+    // Size of data for each vertex
+    int vert_size;
     // Vertex positions + other data
     std::vector<float> vert;
     // Triangle indices
@@ -50,6 +57,9 @@ struct Mesh {
     int face_size;
     bool visible = true;
     bool unlit = false;
+
+    // Whether this is an image mesh (textured)
+    bool is_image = false;
     // Only for points
     float point_size = 1.f;
 
@@ -68,8 +78,10 @@ struct Mesh {
                         glm::vec3 color = glm::vec3(0.5f, 0.5f, 0.5f));
 
     // A single camera frustum
-    static Mesh CameraFrustum(float focal_length, float image_width,
-                              float image_height, float z = -0.3,
+    static Mesh CameraFrustum(float focal_length,
+                              float image_width,
+                              float image_height,
+                              float z = 0.3,
                               glm::vec3 color = glm::vec3(0.5f, 0.5f, 0.5f));
 
     // A single line from a to b
@@ -84,12 +96,23 @@ struct Mesh {
     static Mesh Points(std::vector<float> points,
                        glm::vec3 color = glm::vec3(0.5f, 0.5f, 0.5f));
 
+    // Image
+    static Mesh Image(
+                    float focal_length,
+                    float image_width,
+                    float image_height,
+                    float z,
+                    const std::vector<float>& r,
+                    const std::vector<float>& t,
+                    const uint8_t* data);
+
     // Load a basic OBJ file (triangles & optionally vertex colors)
     static Mesh load_basic_obj(const std::string& path);
     static Mesh load_mem_basic_obj(const std::string& str);
 
    private:
     unsigned int vao_, vbo_, ebo_;
+    unsigned int texture_ = -1;
 };
 
 }  // namespace volrend

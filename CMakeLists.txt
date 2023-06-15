@@ -239,6 +239,9 @@ VOLREND_ADD_SHADER(FXAA
 VOLREND_ADD_SHADER(BASIC_MESH
                     "${PROJECT_SOURCE_DIR}/shaders/basic_mesh.glsl"
                     "${PROJECT_BINARY_DIR}/include/volrend/internal/basic_mesh.shader")
+VOLREND_ADD_SHADER(BASIC_IMAGE
+                    "${PROJECT_SOURCE_DIR}/shaders/basic_image.glsl"
+                    "${PROJECT_BINARY_DIR}/include/volrend/internal/basic_image.shader")
 
 target_include_directories(
     ${PROJ_LIB_NAME} PUBLIC

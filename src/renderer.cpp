@@ -9,6 +9,8 @@
 #include <cstdio>
 #include <cstdint>
 #include <string>
+#define STB_IMAGE_IMPLEMENTATION
+#include <stb_image.h>
 
 #include "volrend/internal/glutil.hpp"
 #include "volrend/internal/fxaa.shader"
@@ -172,6 +174,16 @@ std::vector<int> map_get_intarr(const std::map<std::string, cnpy::NpyArray>& m,
 #undef _ASSN_PTR_ARR
     return result;
 }
+const uint8_t* map_get_raw(const std::map<std::string, cnpy::NpyArray>& m,
+                                const std::string& key, std::ostream& errs) {
+    const auto it = m.find(key);
+    if (it == m.end()) {
+        errs << "Failed to get raw data in npz for key: " << key << "\n";
+        return nullptr;
+    }
+    return it->second.data<uint8_t>();
+}
+
 // END DRAWLIST READ UTILS
 }  // namespace
 
@@ -421,9 +433,48 @@ struct Renderer::Impl {
                                 "not "
                                 "multiple of 3\n";
                         }
-                        const size_t n_verts = me.vert.size() / MESH_VERT_SIZE;
+                        const size_t n_verts = me.vert.size() / me.vert_size;
                         const size_t n_reps = t.size() / 3;
                         me.repeat(n_reps);
+                        for (int i = 0; i < n_reps; ++i) {
+                            const int j = i * 3;
+                            glm::vec3 ri{r[j], r[j + 1], r[j + 2]};
+                            glm::vec3 ti{t[j], t[j + 1], t[j + 2]};
+                            me.apply_transform(ri, ti, n_verts * i, n_verts * (i + 1));
+                        }
+                        bool connect = map_get_int(fields, "connect", 0, errs) != 0;
+                        if (connect) {
+                            // Connect camera centers in a trajectory
+                            const size_t start_idx = me.faces.size();
+                            me.faces.resize(start_idx + (n_reps - 1) * 2);
+                            for (int i = 0; i < n_reps - 1; ++i) {
+                                me.faces[start_idx + i * 2] = n_verts * i;
+                                me.faces[start_idx + i * 2 + 1] = n_verts * (i + 1);
+                            }
+                        }
+                    }
+                } else if (obj_type == "image") {
+                    auto focal_length =
+                        map_get_float(fields, "focal_length", 1111.0f, errs);
+                    auto z = map_get_float(fields, "z", -0.3f, errs);
+                    auto t = map_get_floatarr(fields, "t", errs);
+                    auto r = map_get_floatarr(fields, "r", errs);
+                    size_t data_size = fields["data"].num_bytes();
+                    const uint8_t* data = map_get_raw(fields, "data", errs);
+
+                    int image_width, image_height, channels;
+
+                    uint8_t* img_dec = stbi_load_from_memory(data, data_size, &image_width, &image_height, &channels, 3);
+                    me = Mesh::Image(focal_length, image_width, image_height, z, r, t, img_dec);
+                    stbi_image_free(img_dec);
+                    if (fields.count("t")) {
+                        if (r.size() != t.size() || r.size() % 3) {
+                            errs << "camerafrustums r, t have different sizes or "
+                                "not "
+                                "multiple of 3\n";
+                        }
+                        const size_t n_verts = me.vert.size() / me.vert_size;
+                        const size_t n_reps = t.size() / 3;
                         for (int i = 0; i < n_reps; ++i) {
                             const int j = i * 3;
                             glm::vec3 ri{r[j], r[j + 1], r[j + 2]};
@@ -489,7 +540,7 @@ struct Renderer::Impl {
                 if (fields.count("vert_color")) {
                     // Support manual vertex colors
                     auto vert_color = map_get_floatarr(fields, "vert_color", errs);
-                    if (vert_color.size() * MESH_VERT_SIZE != me.vert.size() * 3) {
+                    if (vert_color.size() * me.vert_size != me.vert.size() * 3) {
                         errs << "Mesh " << obj_name
                             << " vert_color has invalid size\n";
                         continue;
@@ -501,7 +552,7 @@ struct Renderer::Impl {
                             out_ptr[j] = in_ptr[j];
                         }
                         in_ptr += 3;
-                        out_ptr += MESH_VERT_SIZE;
+                        out_ptr += me.vert_size;
                     }
                 }
                 me.name = obj_name;

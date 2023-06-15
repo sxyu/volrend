@@ -13,9 +13,6 @@
 
 namespace volrend {
 
-// Currently meshes store 9 data entries (position, normal, color)
-const int MESH_VERT_SIZE = 9;
-
 namespace util {
 
 // Draw a full screen quad, initializing geometry lazily
