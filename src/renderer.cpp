@@ -9,6 +9,7 @@
 #include <cstdio>
 #include <cstdint>
 #include <string>
+#include <unordered_set>
 #define STB_IMAGE_IMPLEMENTATION
 #include <stb_image.h>
 
@@ -39,11 +40,15 @@ std::vector<std::string> split_by_2underscore(const std::string& s) {
 
 // Get int with default val from a NpyArray map
 int map_get_int(const std::map<std::string, cnpy::NpyArray>& m,
-                const std::string& key, const int defval, std::ostream& errs) {
+                const std::string& key,
+                const int defval,
+                std::vector<std::string>& found_keys,
+                std::ostream& errs) {
     const auto it = m.find(key);
     if (it == m.end()) {
         return defval;
     } else {
+        found_keys.push_back(key);
         if (it->second.word_size == 1) {
             return *it->second.data<int8_t>();
         } else if (it->second.word_size == 2) {
@@ -60,11 +65,13 @@ int map_get_int(const std::map<std::string, cnpy::NpyArray>& m,
 
 float map_get_float(const std::map<std::string, cnpy::NpyArray>& m,
                     const std::string& key, const float defval,
+                    std::vector<std::string>& found_keys,
                     std::ostream& errs) {
     const auto it = m.find(key);
     if (it == m.end()) {
         return defval;
     } else {
+        found_keys.push_back(key);
         if (it->second.word_size == 2) {
             return *it->second.data<half>();
         } else if (it->second.word_size == 4) {
@@ -79,6 +86,7 @@ float map_get_float(const std::map<std::string, cnpy::NpyArray>& m,
 
 glm::vec3 map_get_vec3(const std::map<std::string, cnpy::NpyArray>& m,
                        const std::string& key, const glm::vec3& defval,
+                       std::vector<std::string>& found_keys,
                        std::ostream& errs) {
     const auto it = m.find(key);
     if (it == m.end()) {
@@ -109,12 +117,16 @@ glm::vec3 map_get_vec3(const std::map<std::string, cnpy::NpyArray>& m,
                  << "\n";
         }
 #undef _ASSN_PTR_V3
+        found_keys.push_back(key);
         return r;
     }
 }
 
 std::vector<float> map_get_floatarr(
-    const std::map<std::string, cnpy::NpyArray>& m, const std::string& key,
+    const std::map<std::string,
+    cnpy::NpyArray>& m,
+    const std::string& key,
+    std::vector<std::string>& found_keys,
     std::ostream& errs) {
     const auto it = m.find(key);
     std::vector<float> result;
@@ -142,11 +154,14 @@ std::vector<float> map_get_floatarr(
         errs << "Invalid word size for float " << it->second.word_size << "\n";
     }
 #undef _ASSN_PTR_ARR
+    found_keys.push_back(key);
     return result;
 }
 
 std::vector<int> map_get_intarr(const std::map<std::string, cnpy::NpyArray>& m,
-                                const std::string& key, std::ostream& errs) {
+                                const std::string& key,
+                                std::vector<std::string>& found_keys,
+                                std::ostream& errs) {
     const auto it = m.find(key);
     std::vector<int> result;
     if (it == m.end()) {
@@ -172,15 +187,20 @@ std::vector<int> map_get_intarr(const std::map<std::string, cnpy::NpyArray>& m,
         errs << "Invalid word size for int " << it->second.word_size << "\n";
     }
 #undef _ASSN_PTR_ARR
+    found_keys.push_back(key);
     return result;
 }
-const uint8_t* map_get_raw(const std::map<std::string, cnpy::NpyArray>& m,
-                                const std::string& key, std::ostream& errs) {
+const uint8_t* map_get_raw(
+        const std::map<std::string, cnpy::NpyArray>& m,
+        const std::string& key,
+        std::vector<std::string>& found_keys,
+        std::ostream& errs) {
     const auto it = m.find(key);
     if (it == m.end()) {
         errs << "Failed to get raw data in npz for key: " << key << "\n";
         return nullptr;
     }
+    found_keys.push_back(key);
     return it->second.data<uint8_t>();
 }
 
@@ -384,6 +404,7 @@ struct Renderer::Impl {
         for (auto& kv : obj_parse_map) {
             const std::string& obj_name = kv.first;
             const std::string& obj_type = kv.second.first;
+            std::vector<std::string> found_keys;
             cnpy::npz_t& fields = kv.second.second;
 
             if (obj_type == "volume") {
@@ -391,43 +412,43 @@ struct Renderer::Impl {
                 N3Tree tree;
                 tree.load_npz(fields);
                 tree.name = obj_name;
-                tree.time = map_get_int(fields, "time", -1, errs);
-                tree.model_scale = map_get_float(fields, "scale", 1.0f, errs);
+                tree.time = map_get_int(fields, "time", -1, found_keys, errs);
+                tree.model_scale = map_get_float(fields, "scale", 1.0f, found_keys, errs);
                 tree.model_translation =
-                    map_get_vec3(fields, "translation", glm::vec3{0.f, 0.f, 0.f}, errs);
+                    map_get_vec3(fields, "translation", glm::vec3{0.f, 0.f, 0.f}, found_keys, errs);
                 tree.model_rotation =
-                    map_get_vec3(fields, "rotation", glm::vec3{0.f, 0.f, 0.f}, errs);
+                    map_get_vec3(fields, "rotation", glm::vec3{0.f, 0.f, 0.f}, found_keys, errs);
                 tree.visible = map_get_int(fields, "visible",
-                        default_visible, errs) != 0;
+                        default_visible, found_keys, errs) != 0;
                 trees.push_back(std::move(tree));
                 tree.clear_cpu_memory();
             } else {
                 // Mesh/lines/point cloud data
                 Mesh me;
-                glm::vec3 color = map_get_vec3(fields, "color", DEFAULT_COLOR, errs);
+                glm::vec3 color = map_get_vec3(fields, "color", DEFAULT_COLOR, found_keys, errs);
                 if (obj_type == "cube") {
                     me = Mesh::Cube(color);
                 } else if (obj_type == "sphere") {
-                    auto rings = map_get_int(fields, "rings", 15, errs);
-                    auto sectors = map_get_int(fields, "sectors", 30, errs);
+                    auto rings = map_get_int(fields, "rings", 15, found_keys, errs);
+                    auto sectors = map_get_int(fields, "sectors", 30, found_keys, errs);
                     me = Mesh::Sphere(rings, sectors, color);
                 } else if (obj_type == "line") {
-                    auto a = map_get_vec3(fields, "a", glm::vec3(0.f, 0.f, 0.f), errs);
-                    auto b = map_get_vec3(fields, "b", glm::vec3(0.f, 0.f, 1.f), errs);
+                    auto a = map_get_vec3(fields, "a", glm::vec3(0.f, 0.f, 0.f), found_keys, errs);
+                    auto b = map_get_vec3(fields, "b", glm::vec3(0.f, 0.f, 1.f), found_keys, errs);
                     me = Mesh::Line(a, b, color);
                 } else if (obj_type == "camerafrustum") {
                     auto focal_length =
-                        map_get_float(fields, "focal_length", 1111.0f, errs);
+                        map_get_float(fields, "focal_length", 1111.0f, found_keys, errs);
                     auto image_width =
-                        map_get_float(fields, "image_width", 800.0f, errs);
+                        map_get_float(fields, "image_width", 800.0f, found_keys, errs);
                     auto image_height =
-                        map_get_float(fields, "image_height", 800.0f, errs);
-                    auto z = map_get_float(fields, "z", -0.3f, errs);
+                        map_get_float(fields, "image_height", 800.0f, found_keys, errs);
+                    auto z = map_get_float(fields, "z", -0.3f, found_keys, errs);
                     me = Mesh::CameraFrustum(focal_length, image_width,
                             image_height, z, color);
                     if (fields.count("t")) {
-                        auto t = map_get_floatarr(fields, "t", errs);
-                        auto r = map_get_floatarr(fields, "r", errs);
+                        auto t = map_get_floatarr(fields, "t", found_keys, errs);
+                        auto r = map_get_floatarr(fields, "r", found_keys, errs);
                         if (r.size() != t.size() || r.size() % 3) {
                             errs << "camerafrustums r, t have different sizes or "
                                 "not "
@@ -442,7 +463,7 @@ struct Renderer::Impl {
                             glm::vec3 ti{t[j], t[j + 1], t[j + 2]};
                             me.apply_transform(ri, ti, n_verts * i, n_verts * (i + 1));
                         }
-                        bool connect = map_get_int(fields, "connect", 0, errs) != 0;
+                        bool connect = map_get_int(fields, "connect", 0, found_keys, errs) != 0;
                         if (connect) {
                             // Connect camera centers in a trajectory
                             const size_t start_idx = me.faces.size();
@@ -455,73 +476,48 @@ struct Renderer::Impl {
                     }
                 } else if (obj_type == "image") {
                     auto focal_length =
-                        map_get_float(fields, "focal_length", 1111.0f, errs);
-                    auto z = map_get_float(fields, "z", -0.3f, errs);
-                    auto t = map_get_floatarr(fields, "t", errs);
-                    auto r = map_get_floatarr(fields, "r", errs);
+                        map_get_float(fields, "focal_length", 1111.0f, found_keys, errs);
+                    auto z = map_get_float(fields, "z", -0.3f, found_keys, errs);
                     size_t data_size = fields["data"].num_bytes();
-                    const uint8_t* data = map_get_raw(fields, "data", errs);
+                    const uint8_t* data = map_get_raw(fields, "data", found_keys, errs);
 
                     int image_width, image_height, channels;
 
-                    uint8_t* img_dec = stbi_load_from_memory(data, data_size, &image_width, &image_height, &channels, 3);
-                    me = Mesh::Image(focal_length, image_width, image_height, z, r, t, img_dec);
+                    uint8_t* img_dec = stbi_load_from_memory(
+                            data, data_size, &image_width, &image_height, &channels, 3);
+                    // printf("w%d %d %d\n", image_width, image_height, channels);
+                    me = Mesh::Image(focal_length, image_width, image_height, z, img_dec);
                     stbi_image_free(img_dec);
-                    if (fields.count("t")) {
-                        if (r.size() != t.size() || r.size() % 3) {
-                            errs << "camerafrustums r, t have different sizes or "
-                                "not "
-                                "multiple of 3\n";
-                        }
-                        const size_t n_verts = me.vert.size() / me.vert_size;
-                        const size_t n_reps = t.size() / 3;
-                        for (int i = 0; i < n_reps; ++i) {
-                            const int j = i * 3;
-                            glm::vec3 ri{r[j], r[j + 1], r[j + 2]};
-                            glm::vec3 ti{t[j], t[j + 1], t[j + 2]};
-                            me.apply_transform(ri, ti, n_verts * i, n_verts * (i + 1));
-                        }
-                        bool connect = map_get_int(fields, "connect", 0, errs) != 0;
-                        if (connect) {
-                            // Connect camera centers in a trajectory
-                            const size_t start_idx = me.faces.size();
-                            me.faces.resize(start_idx + (n_reps - 1) * 2);
-                            for (int i = 0; i < n_reps - 1; ++i) {
-                                me.faces[start_idx + i * 2] = n_verts * i;
-                                me.faces[start_idx + i * 2 + 1] = n_verts * (i + 1);
-                            }
-                        }
-                    }
                 } else if (obj_type == "lines") {
                     // Lines
-                    auto data = map_get_floatarr(fields, "points", errs);
+                    auto data = map_get_floatarr(fields, "points", found_keys, errs);
                     me = Mesh::Lines(data, color);
                     if (fields.count("segs")) {
                         // By default, the points are connected in a single line
                         // i -> i+1 etc
                         // specify this to connect every consecutive pair of indices
                         // 0a 0b 1a 1b 2a 2b ...
-                        auto lines = map_get_intarr(fields, "segs", errs);
+                        auto lines = map_get_intarr(fields, "segs", found_keys, errs);
                         me.faces.resize(lines.size());
                         std::copy(lines.begin(), lines.end(), me.faces.begin());
                     }
                 } else if (obj_type == "points") {
                     // Point cloud
-                    auto data = map_get_floatarr(fields, "points", errs);
+                    auto data = map_get_floatarr(fields, "points", found_keys, errs);
                     me = Mesh::Points(data, color);
-                    me.point_size = map_get_float(fields, "point_size", 1.f, errs);
+                    me.point_size = map_get_float(fields, "point_size", 1.f, found_keys, errs);
                 } else if (obj_type == "mesh") {
                     // Most generic mesh
-                    auto data = map_get_floatarr(fields, "points", errs);
+                    auto data = map_get_floatarr(fields, "points", found_keys, errs);
                     me = Mesh::Points(data, color);
                     // Face_size = 1: points  2: lines  3: triangles
-                    me.face_size = map_get_int(fields, "face_size", 3, errs);
+                    me.face_size = map_get_int(fields, "face_size", 3, found_keys, errs);
                     if (me.face_size <= 0 || me.face_size > 3) {
                         me.face_size = 3;
                         errs << "Mesh face size must be one of 1,2,3\n";
                     }
                     if (fields.count("faces")) {
-                        auto faces = map_get_intarr(fields, "faces", errs);
+                        auto faces = map_get_intarr(fields, "faces", found_keys, errs);
                         if (faces.size() % me.face_size) {
                             errs << "Faces must have face_size=" << me.face_size
                                 << " elements\n";
@@ -539,7 +535,7 @@ struct Renderer::Impl {
                 }
                 if (fields.count("vert_color")) {
                     // Support manual vertex colors
-                    auto vert_color = map_get_floatarr(fields, "vert_color", errs);
+                    auto vert_color = map_get_floatarr(fields, "vert_color", found_keys, errs);
                     if (vert_color.size() * me.vert_size != me.vert.size() * 3) {
                         errs << "Mesh " << obj_name
                             << " vert_color has invalid size\n";
@@ -556,16 +552,37 @@ struct Renderer::Impl {
                     }
                 }
                 me.name = obj_name;
-                me.time = map_get_int(fields, "time", -1, errs);
-                me.model_scale = map_get_float(fields, "scale", 1.0f, errs);
+                me.time = map_get_int(fields, "time", -1, found_keys, errs);
+                me.model_scale = map_get_float(fields, "scale", 1.0f, found_keys, errs);
                 me.model_translation =
-                    map_get_vec3(fields, "translation", glm::vec3{0.f, 0.f, 0.f}, errs);
+                    map_get_vec3(fields, "translation", glm::vec3{0.f, 0.f, 0.f}, found_keys, errs);
                 me.model_rotation =
-                    map_get_vec3(fields, "rotation", glm::vec3{0.f, 0.f, 0.f}, errs);
-                me.visible = map_get_int(fields, "visible", default_visible, errs) != 0;
-                me.unlit = map_get_int(fields, "unlit", int(me.face_size != 3), errs) != 0;
+                    map_get_vec3(fields, "rotation", glm::vec3{0.f, 0.f, 0.f}, found_keys, errs);
+                me.visible = map_get_int(fields, "visible", default_visible, found_keys, errs) != 0;
+                me.unlit = map_get_int(fields, "unlit", int(me.face_size != 3), found_keys, errs) != 0;
                 me.update();
                 meshes.push_back(std::move(me));
+            
+
+                // Check any unused keys (typo potential), currently used for mesh only
+                std::unordered_set<std::string> found_keys_set(found_keys.begin(), found_keys.end());
+                std::vector<std::string> unused_keys;
+
+                for (const auto& kv : fields) {
+                    if (!found_keys_set.count(kv.first)) {
+                        unused_keys.push_back(kv.first);
+                    }
+                }
+                if (unused_keys.size()) {
+                    printf("\nvolrend WARNING: %lu unused keys found when parsing fields for object %s of type %s."
+                            " Potential spelling error? Fields:\n",
+                            unused_keys.size(),
+                            obj_name.c_str(),
+                            obj_type.c_str());
+                    for (const auto& k : unused_keys) {
+                        printf(" %s\n", k.c_str());
+                    }
+                }
             }
         }
 

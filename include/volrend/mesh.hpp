@@ -99,11 +99,9 @@ struct Mesh {
     // Image
     static Mesh Image(
                     float focal_length,
-                    float image_width,
-                    float image_height,
+                    int image_width,
+                    int image_height,
                     float z,
-                    const std::vector<float>& r,
-                    const std::vector<float>& t,
                     const uint8_t* data);
 
     // Load a basic OBJ file (triangles & optionally vertex colors)

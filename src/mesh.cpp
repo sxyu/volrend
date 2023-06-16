@@ -430,19 +430,10 @@ Mesh Mesh::Lines(std::vector<float> points, glm::vec3 color) {
 
 Mesh Mesh::Image(
                 float focal_length,
-                float image_width,
-                float image_height,
+                int image_width,
+                int image_height,
                 float z,
-                const std::vector<float>& r,
-                const std::vector<float>& t,
                 const uint8_t* data) {
-    if (r.size() != t.size()) {
-        throw std::runtime_error("Image: r must be same size as t\n");
-    }
-    if (r.size() != 3) {
-        throw std::runtime_error("Image: r size must be divisible by 3\n");
-    }
-    int n_images = static_cast<int>(r.size() / 3);
     Mesh m(4,
            2,
            3,
@@ -478,10 +469,6 @@ Mesh Mesh::Image(
     m.vert[vert_base + 2] = z;
     m.vert[vert_base + 3] = 1.f;
     m.vert[vert_base + 4] = 0.f;
-
-    glm::vec3 ri{r[0], r[1], r[2]};
-    glm::vec3 ti{t[0], t[1], t[2]};
-    m.apply_transform(ri, ti, 0, 4);
 
     // Face generation
     // triangle 1
@@ -585,7 +572,8 @@ void Mesh::set_image_texture(int width, int height, const uint8_t* data) {
         glGenTextures(1, &texture_);
     }
     glBindTexture(GL_TEXTURE_2D, texture_);
-    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB, //8UI,
+    glPixelStorei(GL_UNPACK_ALIGNMENT, 1);
+    glTexImage2D(GL_TEXTURE_2D, 0, GL_RGB8, //8UI,
             width, height, 0, GL_RGB, GL_UNSIGNED_BYTE, data);
 
     glTexParameteri(GL_TEXTURE_2D, GL_TEXTURE_MAG_FILTER, GL_LINEAR);
